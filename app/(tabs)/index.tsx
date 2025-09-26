@@ -8,7 +8,7 @@ import {
   View,
   Alert,
 } from 'react-native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -89,6 +89,7 @@ export default function TranscriptionScreen() {
   const cardDark = '#0f172a';
   const backgroundColor = useThemeColor({}, 'background');
   const { messages, error, clearError } = useTranscription();
+  const scrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -96,7 +97,11 @@ export default function TranscriptionScreen() {
     }
   }, [clearError, error]);
 
-  const renderedMessages = useMemo(() => messages.slice().reverse(), [messages]);
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top']}>
@@ -116,12 +121,13 @@ export default function TranscriptionScreen() {
             </View>
             <View style={styles.dialogueContainer}>
               <ScrollView
+                ref={scrollRef}
                 style={styles.dialogueScroll}
                 contentContainerStyle={messages.length === 0 ? styles.emptyDialogue : styles.dialogueContent}
                 showsVerticalScrollIndicator={false}>
                 {messages.length === 0
                   ? null
-                  : renderedMessages.map((item) => <MessageBubble key={item.id} message={item} />)}
+                  : messages.map((item) => <MessageBubble key={item.id} message={item} />)}
               </ScrollView>
             </View>
           </ThemedView>
@@ -205,10 +211,14 @@ const styles = StyleSheet.create({
   },
   dialogueContent: {
     gap: 12,
-    paddingBottom: 4,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 12,
   },
   emptyDialogue: {
-    paddingBottom: 4,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 12,
   },
   dialogueLine: {
     fontSize: 16,
@@ -219,10 +229,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'rgba(148, 163, 184, 0.08)',
     gap: 8,
-  },
-  messageTitle: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   messageStatus: {
     fontSize: 13,
@@ -255,7 +261,7 @@ const styles = StyleSheet.create({
 });
 
 function MessageBubble({ message }: { message: TranscriptionMessage }) {
-  const statusLabel = useMemo(() => {
+  const statusLabel = (() => {
     switch (message.status) {
       case 'pending':
         return '等待触发';
@@ -264,14 +270,13 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
       case 'failed':
         return '转写失败';
       default:
-        return '完成';
+        return null;
     }
-  }, [message.status]);
+  })();
 
   return (
     <ThemedView style={styles.messageBubble}>
-      <ThemedText style={styles.messageTitle}>{message.title}</ThemedText>
-      <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText>
+      {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
       <ThemedText style={styles.messageBody}>
         {message.transcript && message.transcript.length > 0
           ? message.transcript
