@@ -238,24 +238,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  translationBox: {
+  translationSection: {
     marginTop: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    gap: 4,
+    gap: 8,
   },
-  translationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+  translationDivider: {
+    borderTopWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
   },
-  translationBody: {
+  translationText: {
     fontSize: 15,
     lineHeight: 22,
   },
+  translationPending: {
+    fontSize: 14,
+    color: '#64748b',
+  },
   translationError: {
-    marginTop: 6,
-    fontSize: 13,
+    fontSize: 14,
     color: '#f87171',
   },
 });
@@ -284,17 +285,33 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
           ? message.error || '未能获取文字内容'
           : '等待转写结果...'}
       </ThemedText>
-      {message.translationStatus !== 'completed' || !message.translation ? null : (
-        <ThemedView style={styles.translationBox}>
-          <ThemedText style={styles.translationLabel}>翻译</ThemedText>
-          <ThemedText style={styles.translationBody}>{message.translation}</ThemedText>
-        </ThemedView>
-      )}
-      {message.translationStatus === 'failed' ? (
-        <ThemedText style={styles.translationError}>
-          {message.translationError || '翻译失败'}
-        </ThemedText>
-      ) : null}
+      {renderTranslationSection(message)}
     </ThemedView>
+  );
+}
+
+function renderTranslationSection(message: TranscriptionMessage) {
+  let content = null;
+  if (message.translationStatus === 'pending') {
+    content = <ThemedText style={styles.translationPending}>翻译中...</ThemedText>;
+  } else if (message.translationStatus === 'failed') {
+    content = (
+      <ThemedText style={styles.translationError}>
+        {message.translationError || '翻译失败'}
+      </ThemedText>
+    );
+  } else if (message.translationStatus === 'completed' && message.translation) {
+    content = <ThemedText style={styles.translationText}>{message.translation}</ThemedText>;
+  }
+
+  if (!content) {
+    return null;
+  }
+
+  return (
+    <View style={styles.translationSection}>
+      <View style={styles.translationDivider} />
+      {content}
+    </View>
   );
 }

@@ -114,21 +114,13 @@ async function translateWithOpenAI(
 
   const payload = {
     model: settings.translationModel,
+    instructions: prompt,
     input: [
-      {
-        role: 'system',
-        content: [
-          {
-            type: 'text',
-            text: prompt,
-          },
-        ],
-      },
       {
         role: 'user',
         content: [
           {
-            type: 'text',
+            type: 'input_text',
             text,
           },
         ],
@@ -136,6 +128,10 @@ async function translateWithOpenAI(
     ],
     temperature: 0,
     max_output_tokens: 1024,
+    modalities: ['text'],
+    response_format: {
+      type: 'text',
+    },
   };
 
   const response = await fetch(url, {
@@ -177,7 +173,25 @@ async function translateWithOpenAI(
     translated = data.output_text;
   }
   if (!translated && Array.isArray(data?.choices)) {
-    translated = data.choices.map((choice: any) => choice.text ?? '').join('');
+    translated = data.choices
+      .map((choice: any) => {
+        if (typeof choice?.text === 'string') {
+          return choice.text;
+        }
+        if (Array.isArray(choice?.message?.content)) {
+          return choice.message.content
+            .map((item: any) => (typeof item?.text === 'string' ? item.text : ''))
+            .join('');
+        }
+        if (typeof choice?.message?.content === 'string') {
+          return choice.message.content;
+        }
+        return '';
+      })
+      .join('');
+  }
+  if (!translated && typeof data?.content === 'string') {
+    translated = data.content;
   }
 
   return {

@@ -14,7 +14,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, translateText, type TranscriptionSegmentPayload } from '@/services/transcription';
@@ -156,8 +156,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(1);
-  const translationQueueRef = useRef<number[]>([]);
-  const translationBusyRef = useRef(false);
   const lastStatusRef = useRef<RecordingStatus | null>(null);
 
   const setMessagesAndRef = useCallback((updater: (prev: TranscriptionMessage[]) => TranscriptionMessage[]) => {
@@ -175,72 +173,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const updateMessage = useCallback((messageId: number, updater: (msg: TranscriptionMessage) => TranscriptionMessage) => {
     setMessagesAndRef((prev) => prev.map((msg) => (msg.id === messageId ? updater(msg) : msg)));
   }, [setMessagesAndRef]);
-
-  const enqueueTranslation = useCallback((messageId: number) => {
-    translationQueueRef.current.push(messageId);
-  }, []);
-
-  const processTranslationQueue = useCallback(async () => {
-    if (translationBusyRef.current) {
-      return;
-    }
-    translationBusyRef.current = true;
-    try {
-      while (translationQueueRef.current.length > 0) {
-        const messageId = translationQueueRef.current.shift();
-        if (typeof messageId !== 'number') {
-          continue;
-        }
-        const currentMessages = messagesRef.current;
-        const target = currentMessages.find((item) => item.id === messageId);
-        if (!target) {
-          continue;
-        }
-        if (!target.transcript) {
-          continue;
-        }
-        const currentSettings = settingsRef.current;
-        if (!currentSettings.enableTranslation || currentSettings.translationEngine === 'none') {
-          continue;
-        }
-        updateMessage(messageId, (msg) => ({
-          ...msg,
-          translationStatus: 'pending',
-          updatedAt: Date.now(),
-        }));
-        const abortController = new AbortController();
-        try {
-          const translatePromise = translateText(target.transcript, currentSettings, abortController.signal);
-          const result = await withTimeout(
-            translatePromise,
-            currentSettings.translationTimeoutSec * 1000,
-            () => abortController.abort()
-          );
-          updateMessage(messageId, (msg) => ({
-            ...msg,
-            translation: result.text,
-            translationStatus: 'completed',
-            updatedAt: Date.now(),
-          }));
-        } catch (translateError: any) {
-          updateMessage(messageId, (msg) => ({
-            ...msg,
-            translationStatus: 'failed',
-            translationError: translateError?.message || 'Translation failed',
-            updatedAt: Date.now(),
-          }));
-        }
-      }
-    } finally {
-      translationBusyRef.current = false;
-    }
-  }, [messagesRef, settingsRef, updateMessage]);
-
-  useEffect(() => {
-    if (!translationBusyRef.current && translationQueueRef.current.length > 0) {
-      processTranslationQueue();
-    }
-  }, [messages, processTranslationQueue]);
 
   const cleanupRecordingFile = useCallback(async (fileUri: string | null | undefined) => {
     if (fileUri) {
@@ -381,46 +313,83 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }));
 
       const abortController = new AbortController();
-      transcribeSegment(payload, settingsRef.current, abortController.signal)
-        .then((result) => {
-          updateMessage(currentMessageId, (msg) => ({
-            ...msg,
-            status: 'completed',
-            transcript: result.text,
-            language: result.language || msg.language,
-            updatedAt: Date.now(),
-          }));
-          if (settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none') {
-            enqueueTranslation(currentMessageId);
-            processTranslationQueue();
+      let transcription;
+      try {
+        transcription = await transcribeSegment(payload, settingsRef.current, abortController.signal);
+      } catch (transcribeError) {
+        updateMessage(currentMessageId, (msg) => ({
+          ...msg,
+          status: 'failed',
+          error: (transcribeError as Error).message,
+          updatedAt: Date.now(),
+        }));
+        return;
+      }
+
+      const shouldTranslate = settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none';
+
+      updateMessage(currentMessageId, (msg) => ({
+        ...msg,
+        status: 'completed',
+        transcript: transcription.text,
+        language: transcription.language || msg.language,
+        translationStatus: shouldTranslate ? 'pending' : msg.translationStatus,
+        updatedAt: Date.now(),
+      }));
+
+      if (shouldTranslate) {
+        const translationController = new AbortController();
+        try {
+          const translationResult = await withTimeout(
+            translateText(transcription.text, settingsRef.current, translationController.signal),
+            settingsRef.current.translationTimeoutSec * 1000,
+            () => translationController.abort()
+          );
+          const trimmed = translationResult.text?.trim();
+          if (trimmed) {
+            updateMessage(currentMessageId, (msg) => ({
+              ...msg,
+              translation: trimmed,
+              translationStatus: 'completed',
+              updatedAt: Date.now(),
+            }));
+          } else {
+            updateMessage(currentMessageId, (msg) => ({
+              ...msg,
+              translationStatus: 'failed',
+              translationError: '翻译结果为空',
+              updatedAt: Date.now(),
+            }));
           }
-        })
-        .catch((transcribeError) => {
+        } catch (translateError: any) {
           updateMessage(currentMessageId, (msg) => ({
             ...msg,
-            status: 'failed',
-            error: (transcribeError as Error).message,
+            translationStatus: 'failed',
+            translationError: translateError?.message || 'Translation failed',
             updatedAt: Date.now(),
           }));
-        })
-        .finally(() => {
-          cleanupRecordingFile(payload.fileUri);
-        });
+        }
+      }
     } catch (segmentError) {
       updateMessage(currentMessageId, (msg) => ({
         ...msg,
         status: 'failed',
         error: (segmentError as Error).message,
+        translationStatus: msg.translationStatus === 'pending' ? 'failed' : msg.translationStatus,
+        translationError:
+          msg.translationStatus === 'pending' ? (segmentError as Error).message : msg.translationError,
         updatedAt: Date.now(),
       }));
-      cleanupRecordingFile(payload.fileUri);
     } finally {
+      if (payload.fileUri) {
+        cleanupRecordingFile(payload.fileUri);
+      }
       resetSegmentState();
       if (sessionActiveRef.current) {
         startNewRecording();
       }
     }
-  }, [cleanupRecordingFile, enqueueTranslation, processTranslationQueue, resetSegmentState, settingsRef, startNewRecording, updateMessage]);
+  }, [cleanupRecordingFile, resetSegmentState, settingsRef, startNewRecording, updateMessage]);
 
   const handleStatusUpdate = useCallback((status: RecordingStatus) => {
     if (!status.canRecord) {
