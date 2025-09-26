@@ -1,10 +1,48 @@
 import { Platform } from 'react-native';
-import { getInfoAsync } from 'expo-file-system/legacy';
+import { EncodingType, getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 import { AppSettings } from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
 
-const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
+export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
+export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
+export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
+export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'Qwen3-ASR';
+const DASHSCOPE_MULTIMODAL_ENDPOINT =
+  'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-conversation';
+
+function resolveOpenAIBaseUrl(settings: AppSettings) {
+  return (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
+}
+
+export function resolveTranscriptionModel(settings: AppSettings): string {
+  switch (settings.transcriptionEngine) {
+    case 'openai':
+      return (
+        settings.credentials.openaiTranscriptionModel?.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL
+      );
+    case 'qwen3':
+      return settings.credentials.qwenTranscriptionModel?.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL;
+    case 'soniox':
+      return 'default';
+    default:
+      return DEFAULT_OPENAI_TRANSCRIPTION_MODEL;
+  }
+}
+
+export function resolveTranslationModel(settings: AppSettings): string {
+  switch (settings.translationEngine) {
+    case 'openai':
+      return (
+        settings.credentials.openaiTranslationModel?.trim() || DEFAULT_OPENAI_TRANSLATION_MODEL
+      );
+    case 'gemini':
+      return settings.credentials.geminiTranslationModel?.trim() || DEFAULT_GEMINI_TRANSLATION_MODEL;
+    default:
+      return DEFAULT_OPENAI_TRANSLATION_MODEL;
+  }
+}
 
 export interface TranscriptionSegmentPayload {
   fileUri: string;
@@ -56,8 +94,7 @@ async function transcribeWithOpenAI(
     throw new Error('Recording file not found on disk');
   }
 
-  const baseUrl = (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
-  const url = baseUrl + '/v1/audio/transcriptions';
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/audio/transcriptions';
 
   const formData = new FormData();
   formData.append('file', {
@@ -66,7 +103,7 @@ async function transcribeWithOpenAI(
     name: inferFileName(payload.fileUri),
     type: inferMimeType(payload.fileUri),
   } as any);
-  formData.append('model', settings.transcriptionModel);
+  formData.append('model', resolveTranscriptionModel(settings));
   formData.append('response_format', 'text');
   if (settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto') {
     formData.append('language', settings.transcriptionLanguage);
@@ -104,8 +141,7 @@ async function translateWithOpenAI(
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for translation');
   }
-  const baseUrl = (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
-  const url = baseUrl + '/v1/responses';
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
 
   const prompt =
     'You are a translation engine. Translate the user input into ' +
@@ -113,7 +149,7 @@ async function translateWithOpenAI(
     '. Respond with translation only.';
 
   const payload = {
-    model: settings.translationModel,
+    model: resolveTranslationModel(settings),
     instructions: prompt,
     input: [
       {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,10 +9,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  DEFAULT_GEMINI_TRANSLATION_MODEL,
+  DEFAULT_OPENAI_BASE_URL,
+  DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+  DEFAULT_OPENAI_TRANSLATION_MODEL,
+  DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+} from '@/services/transcription';
 import { AppSettings, TranslationEngine, TranscriptionEngine } from '@/types/settings';
 
 type NumericSettingKey =
@@ -20,8 +29,7 @@ type NumericSettingKey =
   | 'activationDurationSec'
   | 'silenceDurationSec'
   | 'preRollDurationSec'
-  | 'maxSegmentDurationSec'
-  | 'translationTimeoutSec';
+  | 'maxSegmentDurationSec';
 
 interface FormState {
   activationThreshold: string;
@@ -29,13 +37,16 @@ interface FormState {
   silenceDurationSec: string;
   preRollDurationSec: string;
   maxSegmentDurationSec: string;
-  transcriptionModel: string;
   transcriptionLanguage: string;
-  translationModel: string;
-  translationTargetLanguage: string;
-  translationTimeoutSec: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
+  openaiTranscriptionModel: string;
+  openaiTranslationModel: string;
+  geminiApiKey: string;
+  geminiTranslationModel: string;
+  sonioxApiKey: string;
+  qwenApiKey: string;
+  qwenTranscriptionModel: string;
 }
 
 const initialFormState = (settings: AppSettings): FormState => ({
@@ -44,13 +55,20 @@ const initialFormState = (settings: AppSettings): FormState => ({
   silenceDurationSec: String(settings.silenceDurationSec),
   preRollDurationSec: String(settings.preRollDurationSec),
   maxSegmentDurationSec: String(settings.maxSegmentDurationSec),
-  transcriptionModel: settings.transcriptionModel,
   transcriptionLanguage: settings.transcriptionLanguage,
-  translationModel: settings.translationModel,
-  translationTargetLanguage: settings.translationTargetLanguage,
-  translationTimeoutSec: String(settings.translationTimeoutSec),
   openaiApiKey: settings.credentials.openaiApiKey ?? '',
-  openaiBaseUrl: settings.credentials.openaiBaseUrl ?? '',
+  openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
+  openaiTranscriptionModel:
+    settings.credentials.openaiTranscriptionModel ?? DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+  openaiTranslationModel:
+    settings.credentials.openaiTranslationModel ?? DEFAULT_OPENAI_TRANSLATION_MODEL,
+  geminiApiKey: settings.credentials.geminiApiKey ?? '',
+  geminiTranslationModel:
+    settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
+  sonioxApiKey: settings.credentials.sonioxApiKey ?? '',
+  qwenApiKey: settings.credentials.qwenApiKey ?? '',
+  qwenTranscriptionModel:
+    settings.credentials.qwenTranscriptionModel ?? DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 });
 
 function useSettingsForm(settings: AppSettings) {
@@ -82,9 +100,41 @@ function OptionPill({ label, active, onPress, disabled }: { label: string; activ
   );
 }
 
+function CredentialCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <ThemedView
+      lightColor="rgba(148, 163, 184, 0.16)"
+      darkColor="rgba(30, 41, 59, 0.7)"
+      style={styles.credentialCard}>
+      <ThemedText
+        type="defaultSemiBold"
+        style={styles.credentialTitle}
+        lightColor="#0f172a"
+        darkColor="#e2e8f0">
+        {title}
+      </ThemedText>
+      <View style={styles.cardContent}>{children}</View>
+    </ThemedView>
+  );
+}
+
 export default function SettingsScreen() {
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const inputStyle = [styles.input, isDark && styles.inputDark];
+  const labelStyle = [styles.fieldLabel, isDark && styles.fieldLabelDark];
+  const groupLabelStyle = [styles.groupLabel, isDark && styles.groupLabelDark];
+  const sectionTitleStyle = [styles.sectionTitle, isDark && styles.sectionTitleDark];
+  const credentialLabelStyle = [styles.cardLabel, isDark && styles.cardLabelDark];
+  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const safeAreaStyle = [styles.safeArea, isDark ? styles.safeAreaDark : styles.safeAreaLight];
+  const scrollContentStyle = useMemo(
+    () => [styles.scrollContent, { paddingBottom: 32 + insets.bottom }],
+    [insets.bottom]
+  );
 
   const handleNumericCommit = (key: NumericSettingKey, value: string) => {
     const parsed = parseFloat(value);
@@ -101,114 +151,147 @@ export default function SettingsScreen() {
   const translationEngines = useMemo<TranslationEngine[]>(() => ['openai', 'gemini', 'none'], []);
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            录音检测
-          </ThemedText>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>激活阈值</ThemedText>
-            <TextInput
-              value={formState.activationThreshold}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, activationThreshold: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('activationThreshold', formState.activationThreshold)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
+    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView
+          contentContainerStyle={scrollContentStyle}
+          contentInsetAdjustmentBehavior="always"
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.pageHeader}>
+            <ThemedText type="title" style={styles.pageTitle} lightColor="#0f172a" darkColor="#e2e8f0">
+              设置
+            </ThemedText>
+            <ThemedText style={styles.pageSubtitle} lightColor="#4b5563" darkColor="#94a3b8">
+              管理转写、翻译与凭据
+            </ThemedText>
           </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>激活持续(秒)</ThemedText>
-            <TextInput
-              value={formState.activationDurationSec}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, activationDurationSec: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('activationDurationSec', formState.activationDurationSec)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>静音判定(秒)</ThemedText>
-            <TextInput
-              value={formState.silenceDurationSec}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, silenceDurationSec: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('silenceDurationSec', formState.silenceDurationSec)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>前滚时长(秒)</ThemedText>
-            <TextInput
-              value={formState.preRollDurationSec}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, preRollDurationSec: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('preRollDurationSec', formState.preRollDurationSec)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>最大片段(秒)</ThemedText>
-            <TextInput
-              value={formState.maxSegmentDurationSec}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, maxSegmentDurationSec: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('maxSegmentDurationSec', formState.maxSegmentDurationSec)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            转写设置
-          </ThemedText>
-          <ThemedText style={styles.groupLabel}>转写引擎</ThemedText>
-          <View style={styles.optionsRow}>
-            {transcriptionEngines.map((engine) => (
-              <OptionPill
-                key={engine}
-                label={engine.toUpperCase()}
-                active={settings.transcriptionEngine === engine}
-                onPress={() => updateSettings({ transcriptionEngine: engine })}
+          <ThemedView
+            style={styles.section}
+            lightColor="rgba(148, 163, 184, 0.12)"
+            darkColor="rgba(15, 23, 42, 0.7)">
+            <ThemedText type="subtitle" style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              录音检测
+            </ThemedText>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                激活阈值
+              </ThemedText>
+              <TextInput
+                value={formState.activationThreshold}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, activationThreshold: formatNumberInput(text) }))
+                }
+                onBlur={() => handleNumericCommit('activationThreshold', formState.activationThreshold)}
+                keyboardType="decimal-pad"
+                style={inputStyle}
+                placeholderTextColor={placeholderTextColor}
               />
-            ))}
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>模型名称</ThemedText>
-            <TextInput
-              value={formState.transcriptionModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, transcriptionModel: text }))}
-              onBlur={() => handleTextCommit('transcriptionModel', formState.transcriptionModel.trim())}
-              autoCapitalize="none"
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>源语言</ThemedText>
-            <TextInput
-              value={formState.transcriptionLanguage}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, transcriptionLanguage: text }))}
-              onBlur={() => handleTextCommit('transcriptionLanguage', formState.transcriptionLanguage.trim())}
-              autoCapitalize="none"
-              style={styles.input}
-            />
-          </View>
-        </View>
+            </View>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                激活持续(秒)
+              </ThemedText>
+              <TextInput
+                value={formState.activationDurationSec}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, activationDurationSec: formatNumberInput(text) }))
+                }
+                onBlur={() => handleNumericCommit('activationDurationSec', formState.activationDurationSec)}
+                keyboardType="decimal-pad"
+                style={inputStyle}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                静音判定(秒)
+              </ThemedText>
+              <TextInput
+                value={formState.silenceDurationSec}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, silenceDurationSec: formatNumberInput(text) }))
+                }
+                onBlur={() => handleNumericCommit('silenceDurationSec', formState.silenceDurationSec)}
+                keyboardType="decimal-pad"
+                style={inputStyle}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                前滚时长(秒)
+              </ThemedText>
+              <TextInput
+                value={formState.preRollDurationSec}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, preRollDurationSec: formatNumberInput(text) }))
+                }
+                onBlur={() => handleNumericCommit('preRollDurationSec', formState.preRollDurationSec)}
+                keyboardType="decimal-pad"
+                style={inputStyle}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                最大片段(秒)
+              </ThemedText>
+              <TextInput
+                value={formState.maxSegmentDurationSec}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, maxSegmentDurationSec: formatNumberInput(text) }))
+                }
+                onBlur={() => handleNumericCommit('maxSegmentDurationSec', formState.maxSegmentDurationSec)}
+                keyboardType="decimal-pad"
+                style={inputStyle}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </ThemedView>
 
-        <View style={styles.section}>
+          <ThemedView
+            style={styles.section}
+            lightColor="rgba(148, 163, 184, 0.12)"
+            darkColor="rgba(15, 23, 42, 0.7)">
+            <ThemedText type="subtitle" style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              转写设置
+            </ThemedText>
+            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+              转写引擎
+            </ThemedText>
+            <View style={styles.optionsRow}>
+              {transcriptionEngines.map((engine) => (
+                <OptionPill
+                  key={engine}
+                  label={engine.toUpperCase()}
+                  active={settings.transcriptionEngine === engine}
+                  onPress={() => updateSettings({ transcriptionEngine: engine })}
+                />
+              ))}
+            </View>
+            <View style={styles.fieldRow}>
+              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                源语言
+              </ThemedText>
+              <TextInput
+                value={formState.transcriptionLanguage}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, transcriptionLanguage: text }))}
+                onBlur={() => handleTextCommit('transcriptionLanguage', formState.transcriptionLanguage.trim())}
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder="auto"
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </ThemedView>
+
+        <ThemedView
+          style={styles.section}
+          lightColor="rgba(148, 163, 184, 0.12)"
+          darkColor="rgba(15, 23, 42, 0.7)">
           <View style={styles.rowBetween}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
+            <ThemedText type="subtitle" style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
               翻译设置
             </ThemedText>
             <Switch
@@ -216,7 +299,9 @@ export default function SettingsScreen() {
               onValueChange={(next) => updateSettings({ enableTranslation: next })}
             />
           </View>
-          <ThemedText style={styles.groupLabel}>翻译引擎</ThemedText>
+          <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+            翻译引擎
+          </ThemedText>
           <View style={styles.optionsRow}>
             {translationEngines.map((engine) => (
               <OptionPill
@@ -228,81 +313,220 @@ export default function SettingsScreen() {
               />
             ))}
           </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>目标语言</ThemedText>
-            <TextInput
-              value={formState.translationTargetLanguage}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, translationTargetLanguage: text }))
-              }
-              onBlur={() =>
-                handleTextCommit('translationTargetLanguage', formState.translationTargetLanguage.trim())
-              }
-              autoCapitalize="none"
-              style={styles.input}
-              editable={settings.enableTranslation}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>翻译模型</ThemedText>
-            <TextInput
-              value={formState.translationModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, translationModel: text }))}
-              onBlur={() => handleTextCommit('translationModel', formState.translationModel.trim())}
-              autoCapitalize="none"
-              style={styles.input}
-              editable={settings.enableTranslation}
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>超时(秒)</ThemedText>
-            <TextInput
-              value={formState.translationTimeoutSec}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, translationTimeoutSec: formatNumberInput(text) }))
-              }
-              onBlur={() => handleNumericCommit('translationTimeoutSec', formState.translationTimeoutSec)}
-              keyboardType="decimal-pad"
-              style={styles.input}
-              editable={settings.enableTranslation}
-            />
-          </View>
-        </View>
+        </ThemedView>
 
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
+        <ThemedView
+          style={styles.section}
+          lightColor="rgba(148, 163, 184, 0.12)"
+          darkColor="rgba(15, 23, 42, 0.7)">
+          <ThemedText type="subtitle" style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
             凭据
           </ThemedText>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>OpenAI Base URL</ThemedText>
-            <TextInput
-              value={formState.openaiBaseUrl}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
-              onBlur={() => updateCredentials({ openaiBaseUrl: formState.openaiBaseUrl.trim() || undefined })}
-              autoCapitalize="none"
-              style={styles.input}
-              placeholder="https://api.openai.com"
-            />
-          </View>
-          <View style={styles.fieldRow}>
-            <ThemedText style={styles.fieldLabel}>OpenAI API Key</ThemedText>
-            <TextInput
-              value={formState.openaiApiKey}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
-              onBlur={() => updateCredentials({ openaiApiKey: formState.openaiApiKey.trim() || undefined })}
-              autoCapitalize="none"
-              secureTextEntry
-              style={styles.input}
-              placeholder="sk-..."
-            />
-          </View>
-        </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.credentialScrollContent}>
+            <CredentialCard title="OpenAI">
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  Base URL
+                </ThemedText>
+                <TextInput
+                  value={formState.openaiBaseUrl}
+                  onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
+                  onBlur={() =>
+                    updateCredentials({
+                      openaiBaseUrl: formState.openaiBaseUrl.trim() || DEFAULT_OPENAI_BASE_URL,
+                    })
+                  }
+                  autoCapitalize="none"
+                  style={inputStyle}
+                  placeholder={DEFAULT_OPENAI_BASE_URL}
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  API Key
+                </ThemedText>
+                <TextInput
+                  value={formState.openaiApiKey}
+                  onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
+                  onBlur={() =>
+                    updateCredentials({
+                      openaiApiKey: formState.openaiApiKey.trim() || undefined,
+                    })
+                  }
+                  autoCapitalize="none"
+                  secureTextEntry
+                  style={inputStyle}
+                  placeholder="sk-..."
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  转写模型
+                </ThemedText>
+                <TextInput
+                  value={formState.openaiTranscriptionModel}
+                  onChangeText={(text) =>
+                    setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
+                  }
+                  onBlur={() =>
+                    updateCredentials({
+                      openaiTranscriptionModel:
+                        formState.openaiTranscriptionModel.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+                    })
+                  }
+                  autoCapitalize="none"
+                  style={inputStyle}
+                  placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  翻译模型
+                </ThemedText>
+                <TextInput
+                  value={formState.openaiTranslationModel}
+                  onChangeText={(text) =>
+                    setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
+                  }
+                  onBlur={() =>
+                    updateCredentials({
+                      openaiTranslationModel:
+                        formState.openaiTranslationModel.trim() || DEFAULT_OPENAI_TRANSLATION_MODEL,
+                    })
+                  }
+                  autoCapitalize="none"
+                  style={inputStyle}
+                  placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+            </CredentialCard>
+
+            <CredentialCard title="Gemini">
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  API Key
+                </ThemedText>
+                <TextInput
+                  value={formState.geminiApiKey}
+                  onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiApiKey: text }))}
+                  onBlur={() =>
+                    updateCredentials({ geminiApiKey: formState.geminiApiKey.trim() || undefined })
+                  }
+                  autoCapitalize="none"
+                  secureTextEntry
+                  style={inputStyle}
+                  placeholder="AIza..."
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  翻译模型
+                </ThemedText>
+                <TextInput
+                  value={formState.geminiTranslationModel}
+                  onChangeText={(text) =>
+                    setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
+                  }
+                  onBlur={() =>
+                    updateCredentials({
+                      geminiTranslationModel:
+                        formState.geminiTranslationModel.trim() || DEFAULT_GEMINI_TRANSLATION_MODEL,
+                    })
+                  }
+                  autoCapitalize="none"
+                  style={inputStyle}
+                  placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+            </CredentialCard>
+
+            <CredentialCard title="Soniox">
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  API Key
+                </ThemedText>
+                <TextInput
+                  value={formState.sonioxApiKey}
+                  onChangeText={(text) => setFormState((prev) => ({ ...prev, sonioxApiKey: text }))}
+                  onBlur={() =>
+                    updateCredentials({ sonioxApiKey: formState.sonioxApiKey.trim() || undefined })
+                  }
+                  autoCapitalize="none"
+                  secureTextEntry
+                  style={inputStyle}
+                  placeholder="soniox_..."
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+            </CredentialCard>
+
+            <CredentialCard title="Qwen3">
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  API Key
+                </ThemedText>
+                <TextInput
+                  value={formState.qwenApiKey}
+                  onChangeText={(text) => setFormState((prev) => ({ ...prev, qwenApiKey: text }))}
+                  onBlur={() =>
+                    updateCredentials({ qwenApiKey: formState.qwenApiKey.trim() || undefined })
+                  }
+                  autoCapitalize="none"
+                  secureTextEntry
+                  style={inputStyle}
+                  placeholder="sk-..."
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+              <View style={styles.cardField}>
+                <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                  转写模型
+                </ThemedText>
+                <TextInput
+                  value={formState.qwenTranscriptionModel}
+                  onChangeText={(text) =>
+                    setFormState((prev) => ({ ...prev, qwenTranscriptionModel: text }))
+                  }
+                  onBlur={() =>
+                    updateCredentials({
+                      qwenTranscriptionModel:
+                        formState.qwenTranscriptionModel.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+                    })
+                  }
+                  autoCapitalize="none"
+                  style={inputStyle}
+                  placeholder={DEFAULT_QWEN_TRANSCRIPTION_MODEL}
+                  placeholderTextColor={placeholderTextColor}
+                />
+              </View>
+            </CredentialCard>
+          </ScrollView>
+        </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  safeAreaLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  safeAreaDark: {
+    backgroundColor: '#020617',
+  },
   flex: {
     flex: 1,
   },
@@ -313,12 +537,14 @@ const styles = StyleSheet.create({
   section: {
     borderRadius: 20,
     padding: 18,
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
     gap: 14,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  sectionTitleDark: {
+    color: '#e2e8f0',
   },
   fieldRow: {
     gap: 6,
@@ -327,6 +553,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
   },
+  fieldLabelDark: {
+    opacity: 0.9,
+  },
   input: {
     borderRadius: 12,
     borderWidth: 1,
@@ -334,6 +563,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
+    color: '#0f172a',
+    backgroundColor: '#fff',
+  },
+  inputDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    color: '#e2e8f0',
   },
   optionsRow: {
     flexDirection: 'row',
@@ -369,9 +605,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
   },
+  groupLabelDark: {
+    opacity: 0.85,
+  },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  credentialScrollContent: {
+    paddingVertical: 6,
+    gap: 16,
+  },
+  pageHeader: {
+    gap: 6,
+    marginBottom: 12,
+  },
+  pageTitle: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '700',
+  },
+  pageSubtitle: {
+    fontSize: 14,
+  },
+  credentialCard: {
+    width: 260,
+    padding: 16,
+    borderRadius: 18,
+    gap: 12,
+  },
+  credentialTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cardContent: {
+    gap: 12,
+  },
+  cardField: {
+    gap: 6,
+  },
+  cardLabel: {
+    fontSize: 13,
+    opacity: 0.75,
+  },
+  cardLabelDark: {
+    opacity: 0.9,
   },
 });

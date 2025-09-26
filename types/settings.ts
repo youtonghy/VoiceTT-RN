@@ -5,10 +5,13 @@ export type TranslationEngine = 'openai' | 'gemini' | 'none';
 export interface EngineCredentials {
   openaiApiKey?: string;
   openaiBaseUrl?: string;
-  sonioxApiKey?: string;
-  qwenAppId?: string;
-  qwenApiKey?: string;
+  openaiTranscriptionModel?: string;
+  openaiTranslationModel?: string;
   geminiApiKey?: string;
+  geminiTranslationModel?: string;
+  sonioxApiKey?: string;
+  qwenApiKey?: string;
+  qwenTranscriptionModel?: string;
 }
 
 export interface TranscriptionSettings {
@@ -18,9 +21,7 @@ export interface TranscriptionSettings {
   preRollDurationSec: number; // seconds to keep before activation
   maxSegmentDurationSec: number;
   transcriptionEngine: TranscriptionEngine;
-  transcriptionModel: string;
   transcriptionLanguage: string; // e.g., 'auto'
-  translationModel: string;
   translationEngine: TranslationEngine;
   translationTargetLanguage: string;
   translationTimeoutSec: number;
@@ -39,13 +40,17 @@ export const defaultSettings: AppSettings = {
   preRollDurationSec: 1.0,
   maxSegmentDurationSec: 300,
   transcriptionEngine: 'openai',
-  transcriptionModel: 'gpt-4o-transcribe',
   transcriptionLanguage: 'auto',
-  translationModel: 'gpt-4o-mini-translate',
   translationEngine: 'openai',
   translationTargetLanguage: 'en',
   translationTimeoutSec: 20,
   enableTranslation: true,
   enableAutoStart: false,
-  credentials: {},
+  credentials: {
+    openaiBaseUrl: 'https://api.openai.com',
+    openaiTranscriptionModel: 'gpt-4o-transcribe',
+    openaiTranslationModel: 'gpt-4o-mini',
+    geminiTranslationModel: 'gemini-2.5-flash',
+    qwenTranscriptionModel: 'Qwen3-ASR',
+  },
 };

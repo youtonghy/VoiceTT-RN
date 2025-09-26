@@ -17,7 +17,12 @@ import React, {
 import { Alert } from 'react-native';
 
 import { useSettings } from '@/contexts/settings-context';
-import { transcribeSegment, translateText, type TranscriptionSegmentPayload } from '@/services/transcription';
+import {
+  resolveTranscriptionModel,
+  transcribeSegment,
+  translateText,
+  type TranscriptionSegmentPayload,
+} from '@/services/transcription';
 import { AppSettings } from '@/types/settings';
 import {
   TranscriptionMessage,
@@ -275,7 +280,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     if (snapshot.messageId == null) {
       return;
     }
-    segmentStateRef.current = { ...initialSegmentState };
+    resetSegmentState();
     const currentMessageId = snapshot.messageId;
     const startOffsetMs = snapshot.confirmedStartMs ?? 0;
     const durationMs = status?.durationMillis ?? lastStatusRef.current?.durationMillis ?? 0;
@@ -295,7 +300,15 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       payload.fileUri = fileUri;
       recordingRef.current = null;
+      lastStatusRef.current = null;
       setIsRecording(false);
+
+      if (sessionActiveRef.current) {
+        startNewRecording().catch((restartError) => {
+          console.error('[transcription] Failed to restart recording', restartError);
+        });
+      }
+
       const segmentMetadata: SegmentMetadata = {
         fileUri,
         startOffsetMs,
@@ -303,7 +316,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         durationMs,
         createdAt: Date.now(),
         engine: settingsRef.current.transcriptionEngine,
-        model: settingsRef.current.transcriptionModel,
+        model: resolveTranscriptionModel(settingsRef.current),
       };
       updateMessage(currentMessageId, (msg) => ({
         ...msg,
@@ -383,10 +396,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     } finally {
       if (payload.fileUri) {
         cleanupRecordingFile(payload.fileUri);
-      }
-      resetSegmentState();
-      if (sessionActiveRef.current) {
-        startNewRecording();
       }
     }
   }, [cleanupRecordingFile, resetSegmentState, settingsRef, startNewRecording, updateMessage]);
