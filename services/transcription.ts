@@ -9,8 +9,11 @@ export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
+export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
 const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+const SONIOX_API_BASE_URL = 'https://api.soniox.com';
+const SONIOX_POLL_INTERVAL_MS = 1000;
 
 function resolveOpenAIBaseUrl(settings: AppSettings) {
   return (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
@@ -25,7 +28,7 @@ export function resolveTranscriptionModel(settings: AppSettings): string {
     case 'qwen3':
       return settings.credentials.qwenTranscriptionModel?.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL;
     case 'soniox':
-      return 'default';
+      return DEFAULT_SONIOX_TRANSCRIPTION_MODEL;
     default:
       return DEFAULT_OPENAI_TRANSCRIPTION_MODEL;
   }
@@ -374,6 +377,360 @@ async function transcribeWithQwen(
   };
 }
 
+function resolveAbortError(signal?: AbortSignal): Error {
+  if (!signal) {
+    return new Error('Operation aborted');
+  }
+  const reason = (signal as any)?.reason;
+  if (reason instanceof Error) {
+    return reason;
+  }
+  if (typeof reason === 'string' && reason) {
+    return new Error(reason);
+  }
+  return new Error('Operation aborted');
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw resolveAbortError(signal);
+  }
+}
+
+async function sleep(ms: number, signal?: AbortSignal) {
+  if (ms <= 0) {
+    throwIfAborted(signal);
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      reject(resolveAbortError(signal));
+    };
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
+        reject(resolveAbortError(signal));
+        return;
+      }
+      signal.addEventListener('abort', onAbort);
+    }
+  });
+}
+
+async function sonioxRequest(
+  apiKey: string,
+  path: string,
+  options: RequestInit = {},
+  signal?: AbortSignal
+): Promise<Response> {
+  throwIfAborted(signal);
+  const headers: Record<string, string> = {
+    Authorization: 'Bearer ' + apiKey,
+  };
+  if (options.headers) {
+    const extra = options.headers as Record<string, string>;
+    for (const key of Object.keys(extra)) {
+      const value = extra[key];
+      if (typeof value === 'string') {
+        headers[key] = value;
+      }
+    }
+  }
+
+  const response = await fetch(SONIOX_API_BASE_URL + path, {
+    ...options,
+    headers,
+    signal,
+  });
+
+  if (!response.ok) {
+    let errorText: string | undefined;
+    try {
+      errorText = await response.text();
+    } catch (error) {
+      errorText = undefined;
+    }
+    throw new Error('Soniox request failed: ' + (errorText || response.statusText));
+  }
+
+  return response;
+}
+
+async function sonioxJsonRequest(
+  apiKey: string,
+  path: string,
+  options: RequestInit = {},
+  signal?: AbortSignal
+) {
+  const response = await sonioxRequest(apiKey, path, options, signal);
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { raw: text };
+  }
+}
+
+async function uploadSonioxFile(
+  apiKey: string,
+  fileUri: string,
+  signal?: AbortSignal
+): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', {
+    // @ts-ignore React Native FormData type
+    uri: fileUri,
+    name: inferFileName(fileUri),
+    type: inferMimeType(fileUri),
+  } as any);
+
+  const data = await sonioxJsonRequest(
+    apiKey,
+    '/v1/files',
+    {
+      method: 'POST',
+      body: formData as any,
+    },
+    signal
+  );
+
+  const fileId = typeof data?.id === 'string' ? data.id : undefined;
+  if (!fileId) {
+    throw new Error('Soniox upload failed: missing file id');
+  }
+  return fileId;
+}
+
+async function createSonioxTranscription(
+  apiKey: string,
+  config: Record<string, any>,
+  signal?: AbortSignal
+): Promise<string> {
+  const data = await sonioxJsonRequest(
+    apiKey,
+    '/v1/transcriptions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    },
+    signal
+  );
+
+  const transcriptionId = typeof data?.id === 'string' ? data.id : undefined;
+  if (!transcriptionId) {
+    throw new Error('Soniox transcription creation failed: missing id');
+  }
+  return transcriptionId;
+}
+
+async function waitForSonioxTranscription(
+  apiKey: string,
+  transcriptionId: string,
+  signal?: AbortSignal
+): Promise<void> {
+  while (true) {
+    throwIfAborted(signal);
+    const statusData = await sonioxJsonRequest(
+      apiKey,
+      `/v1/transcriptions/${transcriptionId}`,
+      { method: 'GET' },
+      signal
+    );
+    const status = typeof statusData?.status === 'string' ? statusData.status : '';
+    if (status === 'completed') {
+      return;
+    }
+    if (status === 'error') {
+      const message =
+        typeof statusData?.error_message === 'string' && statusData.error_message
+          ? statusData.error_message
+          : 'Unknown Soniox transcription error';
+      throw new Error(message);
+    }
+    await sleep(SONIOX_POLL_INTERVAL_MS, signal).catch((error) => {
+      throw error;
+    });
+  }
+}
+
+async function fetchSonioxTranscript(
+  apiKey: string,
+  transcriptionId: string,
+  signal?: AbortSignal
+) {
+  return sonioxJsonRequest(
+    apiKey,
+    `/v1/transcriptions/${transcriptionId}/transcript`,
+    { method: 'GET' },
+    signal
+  );
+}
+
+async function deleteSonioxResource(
+  apiKey: string,
+  path: string
+) {
+  try {
+    await sonioxRequest(
+      apiKey,
+      path,
+      {
+        method: 'DELETE',
+      }
+    );
+  } catch (error) {
+    // Swallow cleanup errors to avoid masking primary failures.
+  }
+}
+
+interface SonioxTranscriptExtraction {
+  text?: string;
+  language?: string;
+}
+
+function extractTextFromSonioxTranscript(data: any): SonioxTranscriptExtraction {
+  if (!data) {
+    return {};
+  }
+
+  if (typeof data.text === 'string' && data.text.trim()) {
+    return {
+      text: data.text.trim(),
+      language: typeof data.language === 'string' ? data.language : undefined,
+    };
+  }
+
+  const tokens: any[] = Array.isArray(data.tokens) ? data.tokens : [];
+  if (tokens.length > 0) {
+    let detectedLanguage: string | undefined;
+    const parts: string[] = [];
+    for (const token of tokens) {
+      const text = typeof token?.text === 'string' ? token.text : '';
+      if (text) {
+        parts.push(text);
+      }
+      if (!detectedLanguage) {
+        const language = token?.language;
+        if (typeof language === 'number') {
+          detectedLanguage = String(language);
+        } else if (typeof language === 'string' && language.trim()) {
+          detectedLanguage = language.trim();
+        }
+      }
+    }
+    const joined = parts.join('');
+    if (joined.trim()) {
+      return {
+        text: joined.trim(),
+        language: detectedLanguage,
+      };
+    }
+  }
+
+  if (Array.isArray(data.paragraphs)) {
+    const paragraphs = data.paragraphs
+      .map((item: any) => (typeof item?.text === 'string' ? item.text.trim() : ''))
+      .filter(Boolean);
+    if (paragraphs.length) {
+      return {
+        text: paragraphs.join('\n'),
+        language: typeof data.language === 'string' ? data.language : undefined,
+      };
+    }
+  }
+
+  if (typeof data.transcript === 'string' && data.transcript.trim()) {
+    return {
+      text: data.transcript.trim(),
+      language: typeof data.language === 'string' ? data.language : undefined,
+    };
+  }
+
+  if (typeof data === 'string' && data.trim()) {
+    return { text: data.trim() };
+  }
+
+  return {};
+}
+
+async function transcribeWithSoniox(
+  payload: TranscriptionSegmentPayload,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<SegmentedTranscriptionResult> {
+  const apiKey = settings.credentials.sonioxApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Soniox API key');
+  }
+
+  ensureFileExists(payload.fileUri);
+  const info = await getInfoAsync(payload.fileUri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+
+  let fileId: string | undefined;
+  let transcriptionId: string | undefined;
+
+  try {
+    fileId = await uploadSonioxFile(apiKey, payload.fileUri, signal);
+
+    const config: Record<string, any> = {
+      model: resolveTranscriptionModel(settings) || DEFAULT_SONIOX_TRANSCRIPTION_MODEL,
+      file_id: fileId,
+      enable_language_identification: true,
+    };
+
+    if (settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto') {
+      config.language_hints = [settings.transcriptionLanguage];
+    }
+
+    config.client_reference_id = `segment-${payload.messageId}-${Date.now()}`;
+
+    transcriptionId = await createSonioxTranscription(apiKey, config, signal);
+    await waitForSonioxTranscription(apiKey, transcriptionId, signal);
+    const transcript = await fetchSonioxTranscript(apiKey, transcriptionId, signal);
+
+    const extracted = extractTextFromSonioxTranscript(transcript);
+    if (!extracted.text) {
+      throw new Error('Soniox transcription returned empty result');
+    }
+
+    const resolvedLanguage =
+      settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto'
+        ? settings.transcriptionLanguage
+        : extracted.language;
+
+    return {
+      text: extracted.text,
+      language: resolvedLanguage || undefined,
+    };
+  } finally {
+    if (transcriptionId) {
+      await deleteSonioxResource(apiKey, `/v1/transcriptions/${transcriptionId}`);
+    }
+    if (fileId) {
+      await deleteSonioxResource(apiKey, `/v1/files/${fileId}`);
+    }
+  }
+}
+
 async function translateWithOpenAI(
   text: string,
   targetLanguage: string,
@@ -488,6 +845,8 @@ export async function transcribeSegment(
       return transcribeWithOpenAI(payload, settings, signal);
     case 'qwen3':
       return transcribeWithQwen(payload, settings, signal);
+    case 'soniox':
+      return transcribeWithSoniox(payload, settings, signal);
     default:
       throw new Error('Transcription engine ' + settings.transcriptionEngine + ' not implemented yet');
   }
