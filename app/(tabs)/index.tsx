@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Animated,
@@ -36,6 +37,73 @@ function createHistorySeed(): HistoryConversation[] {
 
 
 const HISTORY_SEED = createHistorySeed();
+
+const HISTORY_STORAGE_KEY = "@agents/history-conversations";
+const HISTORY_STORAGE_VERSION = 1;
+
+type StoredHistoryPayload = {
+  version?: number;
+  conversations?: unknown;
+  activeConversationId?: string | null;
+  nextIdCounter?: number;
+};
+
+function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const sanitized: HistoryConversation[] = [];
+  raw.forEach((item) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+    const candidate = item as Partial<HistoryConversation>;
+    if (typeof candidate.id !== "string" || typeof candidate.title !== "string") {
+      return;
+    }
+    sanitized.push({
+      id: candidate.id,
+      title: candidate.title,
+      transcript: typeof candidate.transcript === "string" ? candidate.transcript : "",
+      translation:
+        typeof candidate.translation === "string" ? candidate.translation : undefined,
+      createdAt:
+        typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
+          ? candidate.createdAt
+          : Date.now(),
+      messages: Array.isArray(candidate.messages)
+        ? candidate.messages
+            .filter(
+              (message): message is TranscriptionMessage =>
+                !!message && typeof message === "object"
+            )
+            .map((message) => ({ ...message }))
+        : [],
+    });
+  });
+  return sanitized;
+}
+
+function deriveNextHistoryId(
+  conversations: HistoryConversation[],
+  fallback: number = 1
+): number {
+  let next = Math.max(fallback, 1);
+  conversations.forEach((item) => {
+    if (typeof item.id !== "string") {
+      return;
+    }
+    const match = item.id.match(/(\d+)$/);
+    if (!match) {
+      return;
+    }
+    const numeric = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(numeric)) {
+      next = Math.max(next, numeric + 1);
+    }
+  });
+  return next;
+}
 
 function RecordingToggle() {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
@@ -113,6 +181,7 @@ export default function TranscriptionScreen() {
   const historyScrollRef = useRef<ScrollView | null>(null);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
@@ -120,6 +189,74 @@ export default function TranscriptionScreen() {
   );
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
+  const bootstrappedHistoryRef = useRef(false);
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreHistory = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+        if (!isMounted || !raw) {
+          return;
+        }
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw) as unknown;
+        } catch (parseError) {
+          console.warn("[transcription] Failed to parse stored history conversations", parseError);
+          return;
+        }
+
+        if (Array.isArray(parsed)) {
+          const conversations = sanitizeHistoryConversations(parsed);
+          historyIdCounter.current = deriveNextHistoryId(conversations, historyIdCounter.current);
+          setHistoryItems(conversations);
+          if (conversations.length > 0) {
+            setActiveConversationId((prev) =>
+              prev && conversations.some((item) => item.id === prev) ? prev : conversations[0].id
+            );
+          }
+          return;
+        }
+
+        if (parsed && typeof parsed === "object") {
+          const payload = parsed as StoredHistoryPayload;
+          const conversations = sanitizeHistoryConversations(payload.conversations ?? []);
+          const computedNext = deriveNextHistoryId(conversations, historyIdCounter.current);
+          const nextId =
+            typeof payload.nextIdCounter === "number" && payload.nextIdCounter > 0
+              ? Math.max(payload.nextIdCounter, computedNext)
+              : computedNext;
+          historyIdCounter.current = nextId;
+          setHistoryItems(conversations);
+          if (conversations.length > 0) {
+            const storedActive = payload.activeConversationId;
+            if (storedActive && conversations.some((item) => item.id === storedActive)) {
+              setActiveConversationId(storedActive);
+            } else {
+              setActiveConversationId((prev) =>
+                prev && conversations.some((item) => item.id === prev) ? prev : conversations[0].id
+              );
+            }
+          }
+        }
+      } catch (loadError) {
+        console.warn("[transcription] Failed to restore history conversations", loadError);
+      } finally {
+        if (isMounted) {
+          setHistoryLoaded(true);
+        }
+      }
+    };
+
+    restoreHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
 
   useEffect(() => {
     if (error) {
@@ -268,39 +405,68 @@ export default function TranscriptionScreen() {
     lastLoadedConversationIdRef.current = activeConversation.id;
   }, [activeConversation, replaceMessages]);
 
+  const createConversation = useCallback(
+    async ({
+      skipStopSession = false,
+      suppressScroll = false,
+    }: { skipStopSession?: boolean; suppressScroll?: boolean } = {}) => {
+      if (!skipStopSession) {
+        try {
+          await stopSession();
+        } catch (sessionError) {
+          console.warn(
+            "[transcription] stopSession failed before adding conversation",
+            sessionError
+          );
+        }
+      }
+
+      const idNumber = historyIdCounter.current++;
+      const newId = `conv-${idNumber}`;
+      const now = Date.now();
+      const nextConversation: HistoryConversation = {
+        id: newId,
+        title: `新对话 ${idNumber}`,
+        transcript: "",
+        translation: undefined,
+        createdAt: now,
+        messages: [],
+      };
+
+      setHistoryItems((prev) => [nextConversation, ...prev]);
+      setActiveConversationId(newId);
+      setSearchTerm("");
+      replaceMessages([]);
+
+      if (!suppressScroll) {
+        const scrollToTop = () => {
+          historyScrollRef.current?.scrollTo({ y: 0, animated: true });
+        };
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(scrollToTop);
+        } else {
+          setTimeout(scrollToTop, 0);
+        }
+      }
+
+      return newId;
+    },
+    [historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession]
+  );
+
   const handleAddConversation = useCallback(async () => {
-    const idNumber = historyIdCounter.current++;
-    const newId = `conv-${idNumber}`;
-    const now = Date.now();
-    const nextConversation: HistoryConversation = {
-      id: newId,
-      title: `新对话 ${idNumber}`,
-      transcript: "",
-      translation: undefined,
-      createdAt: now,
-      messages: [],
-    };
+    await createConversation();
+  }, [createConversation]);
 
-    try {
-      await stopSession();
-    } catch (sessionError) {
-      console.warn("[transcription] stopSession failed before adding conversation", sessionError);
-    }
 
-    setHistoryItems((prev) => [nextConversation, ...prev]);
-    setActiveConversationId(newId);
-    setSearchTerm("");
-    replaceMessages([]);
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
-        historyScrollRef.current?.scrollTo({ y: 0, animated: true });
-      });
-    } else {
-      setTimeout(() => {
-        historyScrollRef.current?.scrollTo({ y: 0, animated: true });
-      }, 0);
+  useEffect(() => {
+    if (!historyLoaded || bootstrappedHistoryRef.current) {
+      return;
     }
-  }, [replaceMessages, stopSession]);
+    bootstrappedHistoryRef.current = true;
+    void createConversation({ skipStopSession: true, suppressScroll: true });
+  }, [createConversation, historyLoaded]);
+
 
   const handleSelectConversation = useCallback(async (conversationId: string) => {
     if (conversationId === activeConversationId) {
@@ -316,6 +482,26 @@ export default function TranscriptionScreen() {
     }
     setActiveConversationId(conversationId);
   }, [activeConversationId, historyItems, stopSession]);
+
+  useEffect(() => {
+    if (!historyLoaded) {
+      return;
+    }
+
+    const payload: StoredHistoryPayload = {
+      version: HISTORY_STORAGE_VERSION,
+      conversations: historyItems,
+      activeConversationId,
+      nextIdCounter: historyIdCounter.current,
+    };
+
+    AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(payload)).catch(
+      (persistError) => {
+        console.warn("[transcription] Failed to persist history conversations", persistError);
+      }
+    );
+  }, [activeConversationId, historyItems, historyLoaded]);
+
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchTerm(text);
