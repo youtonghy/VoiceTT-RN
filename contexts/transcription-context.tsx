@@ -53,6 +53,7 @@ interface TranscriptionContextValue {
   isRecording: boolean;
   error: string | null;
   clearError: () => void;
+  replaceMessages: (nextMessages: TranscriptionMessage[]) => void;
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
@@ -129,6 +130,13 @@ function createInitialMessage(messageId: number): TranscriptionMessage {
   };
 }
 
+function computeNextMessageId(messages: TranscriptionMessage[]): number {
+  if (messages.length === 0) {
+    return 1;
+  }
+  return messages.reduce((maxId, item) => (item.id > maxId ? item.id : maxId), 0) + 1;
+}
+
 function applySettingsToSegment(segment: InternalSegmentState, settings: AppSettings, durationMs: number) {
   const preRoll = Math.max(0, settings.preRollDurationSec) * 1000;
   if (segment.candidateStartMs != null) {
@@ -175,6 +183,33 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     segmentStateRef.current = { ...initialSegmentState };
   }, []);
 
+  const replaceMessages = useCallback((nextMessages: TranscriptionMessage[]) => {
+    const current = messagesRef.current;
+    let hasDifference = current.length !== nextMessages.length;
+    if (!hasDifference) {
+      for (let index = 0; index < current.length; index += 1) {
+        const existing = current[index];
+        const incoming = nextMessages[index];
+        if (
+          existing.id !== incoming.id ||
+          existing.updatedAt !== incoming.updatedAt ||
+          existing.status !== incoming.status ||
+          existing.transcript !== incoming.transcript ||
+          existing.translationStatus !== incoming.translationStatus ||
+          existing.translation !== incoming.translation
+        ) {
+          hasDifference = true;
+          break;
+        }
+      }
+    }
+    if (!hasDifference) {
+      return;
+    }
+    const normalized = nextMessages.map((msg) => ({ ...msg }));
+    setMessagesAndRef(() => normalized);
+    nextMessageIdRef.current = computeNextMessageId(normalized);
+  }, [messagesRef, setMessagesAndRef]);
   const updateMessage = useCallback((messageId: number, updater: (msg: TranscriptionMessage) => TranscriptionMessage) => {
     setMessagesAndRef((prev) => prev.map((msg) => (msg.id === messageId ? updater(msg) : msg)));
   }, [setMessagesAndRef]);
@@ -465,10 +500,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     isSessionActive,
     toggleSession,
     stopSession,
+    replaceMessages,
     isRecording,
     error,
     clearError: () => setError(null),
-  }), [messages, isSessionActive, toggleSession, stopSession, isRecording, error]);
+  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, isRecording, error]);
 
   return <TranscriptionContext.Provider value={value}>{children}</TranscriptionContext.Provider>;
 }

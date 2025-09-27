@@ -27,55 +27,13 @@ type HistoryConversation = {
   transcript: string;
   translation?: string;
   createdAt: number;
+  messages: TranscriptionMessage[];
 };
 
-function createTimestamp(daysAgo: number, hour: number, minute: number) {
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
-  date.setDate(date.getDate() - daysAgo);
-  return date.getTime();
+function createHistorySeed(): HistoryConversation[] {
+  return [];
 }
 
-function createHistorySeed(): HistoryConversation[] {
-  const items: HistoryConversation[] = [
-    {
-      id: "conv-1",
-      title: "空对话",
-      transcript: "当前暂无具体内容，等待下一次录音。",
-      translation: "No transcript yet. Waiting for the next recording.",
-      createdAt: createTimestamp(0, 12, 41),
-    },
-    {
-      id: "conv-2",
-      title: "讨论参考方案",
-      transcript: "我们梳理了接口稳定性方案，并确认交付节点。",
-      translation: "Reviewed interface stability proposal and confirmed delivery timeline.",
-      createdAt: createTimestamp(1, 15, 1),
-    },
-    {
-      id: "conv-3",
-      title: "内存泄漏定位",
-      transcript: "复盘了客户端日志，初步判断是后台保活策略触发。",
-      translation: "Client logs hint the keep-alive strategy causes the leak.",
-      createdAt: createTimestamp(3, 0, 18),
-    },
-    {
-      id: "conv-4",
-      title: "关于香菜供应",
-      transcript: "整理供应链清单，标注需要额外确认的供应商。",
-      translation: "Captured supplier list and flagged vendors needing follow-up.",
-      createdAt: createTimestamp(4, 23, 17),
-    },
-    {
-      id: "conv-5",
-      title: "迭代回顾",
-      transcript: "总结了本周亮点与风险，并准备同步给全员。",
-      translation: "Summarised highlights and risks to share across the team.",
-      createdAt: createTimestamp(2, 10, 26),
-    },
-  ];
-  return items.sort((a, b) => b.createdAt - a.createdAt);
-}
 
 const HISTORY_SEED = createHistorySeed();
 
@@ -150,17 +108,18 @@ export default function TranscriptionScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
   const { width } = useWindowDimensions();
-  const { messages, error, clearError } = useTranscription();
+  const { messages, error, clearError, stopSession, replaceMessages } = useTranscription();
   const scrollRef = useRef<ScrollView | null>(null);
-  const carouselRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(() =>
+  const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
   );
-  const historyIdCounter = useRef(HISTORY_SEED.length + 1);
+  const activeConversationIdRef = useRef<string | null>(activeConversationId);
+  const lastLoadedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -172,6 +131,86 @@ export default function TranscriptionScreen() {
     if (messages.length > 0) {
       scrollRef.current?.scrollToEnd({ animated: true });
     }
+  }, [messages]);
+
+
+  useEffect(() => {
+    if (historyItems.length === 0) {
+      if (activeConversationId !== null) {
+        setActiveConversationId(null);
+      }
+      return;
+    }
+    if (!activeConversationId || !historyItems.some((item) => item.id === activeConversationId)) {
+      setActiveConversationId(historyItems[0].id);
+    }
+  }, [activeConversationId, historyItems]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    const currentActiveId = activeConversationIdRef.current;
+    if (!currentActiveId) {
+      return;
+    }
+    setHistoryItems((prev) => {
+      const index = prev.findIndex((item) => item.id === currentActiveId);
+      if (index === -1) {
+        return prev;
+      }
+
+      const existing = prev[index];
+      const currentMessages = messages;
+      let hasDifference = existing.messages.length !== currentMessages.length;
+      if (!hasDifference) {
+        for (let i = 0; i < existing.messages.length; i += 1) {
+          const stored = existing.messages[i];
+          const incoming = currentMessages[i];
+          if (
+            stored.id !== incoming.id ||
+            stored.updatedAt !== incoming.updatedAt ||
+            stored.status !== incoming.status ||
+            stored.transcript !== incoming.transcript ||
+            stored.translationStatus !== incoming.translationStatus ||
+            stored.translation !== incoming.translation
+          ) {
+            hasDifference = true;
+            break;
+          }
+        }
+      }
+      if (!hasDifference) {
+        return prev;
+      }
+
+      const clonedMessages = currentMessages.map((msg) => ({ ...msg }));
+      const transcriptSegments = clonedMessages
+        .map((msg) => msg.transcript?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const translationSegments = clonedMessages
+        .map((msg) => msg.translation?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const latestMessage = clonedMessages.length > 0 ? clonedMessages[clonedMessages.length - 1] : null;
+
+      const updatedConversation: HistoryConversation = {
+        ...existing,
+        messages: clonedMessages,
+        transcript: transcriptSegments.join(" "),
+        translation: translationSegments.length > 0 ? translationSegments.join(" ") : undefined,
+        createdAt: latestMessage ? (latestMessage.updatedAt ?? latestMessage.createdAt) : existing.createdAt,
+      };
+
+      if (clonedMessages.length === 0) {
+        updatedConversation.transcript = "";
+        updatedConversation.translation = undefined;
+      }
+
+      const next = [...prev];
+      next[index] = updatedConversation;
+      return next;
+    });
   }, [messages]);
 
   const filteredHistory = useMemo(() => {
@@ -187,7 +226,7 @@ export default function TranscriptionScreen() {
 
   const historyGroups = useMemo(() => {
     const sorted = [...filteredHistory].sort((a, b) => b.createdAt - a.createdAt);
-    const groups: Array<{ key: string; label: string; items: HistoryConversation[] }> = [];
+    const groups: { key: string; label: string; items: HistoryConversation[] }[] = [];
     let currentGroup: { key: string; label: string; items: HistoryConversation[] } | null = null;
 
     sorted.forEach((item) => {
@@ -206,38 +245,52 @@ export default function TranscriptionScreen() {
     return groups;
   }, [filteredHistory]);
 
-  useEffect(() => {
-    if (filteredHistory.length === 0) {
-      if (selectedHistoryId !== null) {
-        setSelectedHistoryId(null);
-      }
-      return;
-    }
-    const exists = filteredHistory.some((item) => item.id === selectedHistoryId);
-    if (!exists) {
-      setSelectedHistoryId(filteredHistory[0].id);
-    }
-  }, [filteredHistory, selectedHistoryId]);
-
-  const selectedConversation = useMemo(
-    () => (selectedHistoryId ? historyItems.find((item) => item.id === selectedHistoryId) ?? null : null),
-    [historyItems, selectedHistoryId]
+  const activeConversation = useMemo(
+    () =>
+      activeConversationId
+        ? historyItems.find((item) => item.id === activeConversationId) ?? null
+        : null,
+    [activeConversationId, historyItems]
   );
 
-  const handleAddConversation = useCallback(() => {
+  useEffect(() => {
+    if (!activeConversation) {
+      replaceMessages([]);
+      lastLoadedConversationIdRef.current = null;
+      return;
+    }
+
+    if (lastLoadedConversationIdRef.current === activeConversation.id) {
+      return;
+    }
+
+    replaceMessages(activeConversation.messages);
+    lastLoadedConversationIdRef.current = activeConversation.id;
+  }, [activeConversation, replaceMessages]);
+
+  const handleAddConversation = useCallback(async () => {
     const idNumber = historyIdCounter.current++;
     const newId = `conv-${idNumber}`;
     const now = Date.now();
     const nextConversation: HistoryConversation = {
       id: newId,
       title: `新对话 ${idNumber}`,
-      transcript: "暂无转写内容，开始录音后会自动更新。",
+      transcript: "",
       translation: undefined,
       createdAt: now,
+      messages: [],
     };
+
+    try {
+      await stopSession();
+    } catch (sessionError) {
+      console.warn("[transcription] stopSession failed before adding conversation", sessionError);
+    }
+
     setHistoryItems((prev) => [nextConversation, ...prev]);
+    setActiveConversationId(newId);
     setSearchTerm("");
-    setSelectedHistoryId(newId);
+    replaceMessages([]);
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         historyScrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -247,15 +300,22 @@ export default function TranscriptionScreen() {
         historyScrollRef.current?.scrollTo({ y: 0, animated: true });
       }, 0);
     }
-  }, []);
+  }, [replaceMessages, stopSession]);
 
-  const handleBackToTranscription = useCallback(() => {
-    carouselRef.current?.scrollTo({ x: 0, y: 0, animated: true });
-  }, []);
-
-  const handleSelectConversation = useCallback((conversationId: string) => {
-    setSelectedHistoryId(conversationId);
-  }, []);
+  const handleSelectConversation = useCallback(async (conversationId: string) => {
+    if (conversationId === activeConversationId) {
+      return;
+    }
+    if (!historyItems.some((item) => item.id === conversationId)) {
+      return;
+    }
+    try {
+      await stopSession();
+    } catch (sessionError) {
+      console.warn("[transcription] stopSession failed before switching conversation", sessionError);
+    }
+    setActiveConversationId(conversationId);
+  }, [activeConversationId, historyItems, stopSession]);
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchTerm(text);
@@ -273,7 +333,6 @@ export default function TranscriptionScreen() {
         </View>
         <View style={styles.content}>
           <ScrollView
-            ref={carouselRef}
             horizontal
             pagingEnabled
             bounces={false}
@@ -314,19 +373,13 @@ export default function TranscriptionScreen() {
                   </ThemedText>
                   <View style={styles.historyActions}>
                     <Pressable
-                      onPress={handleAddConversation}
+                      onPress={() => {
+                        void handleAddConversation();
+                      }}
                       style={styles.historyIconButton}
                       accessibilityLabel="新增对话">
                       <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
                         +
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={handleBackToTranscription}
-                      style={styles.historyIconButton}
-                      accessibilityLabel="返回当前转写">
-                      <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
-                        ←
                       </ThemedText>
                     </Pressable>
                   </View>
@@ -335,7 +388,7 @@ export default function TranscriptionScreen() {
                   <TextInput
                     value={searchTerm}
                     onChangeText={handleSearchChange}
-                    placeholder="搜索对话转写或翻译"
+                    placeholder="搜索对话转写或翻译内容"
                     placeholderTextColor="rgba(148,163,184,0.7)"
                     style={[styles.historySearchInput, { color: searchInputColor }]}
                     autoCorrect={false}
@@ -369,13 +422,20 @@ export default function TranscriptionScreen() {
                             <View style={styles.historyDateLine} />
                           </View>
                           {group.items.map((item) => {
-                            const isActive = item.id === selectedHistoryId;
+                            const isActive = item.id === activeConversationId;
                             return (
                               <Pressable
                                 key={item.id}
-                                onPress={() => handleSelectConversation(item.id)}
-                                style={[styles.historyItem, isActive && styles.historyItemActive]}
-                                accessibilityLabel={`查看${item.title}的转写`}>
+                                onPress={() => {
+                                  void handleSelectConversation(item.id);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`查看对话 ${item.title}`}
+                                style={({ pressed }) => [
+                                  styles.historyItem,
+                                  isActive && styles.historyItemActive,
+                                  pressed && styles.historyItemPressed,
+                                ]}>
                                 <View style={styles.historyItemHeader}>
                                   <ThemedText
                                     numberOfLines={1}
@@ -391,13 +451,6 @@ export default function TranscriptionScreen() {
                                     {formatRecordTime(item.createdAt)}
                                   </ThemedText>
                                 </View>
-                                <ThemedText
-                                  numberOfLines={1}
-                                  style={styles.historyItemPreview}
-                                  lightColor="#475569"
-                                  darkColor="#cbd5f5">
-                                  {item.transcript}
-                                </ThemedText>
                               </Pressable>
                             );
                           })}
@@ -406,44 +459,6 @@ export default function TranscriptionScreen() {
                     )}
                   </ScrollView>
                 </View>
-                {selectedConversation ? (
-                  <View style={styles.historyDetail}>
-                    <ThemedText style={styles.historyDetailTitle} lightColor="#1f2937" darkColor="#f8fafc">
-                      {selectedConversation.title}
-                    </ThemedText>
-                    <ThemedText style={styles.historyDetailTime} lightColor="#64748b" darkColor="#94a3b8">
-                      {formatFullDateTime(selectedConversation.createdAt)}
-                    </ThemedText>
-                    <ThemedText style={styles.historyDetailContent} lightColor="#1f2937" darkColor="#e2e8f0">
-                      {selectedConversation.transcript}
-                    </ThemedText>
-                    {selectedConversation.translation ? (
-                      <View style={styles.historyDetailTranslationBlock}>
-                        <ThemedText
-                          style={styles.historyDetailTranslationLabel}
-                          lightColor="#2563eb"
-                          darkColor="#60a5fa">
-                          翻译
-                        </ThemedText>
-                        <ThemedText
-                          style={styles.historyDetailTranslation}
-                          lightColor="#1f2937"
-                          darkColor="#e2e8f0">
-                          {selectedConversation.translation}
-                        </ThemedText>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View style={styles.historyDetailPlaceholder}>
-                    <ThemedText
-                      style={styles.historyDetailPlaceholderText}
-                      lightColor="#94a3b8"
-                      darkColor="#94a3b8">
-                      选择一条对话查看转写详情。
-                    </ThemedText>
-                  </View>
-                )}
               </ThemedView>
             </View>
           </ScrollView>
@@ -661,12 +676,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     backgroundColor: "rgba(148, 163, 184, 0.12)",
+    borderWidth: 1,
+    borderColor: "transparent",
     gap: 6,
   },
   historyItemActive: {
     borderWidth: 1.5,
-    borderColor: "#3b82f6",
-    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    borderColor: "#2563eb",
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+  },
+  historyItemPressed: {
+    opacity: 0.9,
   },
   historyItemHeader: {
     flexDirection: "row",
@@ -681,52 +701,6 @@ const styles = StyleSheet.create({
   },
   historyItemTime: {
     fontSize: 14,
-  },
-  historyItemPreview: {
-    fontSize: 14,
-  },
-  historyDetail: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    padding: 16,
-    gap: 12,
-    backgroundColor: "rgba(148, 163, 184, 0.08)",
-  },
-  historyDetailTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  historyDetailTime: {
-    fontSize: 14,
-  },
-  historyDetailContent: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  historyDetailTranslationBlock: {
-    gap: 8,
-  },
-  historyDetailTranslationLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  historyDetailTranslation: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  historyDetailPlaceholder: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(148, 163, 184, 0.08)",
-  },
-  historyDetailPlaceholderText: {
-    fontSize: 15,
-    textAlign: "center",
   },
 });
 
@@ -804,9 +778,3 @@ function formatRecordTime(timestamp: number) {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
-function formatFullDateTime(timestamp: number) {
-  const date = new Date(timestamp);
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${hours}:${minutes}`;
-}

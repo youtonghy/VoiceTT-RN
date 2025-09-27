@@ -25,6 +25,7 @@
 - Favor reactive data flows (e.g., coroutines/Flow, Combine) to coordinate transcription streams, translation outputs, and summaries.
 - Background workers encapsulate long-running tasks; expose APIs to pause/resume without losing context.
 - Persist transcripts, translations, and summaries in encrypted storage; synchronize to cloud services only with explicit consent.
+- Maintain per-conversation transcript stores so switching history entries swaps the active stream without leaking messages between sessions.
 
 ## Internationalization
 - All source code, identifiers, and comments use English only.
@@ -32,6 +33,7 @@
 - Provide tooling to validate missing translations and fallback logic.
 
 ## Styling & Layout Modules
+- Compose the transcription surface as swipeable cards: live capture first card, history list second, grouped by day with search/add controls and no inline preview panes.
 - Build UI assemblies from atomic components (atoms, molecules, organisms) that can be reordered through configuration.
 - Encapsulate layout rules per module; do not hard-wire positions in shared code. Supply metadata that enables user-driven rearrangement.
 - Document extension points so third-party skins or corporate themes can plug into the style system safely.
