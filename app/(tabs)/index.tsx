@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   Animated,
   Easing,
@@ -20,7 +21,7 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { TranscriptionMessage } from "@/types/transcription";
-import { generateConversationTitle } from "@/services/transcription";
+import { generateConversationTitle, generateConversationSummary } from "@/services/transcription";
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
@@ -29,6 +30,7 @@ type HistoryConversation = {
   title: string;
   transcript: string;
   translation?: string;
+  summary?: string;
   createdAt: number;
   messages: TranscriptionMessage[];
 };
@@ -69,6 +71,7 @@ function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
       transcript: typeof candidate.transcript === "string" ? candidate.transcript : "",
       translation:
         typeof candidate.translation === "string" ? candidate.translation : undefined,
+      summary: typeof candidate.summary === "string" ? candidate.summary : undefined,
       createdAt:
         typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
           ? candidate.createdAt
@@ -186,6 +189,7 @@ export default function TranscriptionScreen() {
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [assistantDraft, setAssistantDraft] = useState("");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
@@ -194,9 +198,12 @@ export default function TranscriptionScreen() {
   const lastLoadedConversationIdRef = useRef<string | null>(null);
   const bootstrappedHistoryRef = useRef(false);
   const [autoTitleTrigger, setAutoTitleTrigger] = useState(0);
+  const [autoSummaryTrigger, setAutoSummaryTrigger] = useState(0);
   const autoTitlePendingRef = useRef<{ conversationId: string } | null>(null);
+  const autoSummaryPendingRef = useRef<{ conversationId: string } | null>(null);
   const previousSessionActiveRef = useRef(isSessionActive);
   const autoTitleAbortRef = useRef<AbortController | null>(null);
+  const autoSummaryAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     let isMounted = true;
 
@@ -350,6 +357,76 @@ export default function TranscriptionScreen() {
 
 
   useEffect(() => {
+    const pending = autoSummaryPendingRef.current;
+    if (!pending) {
+      return;
+    }
+    const targetConversation = historyItems.find((item) => item.id === pending.conversationId);
+    if (!targetConversation) {
+      return;
+    }
+    const hasProcessing = targetConversation.messages.some(
+      (msg) => msg.status === 'pending' || msg.status === 'transcribing'
+    );
+    if (hasProcessing) {
+      return;
+    }
+    const transcriptSegments = targetConversation.messages
+      .map((msg) => msg.transcript?.trim())
+      .filter((segment): segment is string => !!segment && segment.length > 0);
+    const transcriptText = transcriptSegments.join('\n').trim();
+    if (!transcriptText) {
+      autoSummaryPendingRef.current = null;
+      return;
+    }
+    const translationSegments = targetConversation.messages
+      .map((msg) => msg.translation?.trim())
+      .filter((segment): segment is string => !!segment && segment.length > 0);
+    const translationText = (translationSegments.length > 0
+      ? translationSegments.join('\n').trim()
+      : targetConversation.translation?.trim()) || undefined;
+    if (autoSummaryAbortRef.current) {
+      return;
+    }
+    autoSummaryPendingRef.current = null;
+    const controller = new AbortController();
+    autoSummaryAbortRef.current = controller;
+    generateConversationSummary(
+      transcriptText,
+      translationText,
+      settings,
+      controller.signal
+    )
+      .then((generatedSummary) => {
+        const cleanSummary = generatedSummary.trim();
+        if (!cleanSummary) {
+          return;
+        }
+        setHistoryItems((prev) =>
+          prev.map((item) =>
+            item.id === targetConversation.id ? { ...item, summary: cleanSummary } : item
+          )
+        );
+      })
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[transcription] Failed to auto-generate conversation summary', err);
+        Alert.alert('总结生成失败', message);
+      })
+      .finally(() => {
+        autoSummaryAbortRef.current = null;
+        if (autoSummaryPendingRef.current) {
+          setAutoSummaryTrigger((prev) => prev + 1);
+        }
+      });
+  }, [historyItems, settings, autoSummaryTrigger]);
+
+
+
+  useEffect(() => {
     if (historyItems.length === 0) {
       if (activeConversationId !== null) {
         setActiveConversationId(null);
@@ -367,6 +444,7 @@ export default function TranscriptionScreen() {
   useEffect(() => {
     return () => {
       autoTitleAbortRef.current?.abort();
+      autoSummaryAbortRef.current?.abort();
     };
   }, []);
 
@@ -376,6 +454,8 @@ export default function TranscriptionScreen() {
     if (wasActive && !isSessionActive && activeConversationIdRef.current) {
       autoTitlePendingRef.current = { conversationId: activeConversationIdRef.current };
       setAutoTitleTrigger((prev) => prev + 1);
+      autoSummaryPendingRef.current = { conversationId: activeConversationIdRef.current };
+      setAutoSummaryTrigger((prev) => prev + 1);
     }
   }, [isSessionActive]);
 
@@ -434,6 +514,7 @@ export default function TranscriptionScreen() {
       if (clonedMessages.length === 0) {
         updatedConversation.transcript = "";
         updatedConversation.translation = undefined;
+        updatedConversation.summary = undefined;
       }
 
       const next = [...prev];
@@ -448,7 +529,7 @@ export default function TranscriptionScreen() {
       return historyItems;
     }
     return historyItems.filter((item) => {
-      const haystack = `${item.title} ${item.transcript} ${item.translation ?? ""}`.toLowerCase();
+      const haystack = `${item.title} ${item.transcript} ${item.translation ?? ""} ${item.summary ?? ""}`.toLowerCase();
       return haystack.includes(keyword);
     });
   }, [historyItems, searchTerm]);
@@ -521,6 +602,7 @@ export default function TranscriptionScreen() {
         title: `新对话 ${idNumber}`,
         transcript: "",
         translation: undefined,
+        summary: undefined,
         createdAt: now,
         messages: [],
       };
@@ -598,6 +680,22 @@ export default function TranscriptionScreen() {
   const handleSearchChange = useCallback((text: string) => {
     setSearchTerm(text);
   }, []);
+
+  const handleAssistantChange = useCallback((text: string) => {
+    setAssistantDraft(text);
+  }, []);
+
+  const handleAssistantSend = useCallback(() => {
+    const trimmed = assistantDraft.trim();
+    if (!trimmed) {
+      return;
+    }
+    setAssistantDraft('');
+  }, [assistantDraft]);
+
+  const assistantHasInput = assistantDraft.trim().length > 0;
+  const assistantSummary = activeConversation?.summary?.trim() ?? '';
+  const assistantSummaryPlaceholder = '暂无对话总结，完成录音后自动生成。';
 
   const pageWidth = width;
 
@@ -739,6 +837,76 @@ export default function TranscriptionScreen() {
                 </View>
               </ThemedView>
             </View>
+            <View style={[styles.cardPage, { width: pageWidth }]}>
+              <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>
+                  智能对话
+                </ThemedText>
+                <LinearGradient
+                  colors={["#38bdf8", "#6366f1", "#ec4899"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.assistantSummaryCard}
+                >
+                  <ThemedText
+                    style={styles.assistantSummaryLabel}
+                    lightColor="#f8fafc"
+                    darkColor="#e2e8f0"
+                  >
+                    对话总结
+                  </ThemedText>
+                  <ThemedText
+                    style={styles.assistantSummaryText}
+                    lightColor="#f8fafc"
+                    darkColor="#f8fafc"
+                  >
+                    {assistantSummary || assistantSummaryPlaceholder}
+                  </ThemedText>
+                </LinearGradient>
+                <View style={styles.assistantConversation}>
+                  <ScrollView
+                    style={styles.assistantConversationScroll}
+                    contentContainerStyle={styles.assistantConversationContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <LinearGradient
+                      colors={["#e0f2fe", "#e9d5ff", "#fce7f3"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.assistantLeadMessage}
+                    >
+                      <ThemedText style={styles.assistantLeadText} lightColor="#1f2937" darkColor="#0f172a">
+                        {" "}
+                      </ThemedText>
+                    </LinearGradient>
+                  </ScrollView>
+                </View>
+                <View style={styles.assistantComposer}>
+                  <TextInput
+                    value={assistantDraft}
+                    onChangeText={handleAssistantChange}
+                    style={[styles.assistantInput, { color: searchInputColor }]}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    selectionColor="#2563eb"
+                  />
+                  {assistantHasInput ? (
+                    <Pressable
+                      onPress={handleAssistantSend}
+                      accessibilityRole="button"
+                      accessibilityLabel="发送输入"
+                      style={({ pressed }) => [
+                        styles.assistantSendButton,
+                        pressed && styles.assistantSendButtonPressed,
+                      ]}
+                    >
+                      <Ionicons name="paper-plane" size={18} color="#ffffff" />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </ThemedView>
+            </View>
           </ScrollView>
         </View>
       </ThemedView>
@@ -787,6 +955,66 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 6,
     gap: 20,
+  },
+  assistantSummaryCard: {
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    overflow: "hidden",
+  },
+  assistantSummaryLabel: {
+    fontSize: 14,
+    opacity: 0.9,
+  },
+  assistantSummaryText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  assistantConversation: {
+    flex: 1,
+  },
+  assistantConversationScroll: {
+    flex: 1,
+  },
+  assistantConversationContent: {
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    paddingVertical: 12,
+    gap: 12,
+  },
+  assistantLeadMessage: {
+    borderRadius: 20,
+    padding: 20,
+    minHeight: 120,
+    justifyContent: "center",
+  },
+  assistantLeadText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  assistantComposer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  assistantInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+  assistantSendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2563eb",
+  },
+  assistantSendButtonPressed: {
+    opacity: 0.85,
   },
   historyCard: {
     gap: 16,

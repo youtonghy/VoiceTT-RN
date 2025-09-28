@@ -3,7 +3,10 @@ import { EncodingType, getInfoAsync, readAsStringAsync } from 'expo-file-system/
 
 import {
   AppSettings,
+  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  DEFAULT_GEMINI_CONVERSATION_MODEL,
   DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
   DEFAULT_TITLE_SUMMARY_PROMPT,
 } from '@/types/settings';
@@ -17,7 +20,10 @@ export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
 export const DEFAULT_TITLE_RESPONSE_MAX_TOKENS = 96;
 export const DEFAULT_TITLE_RESPONSE_TEMPERATURE = 0.4;
+export const DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS = 512;
+export const DEFAULT_CONVERSATION_RESPONSE_TEMPERATURE = 0.35;
 const MAX_TITLE_INPUT_CHARS = 6000;
+const MAX_CONVERSATION_INPUT_CHARS = 20000;
 const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 const SONIOX_API_BASE_URL = 'https://api.soniox.com';
@@ -917,6 +923,24 @@ function collectOpenAIText(data: any): string {
       })
       .join('');
   }
+  if (!collected && Array.isArray(data?.candidates)) {
+    for (const candidate of data.candidates) {
+      const parts = candidate?.content?.parts ?? candidate?.parts;
+      if (Array.isArray(parts)) {
+        const combined = parts
+          .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+          .join('');
+        if (combined.trim()) {
+          collected = combined.trim();
+          break;
+        }
+      }
+      if (typeof candidate?.text === 'string' && candidate.text.trim()) {
+        collected = candidate.text.trim();
+        break;
+      }
+    }
+  }
   if (!collected && typeof data?.content === 'string') {
     collected = data.content;
   }
@@ -929,7 +953,7 @@ function cleanupTitleCandidate(raw: string): string {
   }
   const firstLine = raw.split(/[\r\n]+/)[0] ?? raw;
   const trimmed = firstLine.trim();
-  const withoutQuotes = trimmed.replace(/^["'¡°¡±¡®¡¯]+/, '').replace(/["'¡°¡±¡®¡¯]+$/, '').trim();
+  const withoutQuotes = trimmed.replace(/^["'â€œâ€â€˜â€™]+/, '').replace(/["'â€œâ€â€˜â€™]+$/, '').trim();
   if (withoutQuotes.length > 80) {
     return withoutQuotes.slice(0, 80).trim();
   }
@@ -949,6 +973,23 @@ function buildTitleInput(transcript: string, translation?: string): string {
   const combined = parts.join('\n\n').trim();
   if (combined.length > MAX_TITLE_INPUT_CHARS) {
     return combined.slice(0, MAX_TITLE_INPUT_CHARS);
+  }
+  return combined;
+}
+
+function buildConversationSummaryInput(transcript: string, translation?: string): string {
+  const parts: string[] = [];
+  const transcriptText = transcript.trim();
+  if (transcriptText) {
+    parts.push('Transcript\\n' + transcriptText);
+  }
+  const translationText = translation?.trim();
+  if (translationText) {
+    parts.push('Translation\\n' + translationText);
+  }
+  const combined = parts.join('\\n\\n').trim();
+  if (combined.length > MAX_CONVERSATION_INPUT_CHARS) {
+    return combined.slice(0, MAX_CONVERSATION_INPUT_CHARS);
   }
   return combined;
 }
@@ -1101,6 +1142,141 @@ export async function generateConversationTitle(
   const cleaned = cleanupTitleCandidate(raw);
   if (!cleaned) {
     throw new Error('Title summarization response was empty');
+  }
+  return cleaned;
+}
+
+async function generateConversationSummaryWithOpenAI(
+  input: string,
+  prompt: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const apiKey = settings.credentials.openaiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for conversation summarization');
+  }
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const model =
+    settings.credentials.openaiConversationModel?.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL;
+  const payload = {
+    model,
+    instructions: prompt,
+    input: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: input,
+          },
+        ],
+      },
+    ],
+    temperature: DEFAULT_CONVERSATION_RESPONSE_TEMPERATURE,
+    max_output_tokens: DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS,
+    modalities: ['text'],
+    response_format: {
+      type: 'text',
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI conversation summarization failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const collected = collectOpenAIText(data).trim();
+  if (!collected) {
+    throw new Error('OpenAI conversation summarization returned empty response');
+  }
+  return collected;
+}
+
+async function generateConversationSummaryWithGemini(
+  input: string,
+  prompt: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for conversation summarization');
+  }
+  const model =
+    settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: input }],
+      },
+    ],
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: prompt }],
+    },
+    generationConfig: {
+      temperature: DEFAULT_CONVERSATION_RESPONSE_TEMPERATURE,
+      maxOutputTokens: DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS,
+      topP: 0.95,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini conversation summarization failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectOpenAIText(data).trim();
+  if (!text) {
+    throw new Error('Gemini conversation summarization returned empty response');
+  }
+  return text;
+}
+
+export async function generateConversationSummary(
+  transcript: string,
+  translation: string | undefined,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const input = buildConversationSummaryInput(transcript, translation);
+  if (!input) {
+    throw new Error('Conversation transcript is empty');
+  }
+  const prompt =
+    (settings.conversationSummaryPrompt || '').trim() || DEFAULT_CONVERSATION_SUMMARY_PROMPT;
+  const raw =
+    settings.conversationSummaryEngine === 'gemini'
+      ? await generateConversationSummaryWithGemini(input, prompt, settings, signal)
+      : await generateConversationSummaryWithOpenAI(input, prompt, settings, signal);
+  const cleaned = raw.trim();
+  if (!cleaned) {
+    throw new Error('Conversation summarization response was empty');
   }
   return cleaned;
 }

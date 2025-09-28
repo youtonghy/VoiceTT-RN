@@ -12,9 +12,13 @@ import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
+  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  DEFAULT_GEMINI_CONVERSATION_MODEL,
   DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
   DEFAULT_TITLE_SUMMARY_PROMPT,
+  type ConversationSummaryEngine,
   type TitleSummaryEngine,
 } from '@/types/settings';
 
@@ -25,6 +29,7 @@ import {
 } from './shared';
 
 const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
+const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
 
 export default function SummarySettingsScreen() {
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -133,6 +138,92 @@ export default function SummarySettingsScreen() {
               }
               style={multilineInputStyle}
               placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
+              placeholderTextColor={placeholderTextColor}
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+              对话总结引擎
+            </ThemedText>
+            <View style={settingsStyles.optionsRow}>
+              {conversationSummaryEngines.map((engine) => (
+                <OptionPill
+                  key={engine}
+                  label={engine.toUpperCase()}
+                  active={settings.conversationSummaryEngine === engine}
+                  onPress={() => updateSettings({ conversationSummaryEngine: engine })}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+              OpenAI 对话总结模型
+            </ThemedText>
+            <TextInput
+              value={formState.openaiConversationModel}
+              onChangeText={(text) =>
+                setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
+              }
+              onBlur={() =>
+                updateCredentials({
+                  openaiConversationModel:
+                    formState.openaiConversationModel.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL,
+                })
+              }
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={baseInputStyle}
+              placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
+              placeholderTextColor={placeholderTextColor}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+              Gemini 对话总结模型
+            </ThemedText>
+            <TextInput
+              value={formState.geminiConversationModel}
+              onChangeText={(text) =>
+                setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
+              }
+              onBlur={() =>
+                updateCredentials({
+                  geminiConversationModel:
+                    formState.geminiConversationModel.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL,
+                })
+              }
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={baseInputStyle}
+              placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
+              placeholderTextColor={placeholderTextColor}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+              对话总结提示词
+            </ThemedText>
+            <TextInput
+              value={formState.conversationSummaryPrompt}
+              onChangeText={(text) =>
+                setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
+              }
+              onBlur={() =>
+                updateSettings({
+                  conversationSummaryPrompt:
+                    formState.conversationSummaryPrompt.trim() ||
+                    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+                })
+              }
+              style={multilineInputStyle}
+              placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
               placeholderTextColor={placeholderTextColor}
               multiline
               textAlignVertical="top"

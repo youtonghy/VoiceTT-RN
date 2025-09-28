@@ -3,6 +3,7 @@ export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox';
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
 
 export type TitleSummaryEngine = 'openai' | 'gemini';
+export type ConversationSummaryEngine = 'openai' | 'gemini';
 
 export interface EngineCredentials {
   openaiApiKey?: string;
@@ -10,9 +11,11 @@ export interface EngineCredentials {
   openaiTranscriptionModel?: string;
   openaiTranslationModel?: string;
   openaiTitleModel?: string;
+  openaiConversationModel?: string;
   geminiApiKey?: string;
   geminiTranslationModel?: string;
   geminiTitleModel?: string;
+  geminiConversationModel?: string;
   sonioxApiKey?: string;
   qwenApiKey?: string;
   qwenTranscriptionModel?: string;
@@ -37,10 +40,16 @@ export const DEFAULT_OPENAI_TITLE_MODEL = 'gpt-4o';
 export const DEFAULT_GEMINI_TITLE_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_TITLE_SUMMARY_PROMPT =
   'You are an assistant who writes short, descriptive conversation titles in the same language as the provided transcript. Respond with a concise noun phrase under twelve words. Never disclose sensitive or personal data.';
+export const DEFAULT_OPENAI_CONVERSATION_MODEL = DEFAULT_OPENAI_TITLE_MODEL;
+export const DEFAULT_GEMINI_CONVERSATION_MODEL = DEFAULT_GEMINI_TITLE_MODEL;
+export const DEFAULT_CONVERSATION_SUMMARY_PROMPT =
+  'You are a helpful assistant who writes detailed conversation summaries in the same language as the transcript. Produce 2-4 sentences that capture the main topics, decisions, and follow-up actions. Avoid fabricating details and never include sensitive personal data.';
 
 export interface AppSettings extends TranscriptionSettings {
   titleSummaryEngine: TitleSummaryEngine;
   titleSummaryPrompt: string;
+  conversationSummaryEngine: ConversationSummaryEngine;
+  conversationSummaryPrompt: string;
   credentials: EngineCredentials;
 }
 
@@ -59,13 +68,17 @@ export const defaultSettings: AppSettings = {
   enableAutoStart: false,
   titleSummaryEngine: 'openai',
   titleSummaryPrompt: DEFAULT_TITLE_SUMMARY_PROMPT,
+  conversationSummaryEngine: 'openai',
+  conversationSummaryPrompt: DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',
     openaiTranslationModel: 'gpt-4o-mini',
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,
+    openaiConversationModel: DEFAULT_OPENAI_CONVERSATION_MODEL,
     geminiTranslationModel: 'gemini-2.5-flash',
     geminiTitleModel: DEFAULT_GEMINI_TITLE_MODEL,
+    geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
     qwenTranscriptionModel: 'Qwen3-ASR',
   },
 };

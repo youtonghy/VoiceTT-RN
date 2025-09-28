@@ -36,14 +36,25 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (!parsed || typeof parsed !== 'object') {
       return null;
     }
-    return {
+    const parsedCredentials = parsed.credentials ?? {};
+    const merged: AppSettings = {
       ...defaultSettings,
       ...parsed,
       credentials: {
         ...defaultSettings.credentials,
-        ...(parsed.credentials ?? {}),
+        ...parsedCredentials,
       },
     };
+    if (parsed.conversationSummaryEngine === undefined) {
+      merged.conversationSummaryEngine = parsed.titleSummaryEngine ?? defaultSettings.titleSummaryEngine;
+    }
+    if (parsedCredentials.openaiConversationModel === undefined && merged.credentials.openaiTitleModel) {
+      merged.credentials.openaiConversationModel = merged.credentials.openaiTitleModel;
+    }
+    if (parsedCredentials.geminiConversationModel === undefined && merged.credentials.geminiTitleModel) {
+      merged.credentials.geminiConversationModel = merged.credentials.geminiTitleModel;
+    }
+    return merged;
   } catch (error) {
     console.warn('[settings] Failed to restore persisted settings', error);
     return null;

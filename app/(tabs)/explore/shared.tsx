@@ -10,7 +10,14 @@ import {
   DEFAULT_OPENAI_TRANSLATION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
-import { AppSettings, DEFAULT_GEMINI_TITLE_MODEL, DEFAULT_OPENAI_TITLE_MODEL } from '@/types/settings';
+import {
+  AppSettings,
+  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  DEFAULT_GEMINI_CONVERSATION_MODEL,
+  DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_MODEL,
+  DEFAULT_OPENAI_TITLE_MODEL,
+} from '@/types/settings';
 
 export type NumericSettingKey =
   | 'activationThreshold'
@@ -27,14 +34,17 @@ export interface FormState {
   maxSegmentDurationSec: string;
   transcriptionLanguage: string;
   titleSummaryPrompt: string;
+  conversationSummaryPrompt: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiTranscriptionModel: string;
   openaiTranslationModel: string;
   openaiTitleModel: string;
+  openaiConversationModel: string;
   geminiApiKey: string;
   geminiTranslationModel: string;
   geminiTitleModel: string;
+  geminiConversationModel: string;
   sonioxApiKey: string;
   qwenApiKey: string;
   qwenTranscriptionModel: string;
@@ -48,6 +58,8 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   maxSegmentDurationSec: String(settings.maxSegmentDurationSec),
   transcriptionLanguage: settings.transcriptionLanguage,
   titleSummaryPrompt: settings.titleSummaryPrompt,
+  conversationSummaryPrompt:
+    settings.conversationSummaryPrompt || DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   openaiApiKey: settings.credentials.openaiApiKey ?? '',
   openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
   openaiTranscriptionModel:
@@ -56,11 +68,15 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.openaiTranslationModel ?? DEFAULT_OPENAI_TRANSLATION_MODEL,
   openaiTitleModel:
     settings.credentials.openaiTitleModel ?? DEFAULT_OPENAI_TITLE_MODEL,
+  openaiConversationModel:
+    settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
   geminiApiKey: settings.credentials.geminiApiKey ?? '',
   geminiTranslationModel:
     settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
   geminiTitleModel:
     settings.credentials.geminiTitleModel ?? DEFAULT_GEMINI_TITLE_MODEL,
+  geminiConversationModel:
+    settings.credentials.geminiConversationModel ?? DEFAULT_GEMINI_CONVERSATION_MODEL,
   sonioxApiKey: settings.credentials.sonioxApiKey ?? '',
   qwenApiKey: settings.credentials.qwenApiKey ?? '',
   qwenTranscriptionModel:
