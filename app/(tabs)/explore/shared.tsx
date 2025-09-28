@@ -10,7 +10,7 @@ import {
   DEFAULT_OPENAI_TRANSLATION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
-import { AppSettings } from '@/types/settings';
+import { AppSettings, DEFAULT_GEMINI_TITLE_MODEL, DEFAULT_OPENAI_TITLE_MODEL } from '@/types/settings';
 
 export type NumericSettingKey =
   | 'activationThreshold'
@@ -26,12 +26,15 @@ export interface FormState {
   preRollDurationSec: string;
   maxSegmentDurationSec: string;
   transcriptionLanguage: string;
+  titleSummaryPrompt: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiTranscriptionModel: string;
   openaiTranslationModel: string;
+  openaiTitleModel: string;
   geminiApiKey: string;
   geminiTranslationModel: string;
+  geminiTitleModel: string;
   sonioxApiKey: string;
   qwenApiKey: string;
   qwenTranscriptionModel: string;
@@ -44,15 +47,20 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   preRollDurationSec: String(settings.preRollDurationSec),
   maxSegmentDurationSec: String(settings.maxSegmentDurationSec),
   transcriptionLanguage: settings.transcriptionLanguage,
+  titleSummaryPrompt: settings.titleSummaryPrompt,
   openaiApiKey: settings.credentials.openaiApiKey ?? '',
   openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
   openaiTranscriptionModel:
     settings.credentials.openaiTranscriptionModel ?? DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   openaiTranslationModel:
     settings.credentials.openaiTranslationModel ?? DEFAULT_OPENAI_TRANSLATION_MODEL,
+  openaiTitleModel:
+    settings.credentials.openaiTitleModel ?? DEFAULT_OPENAI_TITLE_MODEL,
   geminiApiKey: settings.credentials.geminiApiKey ?? '',
   geminiTranslationModel:
     settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
+  geminiTitleModel:
+    settings.credentials.geminiTitleModel ?? DEFAULT_GEMINI_TITLE_MODEL,
   sonioxApiKey: settings.credentials.sonioxApiKey ?? '',
   qwenApiKey: settings.credentials.qwenApiKey ?? '',
   qwenTranscriptionModel:

@@ -17,8 +17,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { TranscriptionMessage } from "@/types/transcription";
+import { generateConversationTitle } from "@/services/transcription";
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
@@ -176,7 +178,8 @@ export default function TranscriptionScreen() {
   const backgroundColor = useThemeColor({}, "background");
   const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
   const { width } = useWindowDimensions();
-  const { messages, error, clearError, stopSession, replaceMessages } = useTranscription();
+  const { settings } = useSettings();
+  const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
 
@@ -190,6 +193,10 @@ export default function TranscriptionScreen() {
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
   const bootstrappedHistoryRef = useRef(false);
+  const [autoTitleTrigger, setAutoTitleTrigger] = useState(0);
+  const autoTitlePendingRef = useRef<{ conversationId: string } | null>(null);
+  const previousSessionActiveRef = useRef(isSessionActive);
+  const autoTitleAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     let isMounted = true;
 
@@ -269,6 +276,77 @@ export default function TranscriptionScreen() {
       scrollRef.current?.scrollToEnd({ animated: true });
     }
   }, [messages]);
+  useEffect(() => {
+    const pending = autoTitlePendingRef.current;
+    if (!pending) {
+      return;
+    }
+    const targetConversation = historyItems.find((item) => item.id === pending.conversationId);
+    if (!targetConversation) {
+      return;
+    }
+    const hasProcessing = targetConversation.messages.some(
+      (msg) => msg.status === 'pending' || msg.status === 'transcribing'
+    );
+    if (hasProcessing) {
+      return;
+    }
+    const transcriptSegments = targetConversation.messages
+      .map((msg) => msg.transcript?.trim())
+      .filter((segment): segment is string => !!segment && segment.length > 0);
+    const transcriptText = transcriptSegments.join('\n').trim();
+    if (!transcriptText) {
+      autoTitlePendingRef.current = null;
+      return;
+    }
+    const translationSegments = targetConversation.messages
+      .map((msg) => msg.translation?.trim())
+      .filter((segment): segment is string => !!segment && segment.length > 0);
+    const translationText = (translationSegments.length > 0
+      ? translationSegments.join('\n').trim()
+      : targetConversation.translation?.trim()) || undefined;
+    if (autoTitleAbortRef.current) {
+      return;
+    }
+    autoTitlePendingRef.current = null;
+    const controller = new AbortController();
+    autoTitleAbortRef.current = controller;
+    generateConversationTitle(
+      transcriptText,
+      translationText,
+      settings,
+      controller.signal
+    )
+      .then((generatedTitle) => {
+        const cleanTitle = generatedTitle.trim();
+        if (!cleanTitle) {
+          return;
+        }
+        if (targetConversation.title === cleanTitle) {
+          return;
+        }
+        setHistoryItems((prev) =>
+          prev.map((item) =>
+            item.id === targetConversation.id ? { ...item, title: cleanTitle } : item
+          )
+        );
+      })
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[transcription] Failed to auto-generate conversation title', err);
+        Alert.alert('??????', message);
+      })
+      .finally(() => {
+        autoTitleAbortRef.current = null;
+        if (autoTitlePendingRef.current) {
+          setAutoTitleTrigger((prev) => prev + 1);
+        }
+      });
+  }, [historyItems, settings, autoTitleTrigger]);
+
 
 
   useEffect(() => {
@@ -286,6 +364,20 @@ export default function TranscriptionScreen() {
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+  useEffect(() => {
+    return () => {
+      autoTitleAbortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    const wasActive = previousSessionActiveRef.current;
+    previousSessionActiveRef.current = isSessionActive;
+    if (wasActive && !isSessionActive && activeConversationIdRef.current) {
+      autoTitlePendingRef.current = { conversationId: activeConversationIdRef.current };
+      setAutoTitleTrigger((prev) => prev + 1);
+    }
+  }, [isSessionActive]);
 
   useEffect(() => {
     const currentActiveId = activeConversationIdRef.current;

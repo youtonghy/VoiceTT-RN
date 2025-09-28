@@ -1,7 +1,12 @@
 import { Platform } from 'react-native';
 import { EncodingType, getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
-import { AppSettings } from '@/types/settings';
+import {
+  AppSettings,
+  DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_TITLE_MODEL,
+  DEFAULT_TITLE_SUMMARY_PROMPT,
+} from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
@@ -10,6 +15,9 @@ export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
+export const DEFAULT_TITLE_RESPONSE_MAX_TOKENS = 96;
+export const DEFAULT_TITLE_RESPONSE_TEMPERATURE = 0.4;
+const MAX_TITLE_INPUT_CHARS = 6000;
 const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 const SONIOX_API_BASE_URL = 'https://api.soniox.com';
@@ -868,4 +876,231 @@ export async function translateText(
     default:
       throw new Error('Translation engine ' + settings.translationEngine + ' not implemented yet');
   }
+}
+function collectOpenAIText(data: any): string {
+  const outputBlocks = data?.output ?? data?.choices ?? [];
+  let collected = '';
+  if (Array.isArray(outputBlocks)) {
+    for (const block of outputBlocks) {
+      if (Array.isArray(block?.content)) {
+        for (const item of block.content) {
+          if (item?.type === 'output_text' && typeof item.text === 'string') {
+            collected += item.text;
+          } else if (typeof item?.text === 'string') {
+            collected += item.text;
+          }
+        }
+      }
+      if (typeof block?.text === 'string') {
+        collected += block.text;
+      }
+    }
+  }
+  if (!collected && typeof data?.output_text === 'string') {
+    collected = data.output_text;
+  }
+  if (!collected && Array.isArray(data?.choices)) {
+    collected = data.choices
+      .map((choice: any) => {
+        if (typeof choice?.text === 'string') {
+          return choice.text;
+        }
+        if (Array.isArray(choice?.message?.content)) {
+          return choice.message.content
+            .map((item: any) => (typeof item?.text === 'string' ? item.text : ''))
+            .join('');
+        }
+        if (typeof choice?.message?.content === 'string') {
+          return choice.message.content;
+        }
+        return '';
+      })
+      .join('');
+  }
+  if (!collected && typeof data?.content === 'string') {
+    collected = data.content;
+  }
+  return collected;
+}
+
+function cleanupTitleCandidate(raw: string): string {
+  if (!raw) {
+    return '';
+  }
+  const firstLine = raw.split(/[\r\n]+/)[0] ?? raw;
+  const trimmed = firstLine.trim();
+  const withoutQuotes = trimmed.replace(/^["'¡°¡±¡®¡¯]+/, '').replace(/["'¡°¡±¡®¡¯]+$/, '').trim();
+  if (withoutQuotes.length > 80) {
+    return withoutQuotes.slice(0, 80).trim();
+  }
+  return withoutQuotes;
+}
+
+function buildTitleInput(transcript: string, translation?: string): string {
+  const parts: string[] = [];
+  const transcriptText = transcript.trim();
+  if (transcriptText) {
+    parts.push('Transcript:\n' + transcriptText);
+  }
+  const translationText = translation?.trim();
+  if (translationText) {
+    parts.push('Translation:\n' + translationText);
+  }
+  const combined = parts.join('\n\n').trim();
+  if (combined.length > MAX_TITLE_INPUT_CHARS) {
+    return combined.slice(0, MAX_TITLE_INPUT_CHARS);
+  }
+  return combined;
+}
+
+async function generateTitleWithOpenAI(
+  input: string,
+  prompt: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const apiKey = settings.credentials.openaiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for title summarization');
+  }
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const model = settings.credentials.openaiTitleModel?.trim() || DEFAULT_OPENAI_TITLE_MODEL;
+  const payload = {
+    model,
+    instructions: prompt,
+    input: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: input,
+          },
+        ],
+      },
+    ],
+    temperature: DEFAULT_TITLE_RESPONSE_TEMPERATURE,
+    max_output_tokens: DEFAULT_TITLE_RESPONSE_MAX_TOKENS,
+    modalities: ['text'],
+    response_format: {
+      type: 'text',
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI title generation failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const collected = collectOpenAIText(data).trim();
+  if (!collected) {
+    throw new Error('OpenAI title generation returned empty response');
+  }
+  return collected;
+}
+
+async function generateTitleWithGemini(
+  input: string,
+  prompt: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for title summarization');
+  }
+  const model = settings.credentials.geminiTitleModel?.trim() || DEFAULT_GEMINI_TITLE_MODEL;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: input }],
+      },
+    ],
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: prompt }],
+    },
+    generationConfig: {
+      temperature: DEFAULT_TITLE_RESPONSE_TEMPERATURE,
+      maxOutputTokens: DEFAULT_TITLE_RESPONSE_MAX_TOKENS,
+      topP: 0.95,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini title generation failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  let text = '';
+  if (Array.isArray(data?.candidates)) {
+    for (const candidate of data.candidates) {
+      const parts = candidate?.content?.parts ?? candidate?.parts;
+      if (Array.isArray(parts)) {
+        const combined = parts
+          .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+          .join('');
+        if (combined.trim()) {
+          text = combined.trim();
+          break;
+        }
+      }
+      if (typeof candidate?.text === 'string' && candidate.text.trim()) {
+        text = candidate.text.trim();
+        break;
+      }
+    }
+  }
+  if (!text && typeof data?.text === 'string') {
+    text = data.text.trim();
+  }
+  if (!text) {
+    throw new Error('Gemini title generation returned empty response');
+  }
+  return text;
+}
+
+export async function generateConversationTitle(
+  transcript: string,
+  translation: string | undefined,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<string> {
+  const input = buildTitleInput(transcript, translation);
+  if (!input) {
+    throw new Error('Conversation transcript is empty');
+  }
+  const prompt = (settings.titleSummaryPrompt || '').trim() || DEFAULT_TITLE_SUMMARY_PROMPT;
+  const raw = settings.titleSummaryEngine === 'gemini'
+    ? await generateTitleWithGemini(input, prompt, settings, signal)
+    : await generateTitleWithOpenAI(input, prompt, settings, signal);
+  const cleaned = cleanupTitleCandidate(raw);
+  if (!cleaned) {
+    throw new Error('Title summarization response was empty');
+  }
+  return cleaned;
 }

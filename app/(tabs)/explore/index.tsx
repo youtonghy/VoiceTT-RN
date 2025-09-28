@@ -26,6 +26,11 @@ const entryConfigs = [
     subtitle: '译文开关与管线',
   },
   {
+    route: '/explore/summary' as const,
+    title: '总结设置',
+    subtitle: '标题引擎与提示词',
+  },
+  {
     route: '/explore/credentials' as const,
     title: '凭据',
     subtitle: '管理模型密钥',
