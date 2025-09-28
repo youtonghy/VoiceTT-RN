@@ -262,6 +262,7 @@ export default function TranscriptionScreen() {
   const { width } = useWindowDimensions();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
+  const carouselRef = useRef<ScrollView | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
@@ -273,6 +274,7 @@ export default function TranscriptionScreen() {
   const [assistantSending, setAssistantSending] = useState(false);
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
+  const initialCarouselPositionedRef = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
   );
@@ -921,6 +923,29 @@ export default function TranscriptionScreen() {
 
   const pageWidth = width;
 
+
+  useEffect(() => {
+    if (initialCarouselPositionedRef.current) {
+      return;
+    }
+    if (pageWidth <= 0) {
+      return;
+    }
+    const target = carouselRef.current;
+    if (!target) {
+      return;
+    }
+    const scrollToHistory = () => {
+      target.scrollTo({ x: pageWidth, animated: false });
+      initialCarouselPositionedRef.current = true;
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(scrollToHistory);
+    } else {
+      setTimeout(scrollToHistory, 0);
+    }
+  }, [pageWidth]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={["top"]}>
       <ThemedView style={styles.container}>
@@ -931,6 +956,7 @@ export default function TranscriptionScreen() {
         </View>
         <View style={styles.content}>
           <ScrollView
+            ref={carouselRef}
             horizontal
             pagingEnabled
             bounces={false}
