@@ -750,10 +750,16 @@ export default function TranscriptionScreen() {
 
 
   const handleSelectConversation = useCallback(async (conversationId: string) => {
-    if (conversationId === activeConversationId) {
+    if (!historyItems.some((item) => item.id === conversationId)) {
       return;
     }
-    if (!historyItems.some((item) => item.id === conversationId)) {
+    const targetCarousel = carouselRef.current;
+    const scrollToTranscription = () => {
+      targetCarousel?.scrollTo({ x: 0, animated: true });
+      initialCarouselPositionedRef.current = true;
+    };
+    if (conversationId === activeConversationId) {
+      scrollToTranscription();
       return;
     }
     try {
@@ -762,6 +768,7 @@ export default function TranscriptionScreen() {
       console.warn("[transcription] stopSession failed before switching conversation", sessionError);
     }
     setActiveConversationId(conversationId);
+    scrollToTranscription();
   }, [activeConversationId, historyItems, stopSession]);
 
   useEffect(() => {
