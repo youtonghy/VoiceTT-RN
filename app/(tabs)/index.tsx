@@ -21,9 +21,25 @@ import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { TranscriptionMessage } from "@/types/transcription";
-import { generateConversationTitle, generateConversationSummary } from "@/services/transcription";
+import {
+  generateConversationTitle,
+  generateConversationSummary,
+  generateAssistantReply,
+  type AssistantConversationTurn,
+} from "@/services/transcription";
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+
+type AssistantMessageStatus = "pending" | "succeeded" | "failed";
+
+type AssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: number;
+  status: AssistantMessageStatus;
+  error?: string;
+};
 
 type HistoryConversation = {
   id: string;
@@ -33,6 +49,7 @@ type HistoryConversation = {
   summary?: string;
   createdAt: number;
   messages: TranscriptionMessage[];
+  assistantMessages: AssistantMessage[];
 };
 
 function createHistorySeed(): HistoryConversation[] {
@@ -43,7 +60,7 @@ function createHistorySeed(): HistoryConversation[] {
 const HISTORY_SEED = createHistorySeed();
 
 const HISTORY_STORAGE_KEY = "@agents/history-conversations";
-const HISTORY_STORAGE_VERSION = 1;
+const HISTORY_STORAGE_VERSION = 2;
 
 type StoredHistoryPayload = {
   version?: number;
@@ -51,6 +68,51 @@ type StoredHistoryPayload = {
   activeConversationId?: string | null;
   nextIdCounter?: number;
 };
+
+function createAssistantMessageId(role: "user" | "assistant"): string {
+  return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const sanitized: AssistantMessage[] = [];
+  raw.forEach((item) => {
+    if (!item || typeof item !== "object") {
+      return;
+    }
+    const candidate = item as Partial<AssistantMessage>;
+    if (candidate.role !== "user" && candidate.role !== "assistant") {
+      return;
+    }
+    const textContent = typeof candidate.content === "string" ? candidate.content.trim() : "";
+    if (!textContent) {
+      return;
+    }
+    sanitized.push({
+      id:
+        typeof candidate.id === "string" && candidate.id.trim()
+          ? candidate.id
+          : createAssistantMessageId(candidate.role),
+      role: candidate.role,
+      content: textContent,
+      createdAt:
+        typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
+          ? candidate.createdAt
+          : Date.now(),
+      status:
+        candidate.status === "failed" || candidate.status === "pending"
+          ? candidate.status
+          : "succeeded",
+      error:
+        typeof candidate.error === "string" && candidate.error.trim()
+          ? candidate.error.trim()
+          : undefined,
+    });
+  });
+  return sanitized;
+}
 
 function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
   if (!Array.isArray(raw)) {
@@ -84,6 +146,7 @@ function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
             )
             .map((message) => ({ ...message }))
         : [],
+      assistantMessages: sanitizeAssistantMessages(candidate.assistantMessages),
     });
   });
   return sanitized;
@@ -180,17 +243,25 @@ export default function TranscriptionScreen() {
   const cardDark = "#0f172a";
   const backgroundColor = useThemeColor({}, "background");
   const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
+  const assistantAssistantBubbleColor = useThemeColor(
+    { light: "rgba(15, 23, 42, 0.06)", dark: "rgba(148, 163, 184, 0.18)" },
+    "card"
+  );
+  const assistantMetaColor = useThemeColor({ light: "#64748b", dark: "#94a3b8" }, "text");
   const { width } = useWindowDimensions();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
+  const assistantScrollRef = useRef<ScrollView | null>(null);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [assistantDraft, setAssistantDraft] = useState("");
+  const [assistantSending, setAssistantSending] = useState(false);
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
+  const assistantAbortRef = useRef<AbortController | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
   );
@@ -283,6 +354,7 @@ export default function TranscriptionScreen() {
       scrollRef.current?.scrollToEnd({ animated: true });
     }
   }, [messages]);
+
   useEffect(() => {
     const pending = autoTitlePendingRef.current;
     if (!pending) {
@@ -445,6 +517,7 @@ export default function TranscriptionScreen() {
     return () => {
       autoTitleAbortRef.current?.abort();
       autoSummaryAbortRef.current?.abort();
+      assistantAbortRef.current?.abort();
     };
   }, []);
 
@@ -605,6 +678,7 @@ export default function TranscriptionScreen() {
         summary: undefined,
         createdAt: now,
         messages: [],
+        assistantMessages: [],
       };
 
       setHistoryItems((prev) => [nextConversation, ...prev]);
@@ -685,15 +759,132 @@ export default function TranscriptionScreen() {
     setAssistantDraft(text);
   }, []);
 
-  const handleAssistantSend = useCallback(() => {
+  const handleAssistantSend = useCallback(async () => {
+    if (assistantSending) {
+      return;
+    }
     const trimmed = assistantDraft.trim();
     if (!trimmed) {
       return;
     }
-    setAssistantDraft('');
-  }, [assistantDraft]);
+    const conversation = activeConversation;
+    if (!conversation) {
+      return;
+    }
 
+    const conversationId = conversation.id;
+    const messageId = createAssistantMessageId('user');
+    const userMessage: AssistantMessage = {
+      id: messageId,
+      role: 'user',
+      content: trimmed,
+      createdAt: Date.now(),
+      status: 'pending',
+    };
+
+    setAssistantDraft('');
+    setAssistantSending(true);
+    setHistoryItems((prev) =>
+      prev.map((item) =>
+        item.id === conversationId
+          ? { ...item, assistantMessages: [...item.assistantMessages, userMessage] }
+          : item
+      )
+    );
+
+    assistantAbortRef.current?.abort();
+    const controller = new AbortController();
+    assistantAbortRef.current = controller;
+
+    const historyPayload: AssistantConversationTurn[] = conversation.assistantMessages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    try {
+      const reply = await generateAssistantReply({
+        transcript: conversation.transcript,
+        translation: conversation.translation,
+        summary: conversation.summary,
+        history: historyPayload,
+        userMessage: trimmed,
+        settings,
+        signal: controller.signal,
+      });
+
+      const assistantMessage: AssistantMessage = {
+        id: createAssistantMessageId('assistant'),
+        role: 'assistant',
+        content: reply,
+        createdAt: Date.now(),
+        status: 'succeeded',
+      };
+
+      setHistoryItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== conversationId) {
+            return item;
+          }
+          const updated = item.assistantMessages.map((msg) =>
+            msg.id === messageId ? { ...msg, status: 'succeeded' } : msg
+          );
+          return {
+            ...item,
+            assistantMessages: [...updated, assistantMessage],
+          };
+        })
+      );
+    } catch (err) {
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      const rawMessage = err instanceof Error ? err.message : String(err);
+      const displayMessage = rawMessage || '发送失败';
+
+      setHistoryItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== conversationId) {
+            return item;
+          }
+          if (isAbort) {
+            return {
+              ...item,
+              assistantMessages: item.assistantMessages.filter((msg) => msg.id !== messageId),
+            };
+          }
+          return {
+            ...item,
+            assistantMessages: item.assistantMessages.map((msg) =>
+              msg.id === messageId ? { ...msg, status: 'failed', error: displayMessage } : msg
+            ),
+          };
+        })
+      );
+
+      if (!isAbort) {
+        Alert.alert('智能对话失败', displayMessage);
+      }
+    } finally {
+      assistantAbortRef.current = null;
+      setAssistantSending(false);
+    }
+  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, generateAssistantReply]);
+
+  const assistantMessages = activeConversation?.assistantMessages ?? [];
+
+  useEffect(() => {
+    if (assistantMessages.length === 0) {
+      return;
+    }
+    const scrollToBottom = () => {
+      assistantScrollRef.current?.scrollToEnd({ animated: true });
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(scrollToBottom);
+    } else {
+      setTimeout(scrollToBottom, 0);
+    }
+  }, [assistantMessages.length]);
   const assistantHasInput = assistantDraft.trim().length > 0;
+  const assistantCanSend = assistantHasInput && !assistantSending;
   const assistantSummary = activeConversation?.summary?.trim() ?? '';
   const assistantSummaryPlaceholder = '暂无对话总结，完成录音后自动生成。';
 
@@ -842,43 +1033,85 @@ export default function TranscriptionScreen() {
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
                   智能对话
                 </ThemedText>
-                <LinearGradient
-                  colors={["#38bdf8", "#6366f1", "#ec4899"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.assistantSummaryCard}
-                >
-                  <ThemedText
-                    style={styles.assistantSummaryLabel}
-                    lightColor="#f8fafc"
-                    darkColor="#e2e8f0"
-                  >
-                    对话总结
-                  </ThemedText>
-                  <ThemedText
-                    style={styles.assistantSummaryText}
-                    lightColor="#f8fafc"
-                    darkColor="#f8fafc"
-                  >
-                    {assistantSummary || assistantSummaryPlaceholder}
-                  </ThemedText>
-                </LinearGradient>
                 <View style={styles.assistantConversation}>
                   <ScrollView
+                    ref={assistantScrollRef}
                     style={styles.assistantConversationScroll}
                     contentContainerStyle={styles.assistantConversationContent}
-                    showsVerticalScrollIndicator={false}
-                  >
+                    showsVerticalScrollIndicator={false}>
                     <LinearGradient
-                      colors={["#e0f2fe", "#e9d5ff", "#fce7f3"]}
+                      colors={["#38bdf8", "#6366f1", "#ec4899"]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={styles.assistantLeadMessage}
-                    >
-                      <ThemedText style={styles.assistantLeadText} lightColor="#1f2937" darkColor="#0f172a">
-                        {" "}
+                      style={styles.assistantSummaryCard}>
+                      <ThemedText
+                        style={styles.assistantSummaryLabel}
+                        lightColor="#f8fafc"
+                        darkColor="#e2e8f0">
+                        瀵硅瘽鎬荤粨
+                      </ThemedText>
+                      <ThemedText
+                        style={styles.assistantSummaryText}
+                        lightColor="#f8fafc"
+                        darkColor="#f8fafc">
+                        {assistantSummary || assistantSummaryPlaceholder}
                       </ThemedText>
                     </LinearGradient>
+                    {assistantMessages.length === 0 ? (
+                      <ThemedText
+                        style={styles.assistantEmptyText}
+                        lightColor="#94a3b8"
+                        darkColor="#94a3b8">
+                        暂无聊天记录，试着提一个问题。
+                      </ThemedText>
+                    ) : (
+                      assistantMessages.map((message) => {
+                        const isUser = message.role === 'user';
+                        const statusText =
+                          message.status === 'pending'
+                            ? '等待回复…'
+                            : message.status === 'failed'
+                            ? message.error?.trim() || '发送失败'
+                            : null;
+                        return (
+                          <View
+                            key={message.id}
+                            style={[
+                              styles.assistantMessageRow,
+                              isUser
+                                ? styles.assistantMessageRowUser
+                                : styles.assistantMessageRowAssistant,
+                            ]}>
+                            <View
+                              style={[
+                                styles.assistantMessageBubble,
+                                isUser
+                                  ? styles.assistantMessageBubbleUser
+                                  : styles.assistantMessageBubbleAssistant,
+                                !isUser && { backgroundColor: assistantAssistantBubbleColor },
+                              ]}>
+                              <ThemedText
+                                style={[
+                                  styles.assistantMessageText,
+                                  isUser && styles.assistantMessageTextUser,
+                                ]}>
+                                {message.content}
+                              </ThemedText>
+                              {statusText ? (
+                                <ThemedText
+                                  style={[
+                                    styles.assistantMessageStatus,
+                                    { color: assistantMetaColor },
+                                    message.status === 'failed' && styles.assistantMessageStatusError,
+                                  ]}>
+                                  {statusText}
+                                </ThemedText>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
                   </ScrollView>
                 </View>
                 <View style={styles.assistantComposer}>
@@ -891,16 +1124,17 @@ export default function TranscriptionScreen() {
                     returnKeyType="done"
                     selectionColor="#2563eb"
                   />
-                  {assistantHasInput ? (
+                  {assistantCanSend ? (
                     <Pressable
                       onPress={handleAssistantSend}
                       accessibilityRole="button"
                       accessibilityLabel="发送输入"
+                      disabled={assistantSending}
                       style={({ pressed }) => [
                         styles.assistantSendButton,
                         pressed && styles.assistantSendButtonPressed,
-                      ]}
-                    >
+                        assistantSending && styles.assistantSendButtonDisabled,
+                      ]}>
                       <Ionicons name="paper-plane" size={18} color="#ffffff" />
                     </Pressable>
                   ) : null}
@@ -959,6 +1193,7 @@ const styles = StyleSheet.create({
   assistantSummaryCard: {
     borderRadius: 20,
     padding: 20,
+    marginBottom: 12,
     gap: 12,
     overflow: "hidden",
   },
@@ -975,22 +1210,59 @@ const styles = StyleSheet.create({
   },
   assistantConversationScroll: {
     flex: 1,
+    paddingHorizontal: 4,
   },
   assistantConversationContent: {
     flexGrow: 1,
     justifyContent: "flex-start",
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 0,
+    paddingBottom: 16,
   },
-  assistantLeadMessage: {
-    borderRadius: 20,
-    padding: 20,
-    minHeight: 120,
-    justifyContent: "center",
+  assistantEmptyText: {
+    textAlign: "center",
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
   },
-  assistantLeadText: {
-    fontSize: 16,
-    lineHeight: 24,
+  assistantMessageRow: {
+    width: "100%",
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  assistantMessageRowAssistant: {
+    justifyContent: "flex-start",
+  },
+  assistantMessageRowUser: {
+    justifyContent: "flex-end",
+  },
+  assistantMessageBubble: {
+    maxWidth: "84%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  assistantMessageBubbleAssistant: {
+    backgroundColor: "rgba(15, 23, 42, 0.06)",
+  },
+  assistantMessageBubbleUser: {
+    backgroundColor: "#2563eb",
+  },
+  assistantMessageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  assistantMessageTextUser: {
+    color: "#ffffff",
+  },
+  assistantMessageStatus: {
+    marginTop: 6,
+    fontSize: 12,
+  },
+  assistantMessageStatusError: {
+    color: "#ef4444",
+  },
+  assistantSendButtonDisabled: {
+    opacity: 0.7,
   },
   assistantComposer: {
     flexDirection: "row",

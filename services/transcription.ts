@@ -24,6 +24,13 @@ export const DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS = 512;
 export const DEFAULT_CONVERSATION_RESPONSE_TEMPERATURE = 0.35;
 const MAX_TITLE_INPUT_CHARS = 6000;
 const MAX_CONVERSATION_INPUT_CHARS = 20000;
+const MAX_ASSISTANT_CONTEXT_CHARS = 12000;
+const MAX_ASSISTANT_SUMMARY_CHARS = 2000;
+const MAX_ASSISTANT_TRANSLATION_CHARS = 9000;
+const MAX_ASSISTANT_TRANSCRIPT_CHARS = 9000;
+const MAX_ASSISTANT_HISTORY_MESSAGES = 8;
+const DEFAULT_ASSISTANT_RESPONSE_MAX_TOKENS = 768;
+const DEFAULT_ASSISTANT_RESPONSE_TEMPERATURE = 0.6;
 const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 const SONIOX_API_BASE_URL = 'https://api.soniox.com';
@@ -1279,4 +1286,264 @@ export async function generateConversationSummary(
     throw new Error('Conversation summarization response was empty');
   }
   return cleaned;
+}
+
+export interface AssistantConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface GenerateAssistantReplyOptions {
+  transcript: string;
+  translation?: string;
+  summary?: string;
+  history: AssistantConversationTurn[];
+  userMessage: string;
+  settings: AppSettings;
+  signal?: AbortSignal;
+}
+
+interface AssistantReplyParams {
+  instructions: string;
+  history: AssistantConversationTurn[];
+  userMessage: string;
+  settings: AppSettings;
+  signal?: AbortSignal;
+}
+
+function clampTail(text: string, limit: number): string {
+  if (!text || limit <= 0) {
+    return '';
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  return text.slice(text.length - limit);
+}
+
+function buildAssistantContext(
+  summary: string | undefined,
+  transcript: string,
+  translation?: string
+): string {
+  let remaining = MAX_ASSISTANT_CONTEXT_CHARS;
+  const segments: string[] = [];
+  const trimmedSummary = summary?.trim();
+  if (trimmedSummary && remaining > 0) {
+    const label = 'Summary:\n';
+    const available = Math.max(0, remaining - label.length);
+    if (available > 0) {
+      const content = clampTail(
+        trimmedSummary,
+        Math.min(available, MAX_ASSISTANT_SUMMARY_CHARS)
+      );
+      if (content) {
+        segments.push(label + content);
+        remaining -= label.length + content.length;
+      }
+    }
+  }
+
+  const trimmedTranslation = translation?.trim();
+  if (trimmedTranslation && remaining > 0) {
+    const label = 'Translation:\n';
+    const available = Math.max(0, remaining - label.length);
+    if (available > 0) {
+      const content = clampTail(
+        trimmedTranslation,
+        Math.min(available, MAX_ASSISTANT_TRANSLATION_CHARS)
+      );
+      if (content) {
+        segments.push(label + content);
+        remaining -= label.length + content.length;
+      }
+    }
+  }
+
+  const trimmedTranscript = transcript.trim();
+  if (trimmedTranscript && remaining > 0) {
+    const label = 'Transcript:\n';
+    const available = Math.max(0, remaining - label.length);
+    if (available > 0) {
+      const content = clampTail(
+        trimmedTranscript,
+        Math.min(available, MAX_ASSISTANT_TRANSCRIPT_CHARS)
+      );
+      if (content) {
+        segments.push(label + content);
+        remaining -= label.length + content.length;
+      }
+    }
+  }
+
+  return segments.join('\n\n').trim();
+}
+
+async function generateAssistantReplyWithOpenAI({
+  instructions,
+  history,
+  userMessage,
+  settings,
+  signal,
+}: AssistantReplyParams): Promise<string> {
+  const apiKey = settings.credentials.openaiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for conversation assistant');
+  }
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const model =
+    settings.credentials.openaiConversationModel?.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL;
+  const payload = {
+    model,
+    instructions,
+    input: [
+      ...history.map((message) => ({
+        role: message.role,
+        content: [
+          {
+            type: 'input_text',
+            text: message.content,
+          },
+        ],
+      })),
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: userMessage,
+          },
+        ],
+      },
+    ],
+    temperature: DEFAULT_ASSISTANT_RESPONSE_TEMPERATURE,
+    max_output_tokens: DEFAULT_ASSISTANT_RESPONSE_MAX_TOKENS,
+    modalities: ['text'],
+    response_format: { type: 'text' },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI conversation assistant failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectOpenAIText(data).trim();
+  if (!text) {
+    throw new Error('OpenAI conversation assistant returned empty response');
+  }
+  return text;
+}
+
+async function generateAssistantReplyWithGemini({
+  instructions,
+  history,
+  userMessage,
+  settings,
+  signal,
+}: AssistantReplyParams): Promise<string> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for conversation assistant');
+  }
+  const model =
+    settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const contents = history.map((message) => ({
+    role: message.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: message.content }],
+  }));
+  contents.push({ role: 'user', parts: [{ text: userMessage }] });
+  const payload = {
+    contents,
+    systemInstruction: {
+      role: 'system',
+      parts: [{ text: instructions }],
+    },
+    generationConfig: {
+      temperature: DEFAULT_ASSISTANT_RESPONSE_TEMPERATURE,
+      maxOutputTokens: DEFAULT_ASSISTANT_RESPONSE_MAX_TOKENS,
+      topP: 0.95,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini conversation assistant failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectOpenAIText(data).trim();
+  if (!text) {
+    throw new Error('Gemini conversation assistant returned empty response');
+  }
+  return text;
+}
+
+export async function generateAssistantReply({
+  transcript,
+  translation,
+  summary,
+  history,
+  userMessage,
+  settings,
+  signal,
+}: GenerateAssistantReplyOptions): Promise<string> {
+  const trimmedMessage = userMessage.trim();
+  if (!trimmedMessage) {
+    throw new Error('Assistant prompt is empty');
+  }
+
+  const context = buildAssistantContext(summary, transcript, translation);
+  const sanitizedHistory = history
+    .filter((item) => item && (item.role === 'user' || item.role === 'assistant'))
+    .map((item) => ({
+      role: item.role,
+      content: (item.content ?? '').trim(),
+    }))
+    .filter((item) => item.content.length > 0)
+    .slice(-MAX_ASSISTANT_HISTORY_MESSAGES);
+
+  const instructionsParts = [
+    'You are a helpful conversation assistant who answers follow-up questions using the provided meeting context.',
+    'Ground responses in the transcript and avoid inventing details. If the answer is unknown, say you do not know.',
+    'Respond in the same language as the user whenever possible.',
+  ];
+  if (context) {
+    instructionsParts.push('Conversation context:\n' + context);
+  }
+  const instructions = instructionsParts.join('\n\n').trim();
+
+  const params: AssistantReplyParams = {
+    instructions,
+    history: sanitizedHistory,
+    userMessage: trimmedMessage,
+    settings,
+    signal,
+  };
+
+  if (settings.conversationSummaryEngine === 'gemini') {
+    return generateAssistantReplyWithGemini(params);
+  }
+  return generateAssistantReplyWithOpenAI(params);
 }
