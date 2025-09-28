@@ -1,8 +1,7 @@
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
@@ -21,7 +20,6 @@ export default function TranscriptionSettingsScreen() {
   const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
   const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const sectionTitleStyle = [settingsStyles.sectionTitle, isDark && settingsStyles.sectionTitleDark];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
   const safeAreaStyle = [
     settingsStyles.safeArea,
@@ -41,18 +39,7 @@ export default function TranscriptionSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <ThemedView
-            style={settingsStyles.section}
-            lightColor="rgba(148, 163, 184, 0.12)"
-            darkColor="rgba(15, 23, 42, 0.7)">
-            <ThemedText
-              type="subtitle"
-              style={sectionTitleStyle}
-              lightColor="#0f172a"
-              darkColor="#e2e8f0">
-              转写设置
-            </ThemedText>
-
+          <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
               转写引擎
             </ThemedText>
@@ -85,9 +72,15 @@ export default function TranscriptionSettingsScreen() {
                 placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </ThemedView>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  section: {
+    gap: 16,
+  },
+});

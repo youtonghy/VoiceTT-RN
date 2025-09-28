@@ -56,9 +56,8 @@ export default function SettingsIndexScreen() {
           </ThemedText>
         </View>
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.entryRow}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.entryList}
           style={styles.entryScroll}>
           {entryItems.map((entry) => (
             <Pressable
@@ -103,20 +102,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   entryScroll: {
-    flexGrow: 0,
+    flex: 1,
   },
-  entryRow: {
+  entryList: {
     paddingHorizontal: 20,
+    paddingBottom: 24,
     gap: 16,
   },
   entryPressable: {
     borderRadius: 24,
+    width: '100%',
   },
   entryPressed: {
     opacity: 0.85,
   },
   entryCard: {
-    width: 220,
+    width: '100%',
     padding: 20,
     borderRadius: 24,
     gap: 10,

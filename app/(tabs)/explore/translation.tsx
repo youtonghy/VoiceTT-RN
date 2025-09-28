@@ -1,8 +1,7 @@
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranslationEngine } from '@/types/settings';
@@ -18,7 +17,6 @@ export default function TranslationSettingsScreen() {
   const insets = useSafeAreaInsets();
 
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const sectionTitleStyle = [settingsStyles.sectionTitle, isDark && settingsStyles.sectionTitleDark];
   const safeAreaStyle = [
     settingsStyles.safeArea,
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
@@ -37,17 +35,10 @@ export default function TranslationSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <ThemedView
-            style={settingsStyles.section}
-            lightColor="rgba(148, 163, 184, 0.12)"
-            darkColor="rgba(15, 23, 42, 0.7)">
+          <View style={styles.section}>
             <View style={settingsStyles.rowBetween}>
-              <ThemedText
-                type="subtitle"
-                style={sectionTitleStyle}
-                lightColor="#0f172a"
-                darkColor="#e2e8f0">
-                翻译设置
+              <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+                启用翻译
               </ThemedText>
               <Switch
                 value={settings.enableTranslation}
@@ -69,9 +60,15 @@ export default function TranslationSettingsScreen() {
                 />
               ))}
             </View>
-          </ThemedView>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  section: {
+    gap: 16,
+  },
+});

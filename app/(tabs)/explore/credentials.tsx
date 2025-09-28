@@ -1,8 +1,14 @@
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -13,7 +19,7 @@ import {
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
 
-import { CredentialCard, settingsStyles, useSettingsForm } from './shared';
+import { settingsStyles, useSettingsForm } from './shared';
 
 export default function CredentialSettingsScreen() {
   const { settings, updateCredentials } = useSettings();
@@ -44,234 +50,210 @@ export default function CredentialSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <ThemedView
-            style={settingsStyles.section}
-            lightColor="rgba(148, 163, 184, 0.12)"
-            darkColor="rgba(15, 23, 42, 0.7)">
-            <ThemedText
-              type="subtitle"
-              style={sectionTitleStyle}
-              lightColor="#0f172a"
-              darkColor="#e2e8f0">
-              凭据
+          <View style={styles.section}>
+            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              OpenAI
             </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                Base URL
+              </ThemedText>
+              <TextInput
+                value={formState.openaiBaseUrl}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    openaiBaseUrl: formState.openaiBaseUrl.trim() || DEFAULT_OPENAI_BASE_URL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_OPENAI_BASE_URL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                API Key
+              </ThemedText>
+              <TextInput
+                value={formState.openaiApiKey}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
+                onBlur={() =>
+                  updateCredentials({ openaiApiKey: formState.openaiApiKey.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="sk-..."
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                转写模型
+              </ThemedText>
+              <TextInput
+                value={formState.openaiTranscriptionModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiTranscriptionModel:
+                      formState.openaiTranscriptionModel.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                翻译模型
+              </ThemedText>
+              <TextInput
+                value={formState.openaiTranslationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiTranslationModel:
+                      formState.openaiTranslationModel.trim() || DEFAULT_OPENAI_TRANSLATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={settingsStyles.credentialScrollContent}>
-              <CredentialCard title="OpenAI">
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    Base URL
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiBaseUrl}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiBaseUrl: formState.openaiBaseUrl.trim() || DEFAULT_OPENAI_BASE_URL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    style={inputStyle}
-                    placeholder={DEFAULT_OPENAI_BASE_URL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    API Key
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiApiKey}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
-                    onBlur={() =>
-                      updateCredentials({ openaiApiKey: formState.openaiApiKey.trim() || undefined })
-                    }
-                    autoCapitalize="none"
-                    secureTextEntry
-                    style={inputStyle}
-                    placeholder="sk-..."
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    转写模型
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranscriptionModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiTranscriptionModel:
-                          formState.openaiTranscriptionModel.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    style={inputStyle}
-                    placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    翻译模型
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranslationModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiTranslationModel:
-                          formState.openaiTranslationModel.trim() || DEFAULT_OPENAI_TRANSLATION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    style={inputStyle}
-                    placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-              </CredentialCard>
+          <View style={styles.section}>
+            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              Gemini
+            </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                API Key
+              </ThemedText>
+              <TextInput
+                value={formState.geminiApiKey}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiApiKey: text }))}
+                onBlur={() =>
+                  updateCredentials({ geminiApiKey: formState.geminiApiKey.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="AIza..."
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                翻译模型
+              </ThemedText>
+              <TextInput
+                value={formState.geminiTranslationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    geminiTranslationModel:
+                      formState.geminiTranslationModel.trim() || DEFAULT_GEMINI_TRANSLATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </View>
 
-              <CredentialCard title="Gemini">
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    API Key
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiApiKey}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiApiKey: text }))}
-                    onBlur={() =>
-                      updateCredentials({ geminiApiKey: formState.geminiApiKey.trim() || undefined })
-                    }
-                    autoCapitalize="none"
-                    secureTextEntry
-                    style={inputStyle}
-                    placeholder="AIza..."
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    翻译模型
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTranslationModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        geminiTranslationModel:
-                          formState.geminiTranslationModel.trim() || DEFAULT_GEMINI_TRANSLATION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    style={inputStyle}
-                    placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-              </CredentialCard>
+          <View style={styles.section}>
+            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              Soniox
+            </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                API Key
+              </ThemedText>
+              <TextInput
+                value={formState.sonioxApiKey}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, sonioxApiKey: text }))}
+                onBlur={() =>
+                  updateCredentials({ sonioxApiKey: formState.sonioxApiKey.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="soniox_..."
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </View>
 
-              <CredentialCard title="Soniox">
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    API Key
-                  </ThemedText>
-                  <TextInput
-                    value={formState.sonioxApiKey}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, sonioxApiKey: text }))}
-                    onBlur={() =>
-                      updateCredentials({ sonioxApiKey: formState.sonioxApiKey.trim() || undefined })
-                    }
-                    autoCapitalize="none"
-                    secureTextEntry
-                    style={inputStyle}
-                    placeholder="soniox_..."
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-              </CredentialCard>
-
-              <CredentialCard title="Qwen3">
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    API Key
-                  </ThemedText>
-                  <TextInput
-                    value={formState.qwenApiKey}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, qwenApiKey: text }))}
-                    onBlur={() =>
-                      updateCredentials({ qwenApiKey: formState.qwenApiKey.trim() || undefined })
-                    }
-                    autoCapitalize="none"
-                    secureTextEntry
-                    style={inputStyle}
-                    placeholder="sk-..."
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-                <View style={settingsStyles.cardField}>
-                  <ThemedText
-                    style={credentialLabelStyle}
-                    lightColor="#1f2937"
-                    darkColor="#e2e8f0">
-                    转写模型
-                  </ThemedText>
-                  <TextInput
-                    value={formState.qwenTranscriptionModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, qwenTranscriptionModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        qwenTranscriptionModel:
-                          formState.qwenTranscriptionModel.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    style={inputStyle}
-                    placeholder={DEFAULT_QWEN_TRANSCRIPTION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-              </CredentialCard>
-            </ScrollView>
-          </ThemedView>
+          <View style={styles.section}>
+            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
+              Qwen3
+            </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                API Key
+              </ThemedText>
+              <TextInput
+                value={formState.qwenApiKey}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, qwenApiKey: text }))}
+                onBlur={() =>
+                  updateCredentials({ qwenApiKey: formState.qwenApiKey.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="sk-..."
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+                转写模型
+              </ThemedText>
+              <TextInput
+                value={formState.qwenTranscriptionModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, qwenTranscriptionModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    qwenTranscriptionModel:
+                      formState.qwenTranscriptionModel.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_QWEN_TRANSCRIPTION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  section: {
+    gap: 16,
+  },
+  fieldGroup: {
+    gap: 6,
+  },
+});

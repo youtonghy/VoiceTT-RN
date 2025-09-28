@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -105,24 +105,6 @@ export function OptionPill({
   );
 }
 
-export function CredentialCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <ThemedView
-      lightColor="rgba(148, 163, 184, 0.16)"
-      darkColor="rgba(30, 41, 59, 0.7)"
-      style={settingsStyles.credentialCard}>
-      <ThemedText
-        type="defaultSemiBold"
-        style={settingsStyles.credentialTitle}
-        lightColor="#0f172a"
-        darkColor="#e2e8f0">
-        {title}
-      </ThemedText>
-      <View style={settingsStyles.cardContent}>{children}</View>
-    </ThemedView>
-  );
-}
-
 export const settingsStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -139,11 +121,6 @@ export const settingsStyles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     gap: 24,
-  },
-  section: {
-    borderRadius: 20,
-    padding: 18,
-    gap: 14,
   },
   sectionTitle: {
     fontSize: 20,
@@ -219,10 +196,6 @@ export const settingsStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  credentialScrollContent: {
-    paddingVertical: 6,
-    gap: 16,
-  },
   pageHeader: {
     gap: 6,
     marginBottom: 12,
@@ -231,22 +204,6 @@ export const settingsStyles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 38,
     fontWeight: '700',
-  },
-  credentialCard: {
-    width: 260,
-    padding: 16,
-    borderRadius: 18,
-    gap: 12,
-  },
-  credentialTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  cardContent: {
-    gap: 12,
-  },
-  cardField: {
-    gap: 6,
   },
   cardLabel: {
     fontSize: 13,
