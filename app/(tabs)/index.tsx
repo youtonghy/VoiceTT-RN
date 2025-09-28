@@ -114,6 +114,17 @@ function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
   return sanitized;
 }
 
+function isConversationEmpty(conversation: HistoryConversation): boolean {
+  const hasTranscript = conversation.transcript.trim().length > 0;
+  const hasTranslation =
+    typeof conversation.translation === "string" && conversation.translation.trim().length > 0;
+  const hasSummary =
+    typeof conversation.summary === "string" && conversation.summary.trim().length > 0;
+  const hasMessages = conversation.messages.length > 0;
+  const hasAssistantMessages = conversation.assistantMessages.length > 0;
+  return !(hasTranscript || hasTranslation || hasSummary || hasMessages || hasAssistantMessages);
+}
+
 function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
   if (!Array.isArray(raw)) {
     return [];
@@ -667,6 +678,26 @@ export default function TranscriptionScreen() {
         }
       }
 
+      const latestConversation = historyItems.length > 0 ? historyItems[0] : null;
+      if (latestConversation && isConversationEmpty(latestConversation)) {
+        setActiveConversationId(latestConversation.id);
+        setSearchTerm("");
+        replaceMessages([]);
+
+        if (!suppressScroll) {
+          const scrollToTop = () => {
+            historyScrollRef.current?.scrollTo({ y: 0, animated: true });
+          };
+          if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(scrollToTop);
+          } else {
+            setTimeout(scrollToTop, 0);
+          }
+        }
+
+        return latestConversation.id;
+      }
+
       const idNumber = historyIdCounter.current++;
       const newId = `conv-${idNumber}`;
       const now = Date.now();
@@ -699,7 +730,7 @@ export default function TranscriptionScreen() {
 
       return newId;
     },
-    [historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession]
+    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession]
   );
 
   const handleAddConversation = useCallback(async () => {
