@@ -12,7 +12,8 @@ import {
   TextInput,
   useWindowDimensions,
 } from "react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
@@ -184,8 +185,10 @@ function deriveNextHistoryId(
   return next;
 }
 
+
 function RecordingToggle() {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
+  const { t } = useTranslation();
   const shimmerProgress = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -220,25 +223,32 @@ function RecordingToggle() {
     outputRange: [-120, 120],
   });
 
-  const colors = isSessionActive ? ["#F87171", "#EF4444"] : ["#34D399", "#22C55E"];
+  const colors = isSessionActive ? ['#F87171', '#EF4444'] : ['#34D399', '#22C55E'];
+
+  const accessibilityLabel = isSessionActive
+    ? t('transcription.accessibility.stop_recording')
+    : t('transcription.accessibility.start_recording');
+
+  const label = isSessionActive
+    ? isRecording
+      ? t('transcription.status.recording')
+      : t('transcription.status.processing')
+    : t('transcription.controls.start');
 
   return (
-    <Pressable
-      accessibilityLabel={isSessionActive ? "停止录音" : "开始录音"}
-      onPress={toggleSession}
-      style={styles.recordButtonWrapper}>
+    <Pressable accessibilityLabel={accessibilityLabel} onPress={toggleSession} style={styles.recordButtonWrapper}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
         <View style={styles.recordButtonContent}>
           <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
-            {isSessionActive ? (isRecording ? "录音中..." : "处理片段...") : "开始录音"}
+            {label}
           </ThemedText>
         </View>
         {isSessionActive ? (
           <AnimatedLinearGradient
             colors={[
-              "rgba(255,255,255,0)",
-              "rgba(255,255,255,0.35)",
-              "rgba(255,255,255,0)",
+              'rgba(255,255,255,0)',
+              'rgba(255,255,255,0.35)',
+              'rgba(255,255,255,0)',
             ]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
@@ -250,6 +260,7 @@ function RecordingToggle() {
 }
 
 export default function TranscriptionScreen() {
+  const { t, i18n } = useTranslation();
   const cardLight = "#f8fafc";
   const cardDark = "#0f172a";
   const backgroundColor = useThemeColor({}, "background");
@@ -358,9 +369,9 @@ export default function TranscriptionScreen() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert("录音提示", error, [{ text: "确定", onPress: clearError }]);
+      Alert.alert(t('alerts.recording.title'), error, [{ text: t('common.actions.ok'), onPress: clearError }]);
     }
-  }, [clearError, error]);
+  }, [clearError, error, t]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -429,7 +440,7 @@ export default function TranscriptionScreen() {
         }
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[transcription] Failed to auto-generate conversation title', err);
-        Alert.alert('??????', message);
+        Alert.alert(t('alerts.conversation_title.failure'), message);
       })
       .finally(() => {
         autoTitleAbortRef.current = null;
@@ -437,7 +448,7 @@ export default function TranscriptionScreen() {
           setAutoTitleTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoTitleTrigger]);
+  }, [historyItems, settings, autoTitleTrigger, t]);
 
 
 
@@ -499,7 +510,7 @@ export default function TranscriptionScreen() {
         }
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[transcription] Failed to auto-generate conversation summary', err);
-        Alert.alert('总结生成失败', message);
+        Alert.alert(t('alerts.summary.failure'), message);
       })
       .finally(() => {
         autoSummaryAbortRef.current = null;
@@ -507,7 +518,7 @@ export default function TranscriptionScreen() {
           setAutoSummaryTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoSummaryTrigger]);
+  }, [historyItems, settings, autoSummaryTrigger, t]);
 
 
 
@@ -630,7 +641,7 @@ export default function TranscriptionScreen() {
       if (!currentGroup || currentGroup.key !== groupKey) {
         currentGroup = {
           key: groupKey,
-          label: formatDateLabel(item.createdAt),
+          label: formatDateLabel(item.createdAt, i18n.language),
           items: [],
         };
         groups.push(currentGroup);
@@ -639,7 +650,7 @@ export default function TranscriptionScreen() {
     });
 
     return groups;
-  }, [filteredHistory]);
+  }, [filteredHistory, i18n.language]);
 
   const activeConversation = useMemo(
     () =>
@@ -705,7 +716,7 @@ export default function TranscriptionScreen() {
       const now = Date.now();
       const nextConversation: HistoryConversation = {
         id: newId,
-        title: `新对话 ${idNumber}`,
+        title: t('transcription.history.new_conversation', { id: idNumber }),
         transcript: "",
         translation: undefined,
         summary: undefined,
@@ -732,7 +743,7 @@ export default function TranscriptionScreen() {
 
       return newId;
     },
-    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession]
+    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession, t]
   );
 
   const handleAddConversation = useCallback(async () => {
@@ -877,7 +888,7 @@ export default function TranscriptionScreen() {
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const rawMessage = err instanceof Error ? err.message : String(err);
-      const displayMessage = rawMessage || '发送失败';
+      const displayMessage = rawMessage || t('assistant.errors.send_failed');
 
       setHistoryItems((prev) =>
         prev.map((item) => {
@@ -900,13 +911,13 @@ export default function TranscriptionScreen() {
       );
 
       if (!isAbort) {
-        Alert.alert('智能对话失败', displayMessage);
+        Alert.alert(t('alerts.assistant.failure'), displayMessage);
       }
     } finally {
       assistantAbortRef.current = null;
       setAssistantSending(false);
     }
-  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, generateAssistantReply]);
+  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, t]);
 
   const assistantMessages = activeConversation?.assistantMessages ?? [];
 
@@ -926,7 +937,7 @@ export default function TranscriptionScreen() {
   const assistantHasInput = assistantDraft.trim().length > 0;
   const assistantCanSend = assistantHasInput && !assistantSending;
   const assistantSummary = activeConversation?.summary?.trim() ?? '';
-  const assistantSummaryPlaceholder = '暂无对话总结，完成录音后自动生成。';
+  const assistantSummaryPlaceholder = t('assistant.placeholders.summary');
 
   const pageWidth = width;
 
@@ -958,7 +969,7 @@ export default function TranscriptionScreen() {
       <ThemedView style={styles.container}>
         <View style={styles.topBar}>
           <ThemedText type="title" style={styles.topBarTitle}>
-            转写
+            {t('transcription.sections.live_title')}
           </ThemedText>
         </View>
         <View style={styles.content}>
@@ -974,7 +985,7 @@ export default function TranscriptionScreen() {
               <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
                 <View style={styles.headerRow}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    转写内容
+                    {t('transcription.sections.live_content')}
                   </ThemedText>
                   <RecordingToggle />
                 </View>
@@ -987,7 +998,7 @@ export default function TranscriptionScreen() {
                     nestedScrollEnabled>
                     {messages.length === 0 ? (
                       <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
-                        还没有转写内容，开始录音吧。
+                        {t('transcription.history.placeholder_empty')}
                       </ThemedText>
                     ) : (
                       messages.map((item) => <MessageBubble key={item.id} message={item} />)
@@ -1000,7 +1011,7 @@ export default function TranscriptionScreen() {
               <ThemedView style={[styles.card, styles.historyCard]} lightColor={cardLight} darkColor={cardDark}>
                 <View style={styles.historyHeader}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    历史对话
+                    {t('transcription.sections.history_title')}
                   </ThemedText>
                   <View style={styles.historyActions}>
                     <Pressable
@@ -1008,7 +1019,7 @@ export default function TranscriptionScreen() {
                         void handleAddConversation();
                       }}
                       style={styles.historyIconButton}
-                      accessibilityLabel="新增对话">
+                      accessibilityLabel={t('transcription.history.accessibility.add')}>
                       <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
                         +
                       </ThemedText>
@@ -1019,7 +1030,7 @@ export default function TranscriptionScreen() {
                   <TextInput
                     value={searchTerm}
                     onChangeText={handleSearchChange}
-                    placeholder="搜索对话转写或翻译内容"
+                    placeholder={t('transcription.history.search_placeholder')}
                     placeholderTextColor="rgba(148,163,184,0.7)"
                     style={[styles.historySearchInput, { color: searchInputColor }]}
                     autoCorrect={false}
@@ -1040,7 +1051,7 @@ export default function TranscriptionScreen() {
                     keyboardShouldPersistTaps="handled">
                     {historyGroups.length === 0 ? (
                       <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
-                        暂无匹配的历史记录。
+                        {t('transcription.history.placeholder_search_empty')}
                       </ThemedText>
                     ) : (
                       historyGroups.map((group) => (
@@ -1061,7 +1072,7 @@ export default function TranscriptionScreen() {
                                   void handleSelectConversation(item.id);
                                 }}
                                 accessibilityRole="button"
-                                accessibilityLabel={`查看对话 ${item.title}`}
+                                accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
                                 style={({ pressed }) => [
                                   styles.historyItem,
                                   isActive && styles.historyItemActive,
@@ -1079,7 +1090,7 @@ export default function TranscriptionScreen() {
                                     style={styles.historyItemTime}
                                     lightColor="#64748b"
                                     darkColor="#94a3b8">
-                                    {formatRecordTime(item.createdAt)}
+                                    {formatRecordTime(item.createdAt, i18n.language)}
                                   </ThemedText>
                                 </View>
                               </Pressable>
@@ -1095,7 +1106,7 @@ export default function TranscriptionScreen() {
             <View style={[styles.cardPage, { width: pageWidth }]}>
               <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
-                  智能对话
+                  {t('assistant.section.title')}
                 </ThemedText>
                 <View style={styles.assistantConversation}>
                   <ScrollView
@@ -1112,7 +1123,7 @@ export default function TranscriptionScreen() {
                         style={styles.assistantSummaryLabel}
                         lightColor="#f8fafc"
                         darkColor="#e2e8f0">
-                        瀵硅瘽鎬荤粨
+                        {t('assistant.section.summary_title')}
                       </ThemedText>
                       <ThemedText
                         style={styles.assistantSummaryText}
@@ -1126,16 +1137,16 @@ export default function TranscriptionScreen() {
                         style={styles.assistantEmptyText}
                         lightColor="#94a3b8"
                         darkColor="#94a3b8">
-                        暂无聊天记录，试着提一个问题。
+                        {t('assistant.placeholders.no_messages')}
                       </ThemedText>
                     ) : (
                       assistantMessages.map((message) => {
                         const isUser = message.role === 'user';
                         const statusText =
                           message.status === 'pending'
-                            ? '等待回复…'
+                            ? t('assistant.status.waiting_reply')
                             : message.status === 'failed'
-                            ? message.error?.trim() || '发送失败'
+                            ? message.error?.trim() || t('assistant.errors.send_failed')
                             : null;
                         return (
                           <View
@@ -1192,7 +1203,7 @@ export default function TranscriptionScreen() {
                     <Pressable
                       onPress={handleAssistantSend}
                       accessibilityRole="button"
-                      accessibilityLabel="发送输入"
+                      accessibilityLabel={t('assistant.accessibility.send_input')}
                       disabled={assistantSending}
                       style={({ pressed }) => [
                         styles.assistantSendButton,
@@ -1546,46 +1557,52 @@ const styles = StyleSheet.create({
   },
 });
 
+
 function MessageBubble({ message }: { message: TranscriptionMessage }) {
+  const { t } = useTranslation();
+
   const statusLabel = (() => {
     switch (message.status) {
-      case "pending":
-        return "等待触发";
-      case "transcribing":
-        return "转写中";
-      case "failed":
-        return "转写失败";
+      case 'pending':
+        return t('transcription.status.pending_trigger');
+      case 'transcribing':
+        return t('transcription.status.transcribing');
+      case 'failed':
+        return t('transcription.status.failed');
       default:
         return null;
     }
   })();
 
+  const fallbackText =
+    message.status === 'failed'
+      ? message.error || t('transcription.errors.no_content')
+      : t('transcription.status.waiting_result');
+
   return (
     <ThemedView style={styles.messageBubble}>
       {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
       <ThemedText style={styles.messageBody}>
-        {message.transcript && message.transcript.length > 0
-          ? message.transcript
-          : message.status === "failed"
-          ? message.error || "未能获取文字内容"
-          : "等待转写结果..."}
+        {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
       </ThemedText>
-      {renderTranslationSection(message)}
+      <TranslationSection message={message} />
     </ThemedView>
   );
 }
 
-function renderTranslationSection(message: TranscriptionMessage) {
-  let content = null;
-  if (message.translationStatus === "pending") {
-    content = <ThemedText style={styles.translationPending}>翻译中...</ThemedText>;
-  } else if (message.translationStatus === "failed") {
+function TranslationSection({ message }: { message: TranscriptionMessage }) {
+  const { t } = useTranslation();
+
+  let content: ReactNode | null = null;
+  if (message.translationStatus === 'pending') {
+    content = <ThemedText style={styles.translationPending}>{t('translation.status.in_progress')}</ThemedText>;
+  } else if (message.translationStatus === 'failed') {
     content = (
       <ThemedText style={styles.translationError}>
-        {message.translationError || "翻译失败"}
+        {message.translationError || t('translation.status.failed')}
       </ThemedText>
     );
-  } else if (message.translationStatus === "completed" && message.translation) {
+  } else if (message.translationStatus === 'completed' && message.translation) {
     content = <ThemedText style={styles.translationText}>{message.translation}</ThemedText>;
   }
 
@@ -1606,17 +1623,41 @@ function buildDateKey(timestamp: number) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function formatDateLabel(timestamp: number) {
-  const date = new Date(timestamp);
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+function formatDateLabel(timestamp: number, language: string) {
+  try {
+    return new Intl.DateTimeFormat(language, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(timestamp));
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[transcription] Failed to format history date label', error);
+    }
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+  }
 }
 
-function formatRecordTime(timestamp: number) {
-  const date = new Date(timestamp);
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
-  return `${month}/${day} ${hours}:${minutes}`;
+function formatRecordTime(timestamp: number, language: string) {
+  try {
+    return new Intl.DateTimeFormat(language, {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(timestamp));
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[transcription] Failed to format history time label', error);
+    }
+    const date = new Date(timestamp);
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+    return `${month}/${day} ${hours}:${minutes}`;
+  }
 }
 

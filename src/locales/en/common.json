@@ -1,0 +1,201 @@
+{
+  "navigation": {
+    "tabs": {
+      "transcription": "Transcription",
+      "settings": "Settings"
+    }
+  },
+  "common": {
+    "actions": {
+      "ok": "OK"
+    }
+  },
+  "alerts": {
+    "recording": {
+      "title": "Recording notice"
+    },
+    "summary": {
+      "failure": "Failed to generate summary"
+    },
+    "assistant": {
+      "failure": "Assistant request failed"
+    },
+    "conversation_title": {
+      "failure": "Failed to generate conversation title"
+    },
+    "microphone_permission": {
+      "title": "Microphone permission required",
+      "message": "Grant microphone access in system settings to continue recording."
+    }
+  },
+  "transcription": {
+    "controls": {
+      "start": "Start recording"
+    },
+    "status": {
+      "recording": "Recording…",
+      "processing": "Processing segment…",
+      "pending_trigger": "Waiting to trigger",
+      "transcribing": "Transcribing",
+      "failed": "Transcription failed",
+      "waiting_result": "Waiting for transcription result…"
+    },
+    "errors": {
+      "no_content": "Unable to retrieve text content",
+      "unable_to_start": "Unable to start recording: {{message}}",
+      "start_failed": "Failed to start recording: {{message}}",
+      "permission_denied": "Microphone permission not granted",
+      "empty_recording": "Recording result is empty"
+    },
+    "messages": {
+      "default_title": "Message #{{id}}"
+    },
+    "sections": {
+      "live_title": "Transcription",
+      "live_content": "Live content",
+      "history_title": "History"
+    },
+    "history": {
+      "placeholder_empty": "No transcription yet, start recording.",
+      "accessibility": {
+        "add": "Add conversation",
+        "view_conversation": "View conversation {{title}}"
+      },
+      "search_placeholder": "Search transcripts or translations",
+      "placeholder_search_empty": "No matching history.",
+      "new_conversation": "New conversation {{id}}"
+    },
+    "accessibility": {
+      "stop_recording": "Stop recording",
+      "start_recording": "Start recording"
+    }
+  },
+  "translation": {
+    "status": {
+      "in_progress": "Translating…",
+      "failed": "Translation failed"
+    },
+    "errors": {
+      "empty_result": "Translation result is empty"
+    }
+  },
+  "assistant": {
+    "section": {
+      "title": "Assistant",
+      "summary_title": "Conversation summary"
+    },
+    "placeholders": {
+      "no_messages": "No chat history yet. Try asking a question.",
+      "summary": "No conversation summary yet. It will appear after recording."
+    },
+    "status": {
+      "waiting_reply": "Waiting for reply…"
+    },
+    "errors": {
+      "send_failed": "Failed to send"
+    },
+    "accessibility": {
+      "send_input": "Send input"
+    }
+  },
+  "settings": {
+    "page_title": "Settings",
+    "sections": {
+      "recording": {
+        "title": "Recording detection",
+        "subtitle": "Sensitivity and silence detection"
+      },
+      "transcription": {
+        "title": "Transcription",
+        "subtitle": "Engine and source language"
+      },
+      "translation": {
+        "title": "Translation",
+        "subtitle": "Toggle and pipeline"
+      },
+      "summary": {
+        "title": "Summaries",
+        "subtitle": "Title engine and prompts"
+      },
+      "credentials": {
+        "title": "Credentials",
+        "subtitle": "Manage API keys"
+      }
+    },
+    "credentials": {
+      "sections": {
+        "openai": {
+          "title": "OpenAI"
+        },
+        "gemini": {
+          "title": "Gemini"
+        },
+        "soniox": {
+          "title": "Soniox"
+        },
+        "qwen": {
+          "title": "Qwen3"
+        }
+      },
+      "labels": {
+        "base_url": "Base URL",
+        "api_key": "API key",
+        "transcription_model": "Transcription model",
+        "translation_model": "Translation model"
+      }
+    },
+    "recording": {
+      "labels": {
+        "activation_threshold": "Activation threshold",
+        "activation_duration": "Activation duration (sec)",
+        "silence_duration": "Silence duration (sec)",
+        "pre_roll": "Pre-roll duration (sec)",
+        "max_segment": "Maximum segment length (sec)"
+      }
+    },
+    "transcription": {
+      "labels": {
+        "engine": "Transcription engine",
+        "source_language": "Source language"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox"
+      }
+    },
+    "translation": {
+      "labels": {
+        "enable_translation": "Enable translation",
+        "engine": "Translation engine"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "none": "None"
+      }
+    },
+    "summary": {
+      "title_engine": {
+        "title": "Title summarization engine",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI title model",
+        "gemini_label": "Gemini title model",
+        "prompt_label": "Title prompt"
+      },
+      "conversation_engine": {
+        "title": "Conversation summarization engine",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI conversation model",
+        "gemini_label": "Gemini conversation model",
+        "prompt_label": "Conversation prompt"
+      }
+    }
+  }
+}

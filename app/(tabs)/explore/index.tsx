@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,36 +10,15 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { settingsStyles } from './shared';
 
-const entryConfigs = [
-  {
-    route: '/explore/recording' as const,
-    title: '录音检测',
-    subtitle: '灵敏度与静音判定',
-  },
-  {
-    route: '/explore/transcription' as const,
-    title: '转写设置',
-    subtitle: '引擎与源语言',
-  },
-  {
-    route: '/explore/translation' as const,
-    title: '翻译设置',
-    subtitle: '译文开关与管线',
-  },
-  {
-    route: '/explore/summary' as const,
-    title: '总结设置',
-    subtitle: '标题引擎与提示词',
-  },
-  {
-    route: '/explore/credentials' as const,
-    title: '凭据',
-    subtitle: '管理模型密钥',
-  },
-];
+interface SettingsEntry {
+  route: `/explore/${string}`;
+  title: string;
+  subtitle: string;
+}
 
 export default function SettingsIndexScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const safeAreaStyle = [
@@ -46,7 +26,36 @@ export default function SettingsIndexScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
 
-  const entryItems = useMemo(() => entryConfigs, []);
+  const entryItems: SettingsEntry[] = useMemo(
+    () => [
+      {
+        route: '/explore/recording',
+        title: t('settings.sections.recording.title'),
+        subtitle: t('settings.sections.recording.subtitle'),
+      },
+      {
+        route: '/explore/transcription',
+        title: t('settings.sections.transcription.title'),
+        subtitle: t('settings.sections.transcription.subtitle'),
+      },
+      {
+        route: '/explore/translation',
+        title: t('settings.sections.translation.title'),
+        subtitle: t('settings.sections.translation.subtitle'),
+      },
+      {
+        route: '/explore/summary',
+        title: t('settings.sections.summary.title'),
+        subtitle: t('settings.sections.summary.subtitle'),
+      },
+      {
+        route: '/explore/credentials',
+        title: t('settings.sections.credentials.title'),
+        subtitle: t('settings.sections.credentials.subtitle'),
+      },
+    ],
+    [t]
+  );
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -57,7 +66,7 @@ export default function SettingsIndexScreen() {
             style={settingsStyles.pageTitle}
             lightColor="#0f172a"
             darkColor="#e2e8f0">
-            设置
+            {t('settings.page_title')}
           </ThemedText>
         </View>
         <ScrollView

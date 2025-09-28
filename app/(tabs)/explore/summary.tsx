@@ -1,3 +1,4 @@
+
 import {
   KeyboardAvoidingView,
   Platform,
@@ -7,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -32,6 +34,7 @@ const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
 const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
 
 export default function SummarySettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const colorScheme = useColorScheme();
@@ -67,13 +70,13 @@ export default function SummarySettingsScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.section}>
             <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
-              标题总结引擎
+              {t('settings.summary.title_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
               {titleSummaryEngines.map((engine) => (
                 <OptionPill
                   key={engine}
-                  label={engine.toUpperCase()}
+                  label={t(`settings.summary.title_engine.engines.${engine}`)}
                   active={settings.titleSummaryEngine === engine}
                   onPress={() => updateSettings({ titleSummaryEngine: engine })}
                 />
@@ -83,7 +86,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              OpenAI 标题模型
+              {t('settings.summary.title_engine.openai_label')}
             </ThemedText>
             <TextInput
               value={formState.openaiTitleModel}
@@ -104,7 +107,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              Gemini 标题模型
+              {t('settings.summary.title_engine.gemini_label')}
             </ThemedText>
             <TextInput
               value={formState.geminiTitleModel}
@@ -125,7 +128,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              提示词
+              {t('settings.summary.title_engine.prompt_label')}
             </ThemedText>
             <TextInput
               value={formState.titleSummaryPrompt}
@@ -146,13 +149,13 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
-              对话总结引擎
+              {t('settings.summary.conversation_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
               {conversationSummaryEngines.map((engine) => (
                 <OptionPill
                   key={engine}
-                  label={engine.toUpperCase()}
+                  label={t(`settings.summary.conversation_engine.engines.${engine}`)}
                   active={settings.conversationSummaryEngine === engine}
                   onPress={() => updateSettings({ conversationSummaryEngine: engine })}
                 />
@@ -162,7 +165,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              OpenAI 对话总结模型
+              {t('settings.summary.conversation_engine.openai_label')}
             </ThemedText>
             <TextInput
               value={formState.openaiConversationModel}
@@ -185,7 +188,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              Gemini 对话总结模型
+              {t('settings.summary.conversation_engine.gemini_label')}
             </ThemedText>
             <TextInput
               value={formState.geminiConversationModel}
@@ -208,7 +211,7 @@ export default function SummarySettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              对话总结提示词
+              {t('settings.summary.conversation_engine.prompt_label')}
             </ThemedText>
             <TextInput
               value={formState.conversationSummaryPrompt}

@@ -1,5 +1,7 @@
+
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -11,6 +13,7 @@ import { OptionPill, settingsStyles, useSettingsForm } from './shared';
 const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
 
 export default function TranscriptionSettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const colorScheme = useColorScheme();
@@ -41,13 +44,13 @@ export default function TranscriptionSettingsScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              转写引擎
+              {t('settings.transcription.labels.engine')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
               {transcriptionEngines.map((engine) => (
                 <OptionPill
                   key={engine}
-                  label={engine.toUpperCase()}
+                  label={t(`settings.transcription.engines.${engine}`)}
                   active={settings.transcriptionEngine === engine}
                   onPress={() => updateSettings({ transcriptionEngine: engine })}
                 />
@@ -56,7 +59,7 @@ export default function TranscriptionSettingsScreen() {
 
             <View style={settingsStyles.fieldRow}>
               <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                源语言
+                {t('settings.transcription.labels.source_language')}
               </ThemedText>
               <TextInput
                 value={formState.transcriptionLanguage}

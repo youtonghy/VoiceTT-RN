@@ -1,3 +1,4 @@
+
 import {
   KeyboardAvoidingView,
   Platform,
@@ -7,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -22,6 +24,7 @@ import {
 import { settingsStyles, useSettingsForm } from './shared';
 
 export default function CredentialSettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const colorScheme = useColorScheme();
@@ -52,11 +55,11 @@ export default function CredentialSettingsScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.section}>
             <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              OpenAI
+              {t('settings.credentials.sections.openai.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                Base URL
+                {t('settings.credentials.labels.base_url')}
               </ThemedText>
               <TextInput
                 value={formState.openaiBaseUrl}
@@ -74,7 +77,7 @@ export default function CredentialSettingsScreen() {
             </View>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
+                {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
                 value={formState.openaiApiKey}
@@ -91,7 +94,7 @@ export default function CredentialSettingsScreen() {
             </View>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                转写模型
+                {t('settings.credentials.labels.transcription_model')}
               </ThemedText>
               <TextInput
                 value={formState.openaiTranscriptionModel}
@@ -112,7 +115,7 @@ export default function CredentialSettingsScreen() {
             </View>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                翻译模型
+                {t('settings.credentials.labels.translation_model')}
               </ThemedText>
               <TextInput
                 value={formState.openaiTranslationModel}
@@ -135,11 +138,11 @@ export default function CredentialSettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Gemini
+              {t('settings.credentials.sections.gemini.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
+                {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
                 value={formState.geminiApiKey}
@@ -156,7 +159,7 @@ export default function CredentialSettingsScreen() {
             </View>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                翻译模型
+                {t('settings.credentials.labels.translation_model')}
               </ThemedText>
               <TextInput
                 value={formState.geminiTranslationModel}
@@ -179,11 +182,11 @@ export default function CredentialSettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Soniox
+              {t('settings.credentials.sections.soniox.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
+                {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
                 value={formState.sonioxApiKey}
@@ -202,11 +205,11 @@ export default function CredentialSettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Qwen3
+              {t('settings.credentials.sections.qwen.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
+                {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
                 value={formState.qwenApiKey}
@@ -223,7 +226,7 @@ export default function CredentialSettingsScreen() {
             </View>
             <View style={styles.fieldGroup}>
               <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                转写模型
+                {t('settings.credentials.labels.transcription_model')}
               </ThemedText>
               <TextInput
                 value={formState.qwenTranscriptionModel}
