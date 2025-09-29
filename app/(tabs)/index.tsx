@@ -273,9 +273,21 @@ export default function TranscriptionScreen() {
   const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
   const assistantAssistantBubbleColor = useThemeColor(
     { light: "rgba(15, 23, 42, 0.06)", dark: "rgba(148, 163, 184, 0.18)" },
-    "card"
+    "background"
   );
   const assistantMetaColor = useThemeColor({ light: "#64748b", dark: "#94a3b8" }, "text");
+  const assistantComposerBackground = useThemeColor(
+    { light: "#ffffff", dark: "rgba(15, 23, 42, 0.92)" },
+    "background"
+  );
+  const assistantComposerBorder = useThemeColor(
+    { light: "rgba(148, 163, 184, 0.28)", dark: "rgba(148, 163, 184, 0.32)" },
+    "background"
+  );
+  const assistantPlaceholderColor = useThemeColor(
+    { light: "rgba(148, 163, 184, 0.7)", dark: "rgba(148, 163, 184, 0.5)" },
+    "text"
+  );
   const { width } = useWindowDimensions();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
@@ -1225,7 +1237,13 @@ export default function TranscriptionScreen() {
                 {showAssistantComposer ? (
                   <KeyboardStickyInput
                     containerStyle={styles.assistantComposerContainer}
-                    inputContainerStyle={styles.assistantComposer}
+                    inputContainerStyle={[
+                      styles.assistantComposer,
+                      {
+                        backgroundColor: assistantComposerBackground,
+                        borderColor: assistantComposerBorder,
+                      },
+                    ]}
                     inputStyle={[styles.assistantInput, { color: searchInputColor }]}
                     value={assistantDraft}
                     onChangeText={handleAssistantChange}
@@ -1233,6 +1251,8 @@ export default function TranscriptionScreen() {
                     autoCapitalize="none"
                     returnKeyType="done"
                     selectionColor="#2563eb"
+                    placeholder={t('assistant.placeholders.input')}
+                    placeholderTextColor={assistantPlaceholderColor}
                     layoutBottomInset={CARD_BOTTOM_MARGIN}
                     onSubmitEditing={() => {
                       if (assistantCanSend) {
@@ -1389,6 +1409,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingBottom: 0,
+    paddingHorizontal: 4,
   },
   assistantComposer: {
     flexDirection: "row",
@@ -1398,6 +1419,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     marginHorizontal: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   assistantInput: {
     flex: 1,

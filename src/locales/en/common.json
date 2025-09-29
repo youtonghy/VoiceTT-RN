@@ -86,7 +86,8 @@
     },
     "placeholders": {
       "no_messages": "No chat history yet. Try asking a question.",
-      "summary": "No conversation summary yet. It will appear after recording."
+      "summary": "No conversation summary yet. It will appear after recording.",
+      "input": "Ask something…"
     },
     "status": {
       "waiting_reply": "Waiting for reply…"
