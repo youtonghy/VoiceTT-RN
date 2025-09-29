@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -56,21 +56,26 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
     multiline = false,
     accessory,
     children,
+    layoutBottomInset = 0,
     ...rest
   } = props;
 
   const bottomOffset = useRef(new Animated.Value(0)).current;
   const keyboardHeightRef = useRef(0);
   const safeAreaBottomRef = useRef(getEstimatedBottomInset());
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-  const animateTo = (target) => {
-    Animated.timing(bottomOffset, {
-      toValue: target,
-      duration: 220,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  };
+  const animateTo = useCallback(
+    (target) => {
+      Animated.timing(bottomOffset, {
+        toValue: target,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+    },
+    [bottomOffset]
+  );
 
   useEffect(() => {
     const handleKeyboardShow = (event) => {
@@ -78,13 +83,18 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
       keyboardHeightRef.current = keyboardHeight;
 
       const safeAreaBottom = safeAreaBottomRef.current;
-      const offset = Math.max(keyboardHeight - safeAreaBottom, 0);
+      const offset = Math.max(
+        keyboardHeight - safeAreaBottom - layoutBottomInset,
+        0,
+      );
       animateTo(offset);
+      setIsKeyboardVisible(true);
     };
 
     const handleKeyboardHide = () => {
       keyboardHeightRef.current = 0;
       animateTo(0);
+      setIsKeyboardVisible(false);
     };
 
     const showEvent = Platform.select({ ios: 'keyboardWillShow', default: 'keyboardDidShow' });
@@ -98,7 +108,7 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
 
       if (keyboardHeightRef.current > 0) {
         const correctedOffset = Math.max(
-          keyboardHeightRef.current - safeAreaBottomRef.current,
+          keyboardHeightRef.current - safeAreaBottomRef.current - layoutBottomInset,
           0,
         );
         animateTo(correctedOffset);
@@ -119,11 +129,30 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
         Dimensions.removeEventListener('change', handleDimensionChange);
       }
     };
-  }, []);
+  }, [animateTo, layoutBottomInset]);
+
+  useEffect(() => {
+    if (keyboardHeightRef.current > 0) {
+      const correctedOffset = Math.max(
+        keyboardHeightRef.current - safeAreaBottomRef.current - layoutBottomInset,
+        0,
+      );
+      animateTo(correctedOffset);
+    } else {
+      animateTo(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutBottomInset]);
 
   return (
     <SafeAreaView style={[styles.safeArea, containerStyle]} pointerEvents="box-none">
-      <Animated.View style={[styles.animatedContainer, { bottom: bottomOffset }]}>
+      <Animated.View
+        style={[
+          styles.animatedContainer,
+          isKeyboardVisible && styles.animatedContainerKeyboard,
+          { bottom: bottomOffset },
+        ]}
+      >
         <View style={[styles.inputWrapper, inputContainerStyle]}>
           <TextInput
             ref={ref}
@@ -160,6 +189,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
     backgroundColor: 'transparent',
+  },
+  animatedContainerKeyboard: {
+    paddingBottom: 0,
   },
   inputWrapper: {
     flexDirection: 'row',

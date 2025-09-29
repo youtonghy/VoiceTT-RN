@@ -11,6 +11,8 @@ import {
   Alert,
   TextInput,
   useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
@@ -32,6 +34,8 @@ import {
 } from "@/services/transcription";
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+
+const CARD_BOTTOM_MARGIN = 24;
 
 type AssistantMessageStatus = "pending" | "succeeded" | "failed";
 
@@ -285,6 +289,7 @@ export default function TranscriptionScreen() {
   const [searchTerm, setSearchTerm] = useState("");
   const [assistantDraft, setAssistantDraft] = useState("");
   const [assistantSending, setAssistantSending] = useState(false);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(1);
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
   const initialCarouselPositionedRef = useRef(false);
@@ -769,6 +774,7 @@ export default function TranscriptionScreen() {
     const targetCarousel = carouselRef.current;
     const scrollToTranscription = () => {
       targetCarousel?.scrollTo({ x: 0, animated: true });
+      setActiveCarouselIndex(0);
       initialCarouselPositionedRef.current = true;
     };
     if (conversationId === activeConversationId) {
@@ -957,6 +963,7 @@ export default function TranscriptionScreen() {
     }
     const scrollToHistory = () => {
       target.scrollTo({ x: pageWidth, animated: false });
+      setActiveCarouselIndex(1);
       initialCarouselPositionedRef.current = true;
     };
     if (typeof requestAnimationFrame === "function") {
@@ -965,6 +972,19 @@ export default function TranscriptionScreen() {
       setTimeout(scrollToHistory, 0);
     }
   }, [pageWidth]);
+
+  const handleCarouselMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (pageWidth <= 0) {
+        return;
+      }
+      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+      setActiveCarouselIndex(nextIndex);
+    },
+    [pageWidth]
+  );
+
+  const showAssistantComposer = activeCarouselIndex === 2;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={["top"]}>
@@ -982,7 +1002,8 @@ export default function TranscriptionScreen() {
             bounces={false}
             showsHorizontalScrollIndicator={false}
             style={styles.carousel}
-            contentContainerStyle={styles.carouselContent}>
+            contentContainerStyle={styles.carouselContent}
+            onMomentumScrollEnd={handleCarouselMomentumEnd}>
             <View style={[styles.cardPage, { width: pageWidth }]}>
               <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
                 <View style={styles.headerRow}>
@@ -1106,7 +1127,11 @@ export default function TranscriptionScreen() {
               </ThemedView>
             </View>
             <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
+              <ThemedView
+                style={[styles.card, styles.assistantCard]}
+                lightColor={cardLight}
+                darkColor={cardDark}
+              >
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
                   {t('assistant.section.title')}
                 </ThemedText>
@@ -1191,42 +1216,50 @@ export default function TranscriptionScreen() {
                     )}
                   </ScrollView>
                 </View>
-                <View style={styles.assistantComposerPlaceholder} />
+                <View
+                  style={[
+                    styles.assistantComposerPlaceholder,
+                    !showAssistantComposer && styles.assistantComposerPlaceholderCollapsed,
+                  ]}
+                />
+                {showAssistantComposer ? (
+                  <KeyboardStickyInput
+                    containerStyle={styles.assistantComposerContainer}
+                    inputContainerStyle={styles.assistantComposer}
+                    inputStyle={[styles.assistantInput, { color: searchInputColor }]}
+                    value={assistantDraft}
+                    onChangeText={handleAssistantChange}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    selectionColor="#2563eb"
+                    layoutBottomInset={CARD_BOTTOM_MARGIN}
+                    onSubmitEditing={() => {
+                      if (assistantCanSend) {
+                        handleAssistantSend();
+                      }
+                    }}
+                  >
+                    {assistantCanSend ? (
+                      <Pressable
+                        onPress={handleAssistantSend}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('assistant.accessibility.send_input')}
+                        disabled={assistantSending}
+                        style={({ pressed }) => [
+                          styles.assistantSendButton,
+                          pressed && styles.assistantSendButtonPressed,
+                          assistantSending && styles.assistantSendButtonDisabled,
+                        ]}>
+                        <Ionicons name="paper-plane" size={18} color="#ffffff" />
+                      </Pressable>
+                    ) : null}
+                  </KeyboardStickyInput>
+                ) : null}
               </ThemedView>
             </View>
           </ScrollView>
         </View>
-        <KeyboardStickyInput
-          containerStyle={styles.assistantComposerContainer}
-          inputContainerStyle={styles.assistantComposer}
-          inputStyle={[styles.assistantInput, { color: searchInputColor }]}
-          value={assistantDraft}
-          onChangeText={handleAssistantChange}
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="done"
-          selectionColor="#2563eb"
-          onSubmitEditing={() => {
-            if (assistantCanSend) {
-              handleAssistantSend();
-            }
-          }}
-        >
-          {assistantCanSend ? (
-            <Pressable
-              onPress={handleAssistantSend}
-              accessibilityRole="button"
-              accessibilityLabel={t('assistant.accessibility.send_input')}
-              disabled={assistantSending}
-              style={({ pressed }) => [
-                styles.assistantSendButton,
-                pressed && styles.assistantSendButtonPressed,
-                assistantSending && styles.assistantSendButtonDisabled,
-              ]}>
-              <Ionicons name="paper-plane" size={18} color="#ffffff" />
-            </Pressable>
-          ) : null}
-        </KeyboardStickyInput>
       </ThemedView>
     </SafeAreaView>
   );
@@ -1266,13 +1299,17 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     marginHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: CARD_BOTTOM_MARGIN,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
     elevation: 6,
     gap: 20,
+    position: "relative",
+  },
+  assistantCard: {
+    overflow: "hidden",
   },
   assistantSummaryCard: {
     borderRadius: 20,
@@ -1349,13 +1386,13 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   assistantComposerContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    left: 0,
+    right: 0,
+    paddingBottom: 0,
   },
   assistantComposer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1379,6 +1416,9 @@ const styles = StyleSheet.create({
   },
   assistantComposerPlaceholder: {
     height: 88,
+  },
+  assistantComposerPlaceholderCollapsed: {
+    height: 0,
   },
   historyCard: {
     gap: 16,
