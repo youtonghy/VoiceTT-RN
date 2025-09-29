@@ -7,8 +7,7 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useTranslation } from 'react-i18next';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Button,
@@ -186,9 +185,9 @@ function deriveNextHistoryId(
   return next;
 }
 
-
 function RecordingToggle() {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
+<<<<<<< HEAD
   const { t } = useTranslation();
   const theme = useTheme();
 
@@ -201,12 +200,50 @@ function RecordingToggle() {
       ? t('transcription.status.recording')
       : t('transcription.status.processing')
     : t('transcription.controls.start');
+=======
+  const shimmerProgress = useRef(new Animated.Value(0)).current;
+  const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    return () => {
+      shimmerLoop.current?.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSessionActive) {
+      shimmerProgress.setValue(0);
+      shimmerLoop.current?.stop();
+      shimmerLoop.current = Animated.loop(
+        Animated.timing(shimmerProgress, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      shimmerLoop.current.start();
+    } else {
+      shimmerLoop.current?.stop();
+      shimmerProgress.stopAnimation();
+      shimmerProgress.setValue(0);
+    }
+  }, [isSessionActive, shimmerProgress]);
+
+  const shimmerTranslate = shimmerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-120, 120],
+  });
+
+  const colors = isSessionActive ? ["#F87171", "#EF4444"] : ["#34D399", "#22C55E"];
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
 
   const iconName = !isSessionActive ? 'mic' : isRecording ? 'stop' : 'time';
   const buttonColor = isSessionActive ? theme.colors.error : theme.colors.primary;
   const textColor = isSessionActive ? theme.colors.onError : theme.colors.onPrimary;
 
   return (
+<<<<<<< HEAD
     <Button
       accessibilityLabel={accessibilityLabel}
       mode="contained"
@@ -220,11 +257,37 @@ function RecordingToggle() {
       loading={isSessionActive && !isRecording}>
       {label}
     </Button>
+=======
+    <Pressable
+      accessibilityLabel={isSessionActive ? "停止录音" : "开始录音"}
+      onPress={toggleSession}
+      style={styles.recordButtonWrapper}>
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
+        <View style={styles.recordButtonContent}>
+          <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
+            {isSessionActive ? (isRecording ? "录音中..." : "处理片段...") : "开始录音"}
+          </ThemedText>
+        </View>
+        {isSessionActive ? (
+          <AnimatedLinearGradient
+            colors={[
+              "rgba(255,255,255,0)",
+              "rgba(255,255,255,0.35)",
+              "rgba(255,255,255,0)",
+            ]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
+        ) : null}
+      </LinearGradient>
+    </Pressable>
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   );
 }
 
 
 export default function TranscriptionScreen() {
+<<<<<<< HEAD
   const { t, i18n } = useTranslation();
   const theme = useTheme();
   const backgroundColor = theme.colors.background;
@@ -235,6 +298,17 @@ export default function TranscriptionScreen() {
   const assistantMetaColor = theme.colors.onSurfaceVariant;
   const assistantUserBubbleColor = theme.colors.primary;
   const assistantUserTextColor = theme.colors.onPrimary;
+=======
+  const cardLight = "#f8fafc";
+  const cardDark = "#0f172a";
+  const backgroundColor = useThemeColor({}, "background");
+  const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
+  const assistantAssistantBubbleColor = useThemeColor(
+    { light: "rgba(15, 23, 42, 0.06)", dark: "rgba(148, 163, 184, 0.18)" },
+    "card"
+  );
+  const assistantMetaColor = useThemeColor({ light: "#64748b", dark: "#94a3b8" }, "text");
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   const { width } = useWindowDimensions();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
@@ -334,9 +408,9 @@ export default function TranscriptionScreen() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert(t('alerts.recording.title'), error, [{ text: t('common.actions.ok'), onPress: clearError }]);
+      Alert.alert("录音提示", error, [{ text: "确定", onPress: clearError }]);
     }
-  }, [clearError, error, t]);
+  }, [clearError, error]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -405,7 +479,7 @@ export default function TranscriptionScreen() {
         }
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[transcription] Failed to auto-generate conversation title', err);
-        Alert.alert(t('alerts.conversation_title.failure'), message);
+        Alert.alert('??????', message);
       })
       .finally(() => {
         autoTitleAbortRef.current = null;
@@ -413,7 +487,7 @@ export default function TranscriptionScreen() {
           setAutoTitleTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoTitleTrigger, t]);
+  }, [historyItems, settings, autoTitleTrigger]);
 
 
 
@@ -475,7 +549,7 @@ export default function TranscriptionScreen() {
         }
         const message = err instanceof Error ? err.message : String(err);
         console.warn('[transcription] Failed to auto-generate conversation summary', err);
-        Alert.alert(t('alerts.summary.failure'), message);
+        Alert.alert('总结生成失败', message);
       })
       .finally(() => {
         autoSummaryAbortRef.current = null;
@@ -483,7 +557,7 @@ export default function TranscriptionScreen() {
           setAutoSummaryTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoSummaryTrigger, t]);
+  }, [historyItems, settings, autoSummaryTrigger]);
 
 
 
@@ -606,7 +680,7 @@ export default function TranscriptionScreen() {
       if (!currentGroup || currentGroup.key !== groupKey) {
         currentGroup = {
           key: groupKey,
-          label: formatDateLabel(item.createdAt, i18n.language),
+          label: formatDateLabel(item.createdAt),
           items: [],
         };
         groups.push(currentGroup);
@@ -615,7 +689,7 @@ export default function TranscriptionScreen() {
     });
 
     return groups;
-  }, [filteredHistory, i18n.language]);
+  }, [filteredHistory]);
 
   const activeConversation = useMemo(
     () =>
@@ -681,7 +755,7 @@ export default function TranscriptionScreen() {
       const now = Date.now();
       const nextConversation: HistoryConversation = {
         id: newId,
-        title: t('transcription.history.new_conversation', { id: idNumber }),
+        title: `新对话 ${idNumber}`,
         transcript: "",
         translation: undefined,
         summary: undefined,
@@ -708,7 +782,7 @@ export default function TranscriptionScreen() {
 
       return newId;
     },
-    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession, t]
+    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession]
   );
 
   const handleAddConversation = useCallback(async () => {
@@ -853,7 +927,7 @@ export default function TranscriptionScreen() {
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const rawMessage = err instanceof Error ? err.message : String(err);
-      const displayMessage = rawMessage || t('assistant.errors.send_failed');
+      const displayMessage = rawMessage || '发送失败';
 
       setHistoryItems((prev) =>
         prev.map((item) => {
@@ -876,13 +950,13 @@ export default function TranscriptionScreen() {
       );
 
       if (!isAbort) {
-        Alert.alert(t('alerts.assistant.failure'), displayMessage);
+        Alert.alert('智能对话失败', displayMessage);
       }
     } finally {
       assistantAbortRef.current = null;
       setAssistantSending(false);
     }
-  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, t]);
+  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, generateAssistantReply]);
 
   const assistantMessages = activeConversation?.assistantMessages ?? [];
 
@@ -902,7 +976,7 @@ export default function TranscriptionScreen() {
   const assistantHasInput = assistantDraft.trim().length > 0;
   const assistantCanSend = assistantHasInput && !assistantSending;
   const assistantSummary = activeConversation?.summary?.trim() ?? '';
-  const assistantSummaryPlaceholder = t('assistant.placeholders.summary');
+  const assistantSummaryPlaceholder = '暂无对话总结，完成录音后自动生成。';
 
   const pageWidth = width;
 
@@ -934,7 +1008,7 @@ export default function TranscriptionScreen() {
       <ThemedView style={styles.container}>
         <View style={styles.topBar}>
           <ThemedText type="title" style={styles.topBarTitle}>
-            {t('transcription.sections.live_title')}
+            转写
           </ThemedText>
         </View>
         <View style={styles.content}>
@@ -950,7 +1024,7 @@ export default function TranscriptionScreen() {
               <ThemedView style={styles.card} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
                 <View style={styles.headerRow}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    {t('transcription.sections.live_content')}
+                    转写内容
                   </ThemedText>
                   <RecordingToggle />
                 </View>
@@ -962,8 +1036,13 @@ export default function TranscriptionScreen() {
                     showsVerticalScrollIndicator={false}
                     nestedScrollEnabled>
                     {messages.length === 0 ? (
+<<<<<<< HEAD
                       <ThemedText style={styles.emptyMessage}>
                         {t('transcription.history.placeholder_empty')}
+=======
+                      <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
+                        还没有转写内容，开始录音吧。
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                       </ThemedText>
                     ) : (
                       messages.map((item) => <MessageBubble key={item.id} message={item} />)
@@ -976,7 +1055,7 @@ export default function TranscriptionScreen() {
               <ThemedView style={[styles.card, styles.historyCard]} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
                 <View style={styles.historyHeader}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    {t('transcription.sections.history_title')}
+                    历史对话
                   </ThemedText>
                   <View style={styles.historyActions}>
                     <IconButton
@@ -986,14 +1065,29 @@ export default function TranscriptionScreen() {
                       onPress={() => {
                         void handleAddConversation();
                       }}
+<<<<<<< HEAD
                     />
+=======
+                      style={styles.historyIconButton}
+                      accessibilityLabel="新增对话">
+                      <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
+                        +
+                      </ThemedText>
+                    </Pressable>
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                   </View>
                 </View>
                 <View style={styles.historySearchContainer}>
                   <Searchbar
                     value={searchTerm}
                     onChangeText={handleSearchChange}
+<<<<<<< HEAD
                     placeholder={t('transcription.history.search_placeholder')}
+=======
+                    placeholder="搜索对话转写或翻译内容"
+                    placeholderTextColor="rgba(148,163,184,0.7)"
+                    style={[styles.historySearchInput, { color: searchInputColor }]}
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                     autoCorrect={false}
                     style={styles.historySearchBar}
                     clearIcon="close"
@@ -1011,8 +1105,13 @@ export default function TranscriptionScreen() {
                     nestedScrollEnabled
                     keyboardShouldPersistTaps="handled">
                     {historyGroups.length === 0 ? (
+<<<<<<< HEAD
                       <ThemedText style={styles.historyEmptyText}>
                         {t('transcription.history.placeholder_search_empty')}
+=======
+                      <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
+                        暂无匹配的历史记录。
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                       </ThemedText>
                     ) : (
                       historyGroups.map((group) => (
@@ -1032,20 +1131,47 @@ export default function TranscriptionScreen() {
                                 onPress={() => {
                                   void handleSelectConversation(item.id);
                                 }}
+<<<<<<< HEAD
                                 accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
                                 style={[
+=======
+                                accessibilityRole="button"
+                                accessibilityLabel={`查看对话 ${item.title}`}
+                                style={({ pressed }) => [
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                                   styles.historyItem,
                                   {
                                     backgroundColor: historyItemSurface,
                                     borderColor: isActive ? theme.colors.primary : 'transparent',
                                   },
                                   isActive && styles.historyItemActive,
+<<<<<<< HEAD
                                 ]}
                                 titleNumberOfLines={1}
                                 descriptionNumberOfLines={1}
                                 descriptionStyle={[styles.historyItemTime, { color: subtleOnSurface }]}
                                 titleStyle={styles.historyItemTitle}
                               />
+=======
+                                  pressed && styles.historyItemPressed,
+                                ]}>
+                                <View style={styles.historyItemHeader}>
+                                  <ThemedText
+                                    numberOfLines={1}
+                                    style={styles.historyItemTitle}
+                                    lightColor="#1f2937"
+                                    darkColor="#f1f5f9">
+                                    {item.title}
+                                  </ThemedText>
+                                  <ThemedText
+                                    style={styles.historyItemTime}
+                                    lightColor="#64748b"
+                                    darkColor="#94a3b8">
+                                    {formatRecordTime(item.createdAt)}
+                                  </ThemedText>
+                                </View>
+                              </Pressable>
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                             );
                           })}
                         </View>
@@ -1058,7 +1184,7 @@ export default function TranscriptionScreen() {
             <View style={[styles.cardPage, { width: pageWidth }]}>
               <ThemedView style={styles.card} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
-                  {t('assistant.section.title')}
+                  智能对话
                 </ThemedText>
                 <View style={styles.assistantConversation}>
                   <ScrollView
@@ -1073,8 +1199,15 @@ export default function TranscriptionScreen() {
                       lightColor={theme.colors.secondaryContainer}
                       darkColor={theme.colors.secondaryContainer}>
                       <ThemedText
+<<<<<<< HEAD
                         style={[styles.assistantSummaryLabel, { color: theme.colors.onSecondaryContainer }]}>
                         {t('assistant.section.summary_title')}
+=======
+                        style={styles.assistantSummaryLabel}
+                        lightColor="#f8fafc"
+                        darkColor="#e2e8f0">
+                        瀵硅瘽鎬荤粨
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                       </ThemedText>
                       <ThemedText
                         style={[styles.assistantSummaryText, { color: theme.colors.onSecondaryContainer }]}>
@@ -1084,18 +1217,24 @@ export default function TranscriptionScreen() {
                     {assistantMessages.length === 0 ? (
                       <ThemedText
                         style={styles.assistantEmptyText}
+<<<<<<< HEAD
                        
                        >
                         {t('assistant.placeholders.no_messages')}
+=======
+                        lightColor="#94a3b8"
+                        darkColor="#94a3b8">
+                        暂无聊天记录，试着提一个问题。
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                       </ThemedText>
                     ) : (
                       assistantMessages.map((message) => {
                         const isUser = message.role === 'user';
                         const statusText =
                           message.status === 'pending'
-                            ? t('assistant.status.waiting_reply')
+                            ? '等待回复…'
                             : message.status === 'failed'
-                            ? message.error?.trim() || t('assistant.errors.send_failed')
+                            ? message.error?.trim() || '发送失败'
                             : null;
                         return (
                           <View
@@ -1158,6 +1297,23 @@ export default function TranscriptionScreen() {
                     onPress={handleAssistantSend}
                     accessibilityLabel={t('assistant.accessibility.send_input')}
                   />
+<<<<<<< HEAD
+=======
+                  {assistantCanSend ? (
+                    <Pressable
+                      onPress={handleAssistantSend}
+                      accessibilityRole="button"
+                      accessibilityLabel="发送输入"
+                      disabled={assistantSending}
+                      style={({ pressed }) => [
+                        styles.assistantSendButton,
+                        pressed && styles.assistantSendButtonPressed,
+                        assistantSending && styles.assistantSendButtonDisabled,
+                      ]}>
+                      <Ionicons name="paper-plane" size={18} color="#ffffff" />
+                    </Pressable>
+                  ) : null}
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 </View>
               </ThemedView>
             </View>
@@ -1431,24 +1587,27 @@ const styles = StyleSheet.create({
   },
 });
 
-
 function MessageBubble({ message }: { message: TranscriptionMessage }) {
+<<<<<<< HEAD
   const { t } = useTranslation();
   const theme = useTheme();
 
+=======
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   const statusLabel = (() => {
     switch (message.status) {
-      case 'pending':
-        return t('transcription.status.pending_trigger');
-      case 'transcribing':
-        return t('transcription.status.transcribing');
-      case 'failed':
-        return t('transcription.status.failed');
+      case "pending":
+        return "等待触发";
+      case "transcribing":
+        return "转写中";
+      case "failed":
+        return "转写失败";
       default:
         return null;
     }
   })();
 
+<<<<<<< HEAD
   const fallbackText =
     message.status === 'failed'
       ? message.error || t('transcription.errors.no_content')
@@ -1457,19 +1616,26 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
   const messageSurface = theme.colors.surfaceVariant;
   const statusColor = theme.colors.onSurfaceVariant;
 
+=======
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   return (
     <ThemedView style={[styles.messageBubble, { backgroundColor: messageSurface }]}>
       {statusLabel ? (
         <ThemedText style={[styles.messageStatus, { color: statusColor }]}>{statusLabel}</ThemedText>
       ) : null}
       <ThemedText style={styles.messageBody}>
-        {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
+        {message.transcript && message.transcript.length > 0
+          ? message.transcript
+          : message.status === "failed"
+          ? message.error || "未能获取文字内容"
+          : "等待转写结果..."}
       </ThemedText>
-      <TranslationSection message={message} />
+      {renderTranslationSection(message)}
     </ThemedView>
   );
 }
 
+<<<<<<< HEAD
 
 function TranslationSection({ message }: { message: TranscriptionMessage }) {
   const { t } = useTranslation();
@@ -1500,6 +1666,20 @@ function TranslationSection({ message }: { message: TranscriptionMessage }) {
         {message.translation}
       </ThemedText>
     );
+=======
+function renderTranslationSection(message: TranscriptionMessage) {
+  let content = null;
+  if (message.translationStatus === "pending") {
+    content = <ThemedText style={styles.translationPending}>翻译中...</ThemedText>;
+  } else if (message.translationStatus === "failed") {
+    content = (
+      <ThemedText style={styles.translationError}>
+        {message.translationError || "翻译失败"}
+      </ThemedText>
+    );
+  } else if (message.translationStatus === "completed" && message.translation) {
+    content = <ThemedText style={styles.translationText}>{message.translation}</ThemedText>;
+>>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   }
 
   if (!content) {
@@ -1520,40 +1700,16 @@ function buildDateKey(timestamp: number) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function formatDateLabel(timestamp: number, language: string) {
-  try {
-    return new Intl.DateTimeFormat(language, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(new Date(timestamp));
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[transcription] Failed to format history date label', error);
-    }
-    const date = new Date(timestamp);
-    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-  }
+function formatDateLabel(timestamp: number) {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
-function formatRecordTime(timestamp: number, language: string) {
-  try {
-    return new Intl.DateTimeFormat(language, {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(timestamp));
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[transcription] Failed to format history time label', error);
-    }
-    const date = new Date(timestamp);
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    const hours = `${date.getHours()}`.padStart(2, '0');
-    const minutes = `${date.getMinutes()}`.padStart(2, '0');
-    return `${month}/${day} ${hours}:${minutes}`;
-  }
+function formatRecordTime(timestamp: number) {
+  const date = new Date(timestamp);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${month}/${day} ${hours}:${minutes}`;
 }
