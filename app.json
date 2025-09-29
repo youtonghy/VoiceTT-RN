@@ -20,11 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.vtt",
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      "package": "com.anonymous.vtt"
     },
     "web": {
       "output": "static",
@@ -50,12 +46,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "b04ddcf8-72d7-4b57-8acc-9d485ea49771"
-      }
     }
   }
 }
