@@ -4,6 +4,7 @@ export type TranslationEngine = 'openai' | 'gemini' | 'none';
 
 export type TitleSummaryEngine = 'openai' | 'gemini';
 export type ConversationSummaryEngine = 'openai' | 'gemini';
+export type QaEngine = 'openai' | 'gemini';
 
 export interface EngineCredentials {
   openaiApiKey?: string;
@@ -12,10 +13,12 @@ export interface EngineCredentials {
   openaiTranslationModel?: string;
   openaiTitleModel?: string;
   openaiConversationModel?: string;
+  openaiQaModel?: string;
   geminiApiKey?: string;
   geminiTranslationModel?: string;
   geminiTitleModel?: string;
   geminiConversationModel?: string;
+  geminiQaModel?: string;
   sonioxApiKey?: string;
   qwenApiKey?: string;
   qwenTranscriptionModel?: string;
@@ -44,12 +47,18 @@ export const DEFAULT_OPENAI_CONVERSATION_MODEL = DEFAULT_OPENAI_TITLE_MODEL;
 export const DEFAULT_GEMINI_CONVERSATION_MODEL = DEFAULT_GEMINI_TITLE_MODEL;
 export const DEFAULT_CONVERSATION_SUMMARY_PROMPT =
   'You are a helpful assistant who writes detailed conversation summaries in the same language as the transcript. Produce 2-4 sentences that capture the main topics, decisions, and follow-up actions. Avoid fabricating details and never include sensitive personal data.';
+export const DEFAULT_OPENAI_QA_MODEL = DEFAULT_OPENAI_CONVERSATION_MODEL;
+export const DEFAULT_GEMINI_QA_MODEL = DEFAULT_GEMINI_CONVERSATION_MODEL;
+export const DEFAULT_QA_PROMPT =
+  'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. For each, provide a concise factual answer using only the provided content. Respond in JSON with an `items` array of objects containing `question` and `answer`. Use the same language as the transcript. If there is no question, return an empty array.';
 
 export interface AppSettings extends TranscriptionSettings {
   titleSummaryEngine: TitleSummaryEngine;
   titleSummaryPrompt: string;
   conversationSummaryEngine: ConversationSummaryEngine;
   conversationSummaryPrompt: string;
+  qaEngine: QaEngine;
+  qaPrompt: string;
   credentials: EngineCredentials;
 }
 
@@ -70,15 +79,19 @@ export const defaultSettings: AppSettings = {
   titleSummaryPrompt: DEFAULT_TITLE_SUMMARY_PROMPT,
   conversationSummaryEngine: 'openai',
   conversationSummaryPrompt: DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  qaEngine: 'openai',
+  qaPrompt: DEFAULT_QA_PROMPT,
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',
     openaiTranslationModel: 'gpt-4o-mini',
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,
     openaiConversationModel: DEFAULT_OPENAI_CONVERSATION_MODEL,
+    openaiQaModel: DEFAULT_OPENAI_QA_MODEL,
     geminiTranslationModel: 'gemini-2.5-flash',
     geminiTitleModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
+    geminiQaModel: DEFAULT_GEMINI_QA_MODEL,
     qwenTranscriptionModel: 'Qwen3-ASR',
   },
 };

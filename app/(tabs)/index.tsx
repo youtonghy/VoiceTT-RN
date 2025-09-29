@@ -2,8 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
-  Animated,
-  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import KeyboardStickyInput from "@/KeyboardStickyInput";
 
+import { RecordingToggle } from "@/components/recording-toggle";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -32,8 +31,6 @@ import {
   generateAssistantReply,
   type AssistantConversationTurn,
 } from "@/services/transcription";
-
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 const CARD_BOTTOM_MARGIN = 24;
 
@@ -189,80 +186,6 @@ function deriveNextHistoryId(
     }
   });
   return next;
-}
-
-
-function RecordingToggle() {
-  const { isSessionActive, toggleSession, isRecording } = useTranscription();
-  const { t } = useTranslation();
-  const shimmerProgress = useRef(new Animated.Value(0)).current;
-  const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    return () => {
-      shimmerLoop.current?.stop();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isSessionActive) {
-      shimmerProgress.setValue(0);
-      shimmerLoop.current?.stop();
-      shimmerLoop.current = Animated.loop(
-        Animated.timing(shimmerProgress, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      );
-      shimmerLoop.current.start();
-    } else {
-      shimmerLoop.current?.stop();
-      shimmerProgress.stopAnimation();
-      shimmerProgress.setValue(0);
-    }
-  }, [isSessionActive, shimmerProgress]);
-
-  const shimmerTranslate = shimmerProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-120, 120],
-  });
-
-  const colors = isSessionActive ? ['#F87171', '#EF4444'] : ['#34D399', '#22C55E'];
-
-  const accessibilityLabel = isSessionActive
-    ? t('transcription.accessibility.stop_recording')
-    : t('transcription.accessibility.start_recording');
-
-  const label = isSessionActive
-    ? isRecording
-      ? t('transcription.status.recording')
-      : t('transcription.status.processing')
-    : t('transcription.controls.start');
-
-  return (
-    <Pressable accessibilityLabel={accessibilityLabel} onPress={toggleSession} style={styles.recordButtonWrapper}>
-      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
-        <View style={styles.recordButtonContent}>
-          <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
-            {label}
-          </ThemedText>
-        </View>
-        {isSessionActive ? (
-          <AnimatedLinearGradient
-            colors={[
-              'rgba(255,255,255,0)',
-              'rgba(255,255,255,0.35)',
-              'rgba(255,255,255,0)',
-            ]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
-        ) : null}
-      </LinearGradient>
-    </Pressable>
-  );
 }
 
 export default function TranscriptionScreen() {
@@ -1458,31 +1381,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "700",
-  },
-  recordButtonWrapper: {
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  recordButton: {
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minWidth: 140,
-    justifyContent: "center",
-  },
-  recordButtonContent: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recordButtonLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  shimmer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 120,
   },
   dialogueContainer: {
     flex: 1,

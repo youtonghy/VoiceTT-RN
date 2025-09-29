@@ -49,6 +49,11 @@ export default function SettingsIndexScreen() {
         subtitle: t('settings.sections.summary.subtitle'),
       },
       {
+        route: '/explore/qa',
+        title: t('settings.sections.qa.title'),
+        subtitle: t('settings.sections.qa.subtitle'),
+      },
+      {
         route: '/explore/credentials',
         title: t('settings.sections.credentials.title'),
         subtitle: t('settings.sections.credentials.subtitle'),

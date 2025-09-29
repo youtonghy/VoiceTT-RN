@@ -11,10 +11,11 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
 
-  const tabs = {
-    transcription: t('navigation.tabs.transcription'),
-    settings: t('navigation.tabs.settings'),
-  };
+  const tabs = {
+    transcription: t('navigation.tabs.transcription'),
+    qa: t('navigation.tabs.qa'),
+    settings: t('navigation.tabs.settings'),
+  };
 
   return (
     <Tabs
@@ -23,17 +24,24 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: tabs.transcription,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: tabs.settings,
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: tabs.transcription,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="qa"
+        options={{
+          title: tabs.qa,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="questionmark.circle.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: tabs.settings,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
         }}
       />

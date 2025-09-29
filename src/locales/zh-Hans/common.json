@@ -2,6 +2,7 @@
   "navigation": {
     "tabs": {
       "transcription": "转写",
+      "qa": "问答",
       "settings": "设置"
     }
   },
@@ -79,6 +80,27 @@
       "empty_result": "翻译结果为空"
     }
   },
+  "qa": {
+    "title": "实时问答",
+    "subtitle": "开始录音，实时提取问题并给出快速回答。",
+    "empty": {
+      "title": "暂时没有问题",
+      "body": "当片段中出现提问时，会在此显示并附上建议回答。"
+    },
+    "status": {
+      "analyzing": "分析中…"
+    },
+    "entry": {
+      "label": "片段 {{title}}",
+      "default_title": "消息 #{{id}}",
+      "no_questions": "该片段未检测到问题。",
+      "error": "无法提取问题：{{message}}"
+    },
+    "labels": {
+      "question": "问",
+      "answer": "答"
+    }
+  },
   "assistant": {
     "section": {
       "title": "智能对话",
@@ -117,6 +139,10 @@
       "summary": {
         "title": "总结设置",
         "subtitle": "标题引擎与提示词"
+      },
+      "qa": {
+        "title": "实时问答",
+        "subtitle": "问题抽取模型与提示词"
       },
       "credentials": {
         "title": "凭据",
@@ -197,6 +223,18 @@
         "gemini_label": "Gemini 对话总结模型",
         "prompt_label": "对话总结提示词"
       }
+    },
+    "qa": {
+      "engine": {
+        "title": "问答抽取引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "OpenAI 问答模型",
+      "gemini_label": "Gemini 问答模型",
+      "prompt_label": "抽取提示词"
     }
   }
 }

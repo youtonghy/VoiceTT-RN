@@ -54,6 +54,18 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (parsedCredentials.geminiConversationModel === undefined && merged.credentials.geminiTitleModel) {
       merged.credentials.geminiConversationModel = merged.credentials.geminiTitleModel;
     }
+    if (parsed.qaEngine === undefined) {
+      merged.qaEngine = defaultSettings.qaEngine;
+    }
+    if (!parsed.qaPrompt) {
+      merged.qaPrompt = defaultSettings.qaPrompt;
+    }
+    if (parsedCredentials.openaiQaModel === undefined && merged.credentials.openaiConversationModel) {
+      merged.credentials.openaiQaModel = merged.credentials.openaiConversationModel;
+    }
+    if (parsedCredentials.geminiQaModel === undefined && merged.credentials.geminiConversationModel) {
+      merged.credentials.geminiQaModel = merged.credentials.geminiConversationModel;
+    }
     return merged;
   } catch (error) {
     console.warn('[settings] Failed to restore persisted settings', error);

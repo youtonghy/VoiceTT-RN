@@ -2,6 +2,7 @@
   "navigation": {
     "tabs": {
       "transcription": "Transcription",
+      "qa": "Q&A",
       "settings": "Settings"
     }
   },
@@ -79,6 +80,27 @@
       "empty_result": "Translation result is empty"
     }
   },
+  "qa": {
+    "title": "Live Q&A",
+    "subtitle": "Start recording to surface questions and quick answers in real time.",
+    "empty": {
+      "title": "No questions yet",
+      "body": "When a speaker asks something, it will appear here with a suggested answer."
+    },
+    "status": {
+      "analyzing": "Analyzing…"
+    },
+    "entry": {
+      "label": "Segment {{title}}",
+      "default_title": "Message #{{id}}",
+      "no_questions": "No questions detected in this segment.",
+      "error": "Unable to extract questions: {{message}}"
+    },
+    "labels": {
+      "question": "Q",
+      "answer": "A"
+    }
+  },
   "assistant": {
     "section": {
       "title": "Assistant",
@@ -117,6 +139,10 @@
       "summary": {
         "title": "Summaries",
         "subtitle": "Title engine and prompts"
+      },
+      "qa": {
+        "title": "Live Q&A",
+        "subtitle": "Question extraction model and prompt"
       },
       "credentials": {
         "title": "Credentials",
@@ -197,6 +223,18 @@
         "gemini_label": "Gemini conversation model",
         "prompt_label": "Conversation prompt"
       }
+    },
+    "qa": {
+      "engine": {
+        "title": "Q&A extraction engine",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "OpenAI Q&A model",
+      "gemini_label": "Gemini Q&A model",
+      "prompt_label": "Extraction prompt"
     }
   }
 }
