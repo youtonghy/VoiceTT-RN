@@ -1,18 +1,10 @@
-
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useMemo } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Surface, Text, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 
-import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_BASE_URL,
@@ -20,6 +12,12 @@ import {
   DEFAULT_OPENAI_TRANSLATION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
+import {
+  DEFAULT_GEMINI_CONVERSATION_MODEL,
+  DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_MODEL,
+  DEFAULT_OPENAI_TITLE_MODEL,
+} from '@/types/settings';
 
 import { settingsStyles, useSettingsForm } from './shared';
 
@@ -27,41 +25,42 @@ export default function CredentialSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
-  const credentialLabelStyle = [settingsStyles.cardLabel, isDark && settingsStyles.cardLabelDark];
-  const sectionTitleStyle = [settingsStyles.sectionTitle, isDark && settingsStyles.sectionTitleDark];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const safeAreaStyle = useMemo(
+    () => [settingsStyles.safeArea, { backgroundColor: theme.colors.background }],
+    [theme.colors.background]
+  );
+
+  const scrollContentStyle = useMemo(
+    () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
+    [insets.bottom]
+  );
+
+  const sectionCardStyle = useMemo(
+    () => [settingsStyles.sectionCard, { backgroundColor: theme.colors.surface }],
+    [theme.colors.surface]
+  );
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        style={settingsStyles.flex}
+      >
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.credentials.sections.openai.title')}
-            </ThemedText>
+          keyboardShouldPersistTaps="handled"
+        >
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.credentials.sections.openai.title')}</Text>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.base_url')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.base_url')}</Text>
+              <PaperTextInput
                 value={formState.openaiBaseUrl}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
                 onBlur={() =>
@@ -70,33 +69,30 @@ export default function CredentialSettingsScreen() {
                   })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder={DEFAULT_OPENAI_BASE_URL}
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.api_key')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
+              <PaperTextInput
                 value={formState.openaiApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
                 onBlur={() =>
                   updateCredentials({ openaiApiKey: formState.openaiApiKey.trim() || undefined })
                 }
                 autoCapitalize="none"
+                mode="outlined"
                 secureTextEntry
-                style={inputStyle}
                 placeholder="sk-..."
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.transcription_model')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.transcription_model')}</Text>
+              <PaperTextInput
                 value={formState.openaiTranscriptionModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
@@ -108,16 +104,15 @@ export default function CredentialSettingsScreen() {
                   })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.translation_model')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.translation_model')}</Text>
+              <PaperTextInput
                 value={formState.openaiTranslationModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
@@ -129,39 +124,72 @@ export default function CredentialSettingsScreen() {
                   })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.credentials.sections.gemini.title')}
-            </ThemedText>
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.api_key')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.title_model')}</Text>
+              <PaperTextInput
+                value={formState.openaiTitleModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiTitleModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    openaiTitleModel:
+                      formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_OPENAI_TITLE_MODEL}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.credentials.labels.conversation_model')}</Text>
+              <PaperTextInput
+                value={formState.openaiConversationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiConversationModel:
+                      formState.openaiConversationModel.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
+              />
+            </View>
+          </Surface>
+
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.credentials.sections.gemini.title')}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
+              <PaperTextInput
                 value={formState.geminiApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiApiKey: text }))}
                 onBlur={() =>
                   updateCredentials({ geminiApiKey: formState.geminiApiKey.trim() || undefined })
                 }
                 autoCapitalize="none"
+                mode="outlined"
                 secureTextEntry
-                style={inputStyle}
                 placeholder="AIza..."
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.translation_model')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.translation_model')}</Text>
+              <PaperTextInput
                 value={formState.geminiTranslationModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
@@ -173,62 +201,88 @@ export default function CredentialSettingsScreen() {
                   })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.credentials.sections.soniox.title')}
-            </ThemedText>
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.api_key')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.title_model')}</Text>
+              <PaperTextInput
+                value={formState.geminiTitleModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiTitleModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    geminiTitleModel: formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_GEMINI_TITLE_MODEL}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.credentials.labels.conversation_model')}</Text>
+              <PaperTextInput
+                value={formState.geminiConversationModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiConversationModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    geminiConversationModel:
+                      formState.geminiConversationModel.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
+              />
+            </View>
+          </Surface>
+
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.credentials.sections.soniox.title')}</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
+              <PaperTextInput
                 value={formState.sonioxApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, sonioxApiKey: text }))}
                 onBlur={() =>
                   updateCredentials({ sonioxApiKey: formState.sonioxApiKey.trim() || undefined })
                 }
                 autoCapitalize="none"
+                mode="outlined"
                 secureTextEntry
-                style={inputStyle}
                 placeholder="soniox_..."
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </View>
+          </Surface>
 
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.credentials.sections.qwen.title')}
-            </ThemedText>
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.credentials.sections.qwen.title')}</Text>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.api_key')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
+              <PaperTextInput
                 value={formState.qwenApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, qwenApiKey: text }))}
                 onBlur={() =>
                   updateCredentials({ qwenApiKey: formState.qwenApiKey.trim() || undefined })
                 }
                 autoCapitalize="none"
+                mode="outlined"
                 secureTextEntry
-                style={inputStyle}
                 placeholder="sk-..."
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
+
             <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.credentials.labels.transcription_model')}
-              </ThemedText>
-              <TextInput
+              <Text variant="labelLarge">{t('settings.credentials.labels.transcription_model')}</Text>
+              <PaperTextInput
                 value={formState.qwenTranscriptionModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, qwenTranscriptionModel: text }))
@@ -240,12 +294,12 @@ export default function CredentialSettingsScreen() {
                   })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder={DEFAULT_QWEN_TRANSCRIPTION_MODEL}
-                placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </View>
+          </Surface>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -253,10 +307,7 @@ export default function CredentialSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 16,
-  },
   fieldGroup: {
-    gap: 6,
+    gap: 8,
   },
 });

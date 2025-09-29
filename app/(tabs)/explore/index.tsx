@@ -1,12 +1,9 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Card, Text, useTheme } from 'react-native-paper';
 
 import { settingsStyles } from './shared';
 
@@ -19,12 +16,12 @@ interface SettingsEntry {
 export default function SettingsIndexScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
+  const theme = useTheme();
+
+  const safeAreaStyle = useMemo(
+    () => [settingsStyles.safeArea, { backgroundColor: theme.colors.background }],
+    [theme.colors.background]
+  );
 
   const entryItems: SettingsEntry[] = useMemo(
     () => [
@@ -60,45 +57,31 @@ export default function SettingsIndexScreen() {
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText
-            type="title"
-            style={settingsStyles.pageTitle}
-            lightColor="#0f172a"
-            darkColor="#e2e8f0">
-            {t('settings.page_title')}
-          </ThemedText>
+        <View style={settingsStyles.pageHeader}>
+          <Text variant="headlineSmall">{t('settings.page_title')}</Text>
         </View>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.entryList}
-          style={styles.entryScroll}>
+          style={styles.entryScroll}
+        >
           {entryItems.map((entry) => (
-            <Pressable
+            <Card
               key={entry.route}
+              mode="elevated"
+              onPress={() => router.push(entry.route)}
+              style={styles.entryCard}
+              accessible
               accessibilityRole="button"
               accessibilityLabel={entry.title}
-              onPress={() => router.push(entry.route)}
-              style={({ pressed }) => [styles.entryPressable, pressed && styles.entryPressed]}>
-              <ThemedView
-                lightColor="rgba(148, 163, 184, 0.12)"
-                darkColor="rgba(15, 23, 42, 0.7)"
-                style={styles.entryCard}>
-                <ThemedText
-                  type="title"
-                  style={styles.entryTitle}
-                  lightColor="#0f172a"
-                  darkColor="#e2e8f0">
-                  {entry.title}
-                </ThemedText>
-                <ThemedText
-                  style={styles.entrySubtitle}
-                  lightColor="#475569"
-                  darkColor="#94a3b8">
+            >
+              <Card.Content style={styles.cardContent}>
+                <Text variant="titleMedium">{entry.title}</Text>
+                <Text variant="bodyMedium" style={styles.entrySubtitle}>
                   {entry.subtitle}
-                </ThemedText>
-              </ThemedView>
-            </Pressable>
+                </Text>
+              </Card.Content>
+            </Card>
           ))}
         </ScrollView>
       </View>
@@ -112,9 +95,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 20,
   },
-  header: {
-    paddingHorizontal: 20,
-  },
   entryScroll: {
     flex: 1,
   },
@@ -123,25 +103,13 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 16,
   },
-  entryPressable: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  entryPressed: {
-    opacity: 0.85,
-  },
   entryCard: {
-    width: '100%',
-    padding: 20,
-    borderRadius: 24,
-    gap: 10,
+    borderRadius: 20,
   },
-  entryTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+  cardContent: {
+    gap: 8,
   },
   entrySubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    opacity: 0.78,
   },
 });

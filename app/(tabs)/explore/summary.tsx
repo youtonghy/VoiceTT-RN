@@ -1,18 +1,10 @@
-
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { useMemo } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Surface, Text, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 
-import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   DEFAULT_GEMINI_CONVERSATION_MODEL,
@@ -37,41 +29,38 @@ export default function SummarySettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const safeAreaStyle = useMemo(
+    () => [settingsStyles.safeArea, { backgroundColor: theme.colors.background }],
+    [theme.colors.background]
+  );
+
+  const scrollContentStyle = useMemo(
+    () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
+    [insets.bottom]
+  );
+
+  const sectionCardStyle = useMemo(
+    () => [settingsStyles.sectionCard, { backgroundColor: theme.colors.surface }],
+    [theme.colors.surface]
+  );
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        style={settingsStyles.flex}
+      >
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.summary.title_engine.title')}
-            </ThemedText>
+          keyboardShouldPersistTaps="handled"
+        >
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.summary.title_engine.title')}</Text>
             <View style={settingsStyles.optionsRow}>
               {titleSummaryEngines.map((engine) => (
                 <OptionPill
@@ -82,75 +71,64 @@ export default function SummarySettingsScreen() {
                 />
               ))}
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.title_engine.openai_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiTitleModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiTitleModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  openaiTitleModel:
-                    formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_OPENAI_TITLE_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.title_engine.openai_label')}</Text>
+              <PaperTextInput
+                value={formState.openaiTitleModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiTitleModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    openaiTitleModel:
+                      formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_OPENAI_TITLE_MODEL}
+              />
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.title_engine.gemini_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.geminiTitleModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiTitleModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  geminiTitleModel:
-                    formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_GEMINI_TITLE_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.title_engine.gemini_label')}</Text>
+              <PaperTextInput
+                value={formState.geminiTitleModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiTitleModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    geminiTitleModel: formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_GEMINI_TITLE_MODEL}
+              />
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.title_engine.prompt_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.titleSummaryPrompt}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))}
-              onBlur={() =>
-                updateSettings({
-                  titleSummaryPrompt:
-                    formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
-                })
-              }
-              style={multilineInputStyle}
-              placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
-              placeholderTextColor={placeholderTextColor}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.title_engine.prompt_label')}</Text>
+              <PaperTextInput
+                value={formState.titleSummaryPrompt}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))}
+                onBlur={() =>
+                  updateSettings({
+                    titleSummaryPrompt:
+                      formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
+                  })
+                }
+                mode="outlined"
+                placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
+                multiline
+                numberOfLines={5}
+                style={styles.promptInput}
+              />
+            </View>
+          </Surface>
 
-          <View style={styles.section}>
-            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('settings.summary.conversation_engine.title')}
-            </ThemedText>
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <Text variant="titleMedium">{t('settings.summary.conversation_engine.title')}</Text>
             <View style={settingsStyles.optionsRow}>
               {conversationSummaryEngines.map((engine) => (
                 <OptionPill
@@ -161,77 +139,69 @@ export default function SummarySettingsScreen() {
                 />
               ))}
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.conversation_engine.openai_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiConversationModel}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
-              }
-              onBlur={() =>
-                updateCredentials({
-                  openaiConversationModel:
-                    formState.openaiConversationModel.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.conversation_engine.openai_label')}</Text>
+              <PaperTextInput
+                value={formState.openaiConversationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiConversationModel:
+                      formState.openaiConversationModel.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
+              />
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.conversation_engine.gemini_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.geminiConversationModel}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
-              }
-              onBlur={() =>
-                updateCredentials({
-                  geminiConversationModel:
-                    formState.geminiConversationModel.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.conversation_engine.gemini_label')}</Text>
+              <PaperTextInput
+                value={formState.geminiConversationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    geminiConversationModel:
+                      formState.geminiConversationModel.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
+              />
+            </View>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.summary.conversation_engine.prompt_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.conversationSummaryPrompt}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
-              }
-              onBlur={() =>
-                updateSettings({
-                  conversationSummaryPrompt:
-                    formState.conversationSummaryPrompt.trim() ||
-                    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-                })
-              }
-              style={multilineInputStyle}
-              placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
-              placeholderTextColor={placeholderTextColor}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.summary.conversation_engine.prompt_label')}</Text>
+              <PaperTextInput
+                value={formState.conversationSummaryPrompt}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    conversationSummaryPrompt:
+                      formState.conversationSummaryPrompt.trim() ||
+                      DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+                  })
+                }
+                mode="outlined"
+                placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
+                multiline
+                numberOfLines={5}
+                style={styles.promptInput}
+              />
+            </View>
+          </Surface>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -239,15 +209,10 @@ export default function SummarySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 12,
+  fieldGroup: {
+    gap: 8,
   },
   promptInput: {
-    minHeight: 140,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
+    minHeight: 120,
   },
 });

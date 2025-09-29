@@ -1,11 +1,10 @@
-
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useMemo } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Surface, Text, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 
-import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
 
 import { OptionPill, settingsStyles, useSettingsForm } from './shared';
@@ -16,52 +15,56 @@ export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
-  const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
+  const safeAreaStyle = useMemo(
+    () => [settingsStyles.safeArea, { backgroundColor: theme.colors.background }],
+    [theme.colors.background]
+  );
+
+  const scrollContentStyle = useMemo(
+    () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
+    [insets.bottom]
+  );
+
+  const sectionCardStyle = useMemo(
+    () => [settingsStyles.sectionCard, { backgroundColor: theme.colors.surface }],
+    [theme.colors.surface]
+  );
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        style={settingsStyles.flex}
+      >
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.transcription.labels.engine')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {transcriptionEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.transcription.engines.${engine}`)}
-                  active={settings.transcriptionEngine === engine}
-                  onPress={() => updateSettings({ transcriptionEngine: engine })}
-                />
-              ))}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+            <View>
+              <Text variant="labelLarge" style={styles.sectionLabel}>
+                {t('settings.transcription.labels.engine')}
+              </Text>
+              <View style={settingsStyles.optionsRow}>
+                {transcriptionEngines.map((engine) => (
+                  <OptionPill
+                    key={engine}
+                    label={t(`settings.transcription.engines.${engine}`)}
+                    active={settings.transcriptionEngine === engine}
+                    onPress={() => updateSettings({ transcriptionEngine: engine })}
+                  />
+                ))}
+              </View>
             </View>
 
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                {t('settings.transcription.labels.source_language')}
-              </ThemedText>
-              <TextInput
+            <View style={styles.fieldGroup}>
+              <Text variant="labelLarge">{t('settings.transcription.labels.source_language')}</Text>
+              <PaperTextInput
                 value={formState.transcriptionLanguage}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, transcriptionLanguage: text }))
@@ -70,12 +73,13 @@ export default function TranscriptionSettingsScreen() {
                   updateSettings({ transcriptionLanguage: formState.transcriptionLanguage.trim() })
                 }
                 autoCapitalize="none"
-                style={inputStyle}
+                autoCorrect={false}
+                mode="outlined"
                 placeholder="auto"
-                placeholderTextColor={placeholderTextColor}
+                style={styles.textInput}
               />
             </View>
-          </View>
+          </Surface>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -83,7 +87,13 @@ export default function TranscriptionSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 16,
+  sectionLabel: {
+    marginBottom: 8,
+  },
+  fieldGroup: {
+    gap: 8,
+  },
+  textInput: {
+    marginTop: 4,
   },
 });
