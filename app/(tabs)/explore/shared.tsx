@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { Chip, useTheme } from 'react-native-paper';
+import { Pressable, StyleSheet } from 'react-native';
 
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import {
   DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_BASE_URL,
@@ -107,26 +108,24 @@ export function OptionPill({
   onPress: () => void;
   disabled?: boolean;
 }) {
-  const theme = useTheme();
-  const containerColor = active
-    ? theme.colors.secondaryContainer
-    : theme.colors.surfaceVariant;
-  const textColor = active ? theme.colors.onSecondaryContainer : theme.colors.onSurfaceVariant;
-
   return (
-    <Chip
-      mode="flat"
-      selected={active}
-      showSelectedCheck
+    <Pressable
       disabled={disabled}
       onPress={onPress}
-      style={[styles.optionChip, { backgroundColor: containerColor }]}
-      textStyle={[styles.optionChipLabel, { color: textColor }]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active, disabled }}
-    >
-      {label}
-    </Chip>
+      style={({ pressed }) => [settingsStyles.optionPressable, pressed && !disabled && settingsStyles.optionPressed]}>
+      <ThemedView
+        lightColor={active ? '#0ea5e9' : 'rgba(148, 163, 184, 0.16)'}
+        darkColor={active ? '#0284c7' : 'rgba(148, 163, 184, 0.18)'}
+        style={[
+          settingsStyles.optionPill,
+          active && settingsStyles.optionPillActive,
+          disabled && settingsStyles.optionPillDisabled,
+        ]}>
+        <ThemedText style={settingsStyles.optionPillText} lightColor="#fff" darkColor="#fff">
+          {label}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
   );
 }
 
@@ -134,43 +133,107 @@ export const settingsStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  safeAreaLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  safeAreaDark: {
+    backgroundColor: '#020617',
+  },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 24,
+    padding: 20,
     gap: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  sectionTitleDark: {
+    color: '#e2e8f0',
+  },
+  fieldRow: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  fieldLabelDark: {
+    opacity: 0.9,
+  },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#0f172a',
+    backgroundColor: '#fff',
+  },
+  inputDark: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    color: '#e2e8f0',
   },
   optionsRow: {
     flexDirection: 'row',
+    gap: 12,
     flexWrap: 'wrap',
-    rowGap: 12,
-    columnGap: 12,
+  },
+  optionPressable: {
+    borderRadius: 999,
+  },
+  optionPressed: {
+    opacity: 0.8,
+  },
+  optionPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  optionPillActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  optionPillDisabled: {
+    opacity: 0.4,
+  },
+  optionPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  groupLabel: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  groupLabelDark: {
+    opacity: 0.85,
   },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    columnGap: 16,
   },
   pageHeader: {
-    gap: 8,
+    gap: 6,
     marginBottom: 12,
   },
-  sectionCard: {
-    borderRadius: 20,
-    padding: 20,
-    gap: 16,
+  pageTitle: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '700',
   },
-});
-
-const styles = StyleSheet.create({
-  optionChip: {
-    borderRadius: 999,
+  cardLabel: {
+    fontSize: 13,
+    opacity: 0.75,
   },
-  optionChipLabel: {
-    fontWeight: '600',
+  cardLabelDark: {
+    opacity: 0.9,
   },
 });

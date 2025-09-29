@@ -1,15 +1,19 @@
+
 import { useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Surface, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
 
+import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AppSettings } from '@/types/settings';
 
 import {
@@ -23,22 +27,20 @@ export default function RecordingSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const theme = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  const safeAreaStyle = useMemo(
-    () => [settingsStyles.safeArea, { backgroundColor: theme.colors.background }],
-    [theme.colors.background]
-  );
-
+  const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
+  const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
+  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const safeAreaStyle = [
+    settingsStyles.safeArea,
+    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
+  ];
   const scrollContentStyle = useMemo(
     () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
     [insets.bottom]
-  );
-
-  const sectionCardStyle = useMemo(
-    () => [settingsStyles.sectionCard, { backgroundColor: theme.colors.surface }],
-    [theme.colors.surface]
   );
 
   const handleNumericCommit = (key: NumericSettingKey, value: string) => {
@@ -54,31 +56,32 @@ export default function RecordingSettingsScreen() {
     onChange: (text: string) => void,
     onCommitKey: NumericSettingKey,
   ) => (
-    <PaperTextInput
-      label={t(labelKey)}
-      value={value}
-      onChangeText={(text) => onChange(formatNumberInput(text))}
-      onBlur={() => handleNumericCommit(onCommitKey, value)}
-      keyboardType="decimal-pad"
-      mode="outlined"
-      style={styles.field}
-      returnKeyType="done"
-    />
+    <View style={settingsStyles.fieldRow}>
+      <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+        {t(labelKey)}
+      </ThemedText>
+      <TextInput
+        value={value}
+        onChangeText={(text) => onChange(formatNumberInput(text))}
+        onBlur={() => handleNumericCommit(onCommitKey, value)}
+        keyboardType="decimal-pad"
+        style={inputStyle}
+        placeholderTextColor={placeholderTextColor}
+      />
+    </View>
   );
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}
-      >
+        style={settingsStyles.flex}>
         <ScrollView
           contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-        >
-          <Surface style={sectionCardStyle} mode="flat" elevation={1}>
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.section}>
             {renderNumericField(
               'settings.recording.labels.activation_threshold',
               formState.activationThreshold,
@@ -113,7 +116,7 @@ export default function RecordingSettingsScreen() {
               (text) => setFormState((prev) => ({ ...prev, maxSegmentDurationSec: text })),
               'maxSegmentDurationSec'
             )}
-          </Surface>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -121,7 +124,7 @@ export default function RecordingSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  field: {
-    marginBottom: 8,
+  section: {
+    gap: 16,
   },
 });

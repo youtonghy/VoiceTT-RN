@@ -1,26 +1,24 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
+  Animated,
+  Easing,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
   Alert,
+  TextInput,
   useWindowDimensions,
 } from "react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Button,
-  IconButton,
-  List,
-  Searchbar,
-  TextInput as PaperTextInput,
-  useTheme,
-} from 'react-native-paper';
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { TranscriptionMessage } from "@/types/transcription";
@@ -31,6 +29,7 @@ import {
   type AssistantConversationTurn,
 } from "@/services/transcription";
 
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 type AssistantMessageStatus = "pending" | "succeeded" | "failed";
 
@@ -190,7 +189,41 @@ function deriveNextHistoryId(
 function RecordingToggle() {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
   const { t } = useTranslation();
-  const theme = useTheme();
+  const shimmerProgress = useRef(new Animated.Value(0)).current;
+  const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    return () => {
+      shimmerLoop.current?.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSessionActive) {
+      shimmerProgress.setValue(0);
+      shimmerLoop.current?.stop();
+      shimmerLoop.current = Animated.loop(
+        Animated.timing(shimmerProgress, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      shimmerLoop.current.start();
+    } else {
+      shimmerLoop.current?.stop();
+      shimmerProgress.stopAnimation();
+      shimmerProgress.setValue(0);
+    }
+  }, [isSessionActive, shimmerProgress]);
+
+  const shimmerTranslate = shimmerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-120, 120],
+  });
+
+  const colors = isSessionActive ? ['#F87171', '#EF4444'] : ['#34D399', '#22C55E'];
 
   const accessibilityLabel = isSessionActive
     ? t('transcription.accessibility.stop_recording')
@@ -202,39 +235,41 @@ function RecordingToggle() {
       : t('transcription.status.processing')
     : t('transcription.controls.start');
 
-  const iconName = !isSessionActive ? 'mic' : isRecording ? 'stop' : 'time';
-  const buttonColor = isSessionActive ? theme.colors.error : theme.colors.primary;
-  const textColor = isSessionActive ? theme.colors.onError : theme.colors.onPrimary;
-
   return (
-    <Button
-      accessibilityLabel={accessibilityLabel}
-      mode="contained"
-      icon={({ size, color }) => <Ionicons name={iconName as never} size={size} color={color} />}
-      onPress={toggleSession}
-      buttonColor={buttonColor}
-      textColor={textColor}
-      contentStyle={styles.recordButtonContent}
-      style={styles.recordButton}
-      uppercase={false}
-      loading={isSessionActive && !isRecording}>
-      {label}
-    </Button>
+    <Pressable accessibilityLabel={accessibilityLabel} onPress={toggleSession} style={styles.recordButtonWrapper}>
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
+        <View style={styles.recordButtonContent}>
+          <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
+            {label}
+          </ThemedText>
+        </View>
+        {isSessionActive ? (
+          <AnimatedLinearGradient
+            colors={[
+              'rgba(255,255,255,0)',
+              'rgba(255,255,255,0.35)',
+              'rgba(255,255,255,0)',
+            ]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
+        ) : null}
+      </LinearGradient>
+    </Pressable>
   );
 }
 
-
 export default function TranscriptionScreen() {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
-  const backgroundColor = theme.colors.background;
-  const cardSurface = theme.colors.surfaceContainerHigh;
-  const historyItemSurface = theme.colors.surfaceVariant;
-  const subtleOnSurface = theme.colors.onSurfaceVariant;
-  const assistantAssistantBubbleColor = theme.colors.secondaryContainer;
-  const assistantMetaColor = theme.colors.onSurfaceVariant;
-  const assistantUserBubbleColor = theme.colors.primary;
-  const assistantUserTextColor = theme.colors.onPrimary;
+  const cardLight = "#f8fafc";
+  const cardDark = "#0f172a";
+  const backgroundColor = useThemeColor({}, "background");
+  const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
+  const assistantAssistantBubbleColor = useThemeColor(
+    { light: "rgba(15, 23, 42, 0.06)", dark: "rgba(148, 163, 184, 0.18)" },
+    "card"
+  );
+  const assistantMetaColor = useThemeColor({ light: "#64748b", dark: "#94a3b8" }, "text");
   const { width } = useWindowDimensions();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
@@ -947,7 +982,7 @@ export default function TranscriptionScreen() {
             style={styles.carousel}
             contentContainerStyle={styles.carouselContent}>
             <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={styles.card} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
+              <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
                 <View style={styles.headerRow}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
                     {t('transcription.sections.live_content')}
@@ -962,7 +997,7 @@ export default function TranscriptionScreen() {
                     showsVerticalScrollIndicator={false}
                     nestedScrollEnabled>
                     {messages.length === 0 ? (
-                      <ThemedText style={styles.emptyMessage}>
+                      <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
                         {t('transcription.history.placeholder_empty')}
                       </ThemedText>
                     ) : (
@@ -973,31 +1008,35 @@ export default function TranscriptionScreen() {
               </ThemedView>
             </View>
             <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={[styles.card, styles.historyCard]} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
+              <ThemedView style={[styles.card, styles.historyCard]} lightColor={cardLight} darkColor={cardDark}>
                 <View style={styles.historyHeader}>
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
                     {t('transcription.sections.history_title')}
                   </ThemedText>
                   <View style={styles.historyActions}>
-                    <IconButton
-                      icon="plus"
-                      mode="contained-tonal"
-                      accessibilityLabel={t('transcription.history.accessibility.add')}
+                    <Pressable
                       onPress={() => {
                         void handleAddConversation();
                       }}
-                    />
+                      style={styles.historyIconButton}
+                      accessibilityLabel={t('transcription.history.accessibility.add')}>
+                      <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
+                        +
+                      </ThemedText>
+                    </Pressable>
                   </View>
                 </View>
                 <View style={styles.historySearchContainer}>
-                  <Searchbar
+                  <TextInput
                     value={searchTerm}
                     onChangeText={handleSearchChange}
                     placeholder={t('transcription.history.search_placeholder')}
+                    placeholderTextColor="rgba(148,163,184,0.7)"
+                    style={[styles.historySearchInput, { color: searchInputColor }]}
                     autoCorrect={false}
-                    style={styles.historySearchBar}
-                    clearIcon="close"
-                    icon="magnify"
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                    selectionColor="#2563eb"
                   />
                 </View>
                 <View style={styles.historyListContainer}>
@@ -1011,41 +1050,50 @@ export default function TranscriptionScreen() {
                     nestedScrollEnabled
                     keyboardShouldPersistTaps="handled">
                     {historyGroups.length === 0 ? (
-                      <ThemedText style={styles.historyEmptyText}>
+                      <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
                         {t('transcription.history.placeholder_search_empty')}
                       </ThemedText>
                     ) : (
                       historyGroups.map((group) => (
                         <View key={group.key} style={styles.historyGroup}>
                           <View style={styles.historyDateRow}>
-                            <View style={[styles.historyDateLine, { backgroundColor: subtleOnSurface }]} />
-                            <ThemedText style={[styles.historyDateLabel, { color: subtleOnSurface }]}>{group.label}</ThemedText>
-                            <View style={[styles.historyDateLine, { backgroundColor: subtleOnSurface }]} />
+                            <View style={styles.historyDateLine} />
+                            <ThemedText style={styles.historyDateLabel} lightColor="#1f2937" darkColor="#e2e8f0">
+                              {group.label}
+                            </ThemedText>
+                            <View style={styles.historyDateLine} />
                           </View>
                           {group.items.map((item) => {
                             const isActive = item.id === activeConversationId;
                             return (
-                              <List.Item
+                              <Pressable
                                 key={item.id}
-                                title={item.title}
-                                description={formatRecordTime(item.createdAt, i18n.language)}
                                 onPress={() => {
                                   void handleSelectConversation(item.id);
                                 }}
+                                accessibilityRole="button"
                                 accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
-                                style={[
+                                style={({ pressed }) => [
                                   styles.historyItem,
-                                  {
-                                    backgroundColor: historyItemSurface,
-                                    borderColor: isActive ? theme.colors.primary : 'transparent',
-                                  },
                                   isActive && styles.historyItemActive,
-                                ]}
-                                titleNumberOfLines={1}
-                                descriptionNumberOfLines={1}
-                                descriptionStyle={[styles.historyItemTime, { color: subtleOnSurface }]}
-                                titleStyle={styles.historyItemTitle}
-                              />
+                                  pressed && styles.historyItemPressed,
+                                ]}>
+                                <View style={styles.historyItemHeader}>
+                                  <ThemedText
+                                    numberOfLines={1}
+                                    style={styles.historyItemTitle}
+                                    lightColor="#1f2937"
+                                    darkColor="#f1f5f9">
+                                    {item.title}
+                                  </ThemedText>
+                                  <ThemedText
+                                    style={styles.historyItemTime}
+                                    lightColor="#64748b"
+                                    darkColor="#94a3b8">
+                                    {formatRecordTime(item.createdAt, i18n.language)}
+                                  </ThemedText>
+                                </View>
+                              </Pressable>
                             );
                           })}
                         </View>
@@ -1056,7 +1104,7 @@ export default function TranscriptionScreen() {
               </ThemedView>
             </View>
             <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={styles.card} lightColor={cardSurface} darkColor={cardSurface} mode="elevated" elevation={2}>
+              <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
                 <ThemedText type="subtitle" style={styles.sectionTitle}>
                   {t('assistant.section.title')}
                 </ThemedText>
@@ -1066,26 +1114,29 @@ export default function TranscriptionScreen() {
                     style={styles.assistantConversationScroll}
                     contentContainerStyle={styles.assistantConversationContent}
                     showsVerticalScrollIndicator={false}>
-                    <ThemedView
-                      style={styles.assistantSummaryCard}
-                      mode="elevated"
-                      elevation={1}
-                      lightColor={theme.colors.secondaryContainer}
-                      darkColor={theme.colors.secondaryContainer}>
+                    <LinearGradient
+                      colors={["#38bdf8", "#6366f1", "#ec4899"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.assistantSummaryCard}>
                       <ThemedText
-                        style={[styles.assistantSummaryLabel, { color: theme.colors.onSecondaryContainer }]}>
+                        style={styles.assistantSummaryLabel}
+                        lightColor="#f8fafc"
+                        darkColor="#e2e8f0">
                         {t('assistant.section.summary_title')}
                       </ThemedText>
                       <ThemedText
-                        style={[styles.assistantSummaryText, { color: theme.colors.onSecondaryContainer }]}>
+                        style={styles.assistantSummaryText}
+                        lightColor="#f8fafc"
+                        darkColor="#f8fafc">
                         {assistantSummary || assistantSummaryPlaceholder}
                       </ThemedText>
-                    </ThemedView>
+                    </LinearGradient>
                     {assistantMessages.length === 0 ? (
                       <ThemedText
                         style={styles.assistantEmptyText}
-                       
-                       >
+                        lightColor="#94a3b8"
+                        darkColor="#94a3b8">
                         {t('assistant.placeholders.no_messages')}
                       </ThemedText>
                     ) : (
@@ -1109,16 +1160,15 @@ export default function TranscriptionScreen() {
                             <View
                               style={[
                                 styles.assistantMessageBubble,
-                                {
-                                  backgroundColor: isUser
-                                    ? assistantUserBubbleColor
-                                    : assistantAssistantBubbleColor,
-                                },
+                                isUser
+                                  ? styles.assistantMessageBubbleUser
+                                  : styles.assistantMessageBubbleAssistant,
+                                !isUser && { backgroundColor: assistantAssistantBubbleColor },
                               ]}>
                               <ThemedText
                                 style={[
                                   styles.assistantMessageText,
-                                  isUser && { color: assistantUserTextColor },
+                                  isUser && styles.assistantMessageTextUser,
                                 ]}>
                                 {message.content}
                               </ThemedText>
@@ -1127,7 +1177,7 @@ export default function TranscriptionScreen() {
                                   style={[
                                     styles.assistantMessageStatus,
                                     { color: assistantMetaColor },
-                                    message.status === 'failed' && { color: theme.colors.error },
+                                    message.status === 'failed' && styles.assistantMessageStatusError,
                                   ]}>
                                   {statusText}
                                 </ThemedText>
@@ -1140,24 +1190,29 @@ export default function TranscriptionScreen() {
                   </ScrollView>
                 </View>
                 <View style={styles.assistantComposer}>
-                  <PaperTextInput
+                  <TextInput
                     value={assistantDraft}
                     onChangeText={handleAssistantChange}
-                    mode="outlined"
-                    style={styles.assistantInput}
+                    style={[styles.assistantInput, { color: searchInputColor }]}
                     autoCorrect={false}
                     autoCapitalize="none"
                     returnKeyType="done"
-                    multiline
+                    selectionColor="#2563eb"
                   />
-                  <IconButton
-                    icon="send"
-                    mode="contained"
-                    disabled={!assistantCanSend}
-                    loading={assistantSending}
-                    onPress={handleAssistantSend}
-                    accessibilityLabel={t('assistant.accessibility.send_input')}
-                  />
+                  {assistantCanSend ? (
+                    <Pressable
+                      onPress={handleAssistantSend}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('assistant.accessibility.send_input')}
+                      disabled={assistantSending}
+                      style={({ pressed }) => [
+                        styles.assistantSendButton,
+                        pressed && styles.assistantSendButtonPressed,
+                        assistantSending && styles.assistantSendButtonDisabled,
+                      ]}>
+                      <Ionicons name="paper-plane" size={18} color="#ffffff" />
+                    </Pressable>
+                  ) : null}
                 </View>
               </ThemedView>
             </View>
@@ -1203,6 +1258,11 @@ const styles = StyleSheet.create({
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
     gap: 20,
   },
   assistantSummaryCard: {
@@ -1256,24 +1316,52 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 16,
   },
+  assistantMessageBubbleAssistant: {
+    backgroundColor: "rgba(15, 23, 42, 0.06)",
+  },
+  assistantMessageBubbleUser: {
+    backgroundColor: "#2563eb",
+  },
   assistantMessageText: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  assistantMessageTextUser: {
+    color: "#ffffff",
   },
   assistantMessageStatus: {
     marginTop: 6,
     fontSize: 12,
   },
+  assistantMessageStatusError: {
+    color: "#ef4444",
+  },
+  assistantSendButtonDisabled: {
+    opacity: 0.7,
+  },
   assistantComposer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 12,
   },
   assistantInput: {
     flex: 1,
     fontSize: 16,
+  },
+  assistantSendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2563eb",
+  },
+  assistantSendButtonPressed: {
+    opacity: 0.85,
   },
   historyCard: {
     gap: 16,
@@ -1286,6 +1374,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "700",
+  },
+  recordButtonWrapper: {
+    borderRadius: 999,
+    overflow: "hidden",
   },
   recordButton: {
     borderRadius: 999,
@@ -1301,6 +1393,12 @@ const styles = StyleSheet.create({
   recordButtonLabel: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 120,
   },
   dialogueContainer: {
     flex: 1,
@@ -1327,6 +1425,7 @@ const styles = StyleSheet.create({
   messageBubble: {
     borderRadius: 16,
     padding: 16,
+    backgroundColor: "rgba(148, 163, 184, 0.08)",
     gap: 8,
   },
   messageStatus: {
@@ -1344,6 +1443,7 @@ const styles = StyleSheet.create({
   translationDivider: {
     borderTopWidth: 1,
     borderStyle: "dashed",
+    borderColor: "rgba(148, 163, 184, 0.35)",
   },
   translationText: {
     fontSize: 15,
@@ -1351,9 +1451,11 @@ const styles = StyleSheet.create({
   },
   translationPending: {
     fontSize: 14,
+    color: "#64748b",
   },
   translationError: {
     fontSize: 14,
+    color: "#f87171",
   },
   historyHeader: {
     flexDirection: "row",
@@ -1365,11 +1467,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  historyIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(148, 163, 184, 0.18)",
+  },
+  historyIconLabel: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
   historySearchContainer: {
     width: "100%",
   },
-  historySearchBar: {
-    marginBottom: 12,
+  historySearchInput: {
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
+    fontSize: 15,
   },
   historyListContainer: {
     flex: 1,
@@ -1401,6 +1519,7 @@ const styles = StyleSheet.create({
   historyDateLine: {
     flex: 1,
     height: 1,
+    backgroundColor: "rgba(148, 163, 184, 0.25)",
   },
   historyDateLabel: {
     fontSize: 14,
@@ -1409,11 +1528,18 @@ const styles = StyleSheet.create({
   historyItem: {
     borderRadius: 16,
     padding: 16,
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
     borderWidth: 1,
+    borderColor: "transparent",
     gap: 6,
   },
   historyItemActive: {
     borderWidth: 1.5,
+    borderColor: "#2563eb",
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+  },
+  historyItemPressed: {
+    opacity: 0.9,
   },
   historyItemHeader: {
     flexDirection: "row",
@@ -1434,7 +1560,6 @@ const styles = StyleSheet.create({
 
 function MessageBubble({ message }: { message: TranscriptionMessage }) {
   const { t } = useTranslation();
-  const theme = useTheme();
 
   const statusLabel = (() => {
     switch (message.status) {
@@ -1454,14 +1579,9 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
       ? message.error || t('transcription.errors.no_content')
       : t('transcription.status.waiting_result');
 
-  const messageSurface = theme.colors.surfaceVariant;
-  const statusColor = theme.colors.onSurfaceVariant;
-
   return (
-    <ThemedView style={[styles.messageBubble, { backgroundColor: messageSurface }]}>
-      {statusLabel ? (
-        <ThemedText style={[styles.messageStatus, { color: statusColor }]}>{statusLabel}</ThemedText>
-      ) : null}
+    <ThemedView style={styles.messageBubble}>
+      {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
       <ThemedText style={styles.messageBody}>
         {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
       </ThemedText>
@@ -1470,36 +1590,20 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
   );
 }
 
-
 function TranslationSection({ message }: { message: TranscriptionMessage }) {
   const { t } = useTranslation();
-  const theme = useTheme();
 
   let content: ReactNode | null = null;
   if (message.translationStatus === 'pending') {
-    content = (
-      <ThemedText
-        style={[styles.translationPending, { color: theme.colors.onSurfaceVariant }]}
-      >
-        {t('translation.status.in_progress')}
-      </ThemedText>
-    );
+    content = <ThemedText style={styles.translationPending}>{t('translation.status.in_progress')}</ThemedText>;
   } else if (message.translationStatus === 'failed') {
     content = (
-      <ThemedText
-        style={[styles.translationError, { color: theme.colors.error }]}
-      >
+      <ThemedText style={styles.translationError}>
         {message.translationError || t('translation.status.failed')}
       </ThemedText>
     );
   } else if (message.translationStatus === 'completed' && message.translation) {
-    content = (
-      <ThemedText
-        style={[styles.translationText, { color: theme.colors.onSurfaceVariant }]}
-      >
-        {message.translation}
-      </ThemedText>
-    );
+    content = <ThemedText style={styles.translationText}>{message.translation}</ThemedText>;
   }
 
   if (!content) {
@@ -1508,12 +1612,11 @@ function TranslationSection({ message }: { message: TranscriptionMessage }) {
 
   return (
     <View style={styles.translationSection}>
-      <View style={[styles.translationDivider, { borderColor: theme.colors.outlineVariant }]} />
+      <View style={styles.translationDivider} />
       {content}
     </View>
   );
 }
-
 
 function buildDateKey(timestamp: number) {
   const date = new Date(timestamp);
@@ -1557,3 +1660,4 @@ function formatRecordTime(timestamp: number, language: string) {
     return `${month}/${day} ${hours}:${minutes}`;
   }
 }
+
