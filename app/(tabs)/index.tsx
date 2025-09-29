@@ -1355,6 +1355,7 @@ const styles = StyleSheet.create({
   assistantComposer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 12,
