@@ -16,7 +16,7 @@ import {
 } from '@react-navigation/native';
 import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
 
-const FALLBACK_SOURCE_COLOR = '#1D4ED8';
+const FALLBACK_SOURCE_COLOR = '#6750A4';
 
 type ColorSchemeKey = 'light' | 'dark';
 
