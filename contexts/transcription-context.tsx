@@ -15,6 +15,7 @@ import React, {
   useState,
 } from 'react';
 import { Alert } from 'react-native';
+import { useTranslation, type TFunction } from 'react-i18next';
 
 import { useSettings } from '@/contexts/settings-context';
 import {
@@ -118,11 +119,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void):
   });
 }
 
-function createInitialMessage(messageId: number): TranscriptionMessage {
+function createInitialMessage(messageId: number, t: TFunction<'common'>): TranscriptionMessage {
   const timestamp = Date.now();
   return {
     id: messageId,
-    title: '消息 #' + messageId,
+    title: t('transcription.messages.default_title', { id: messageId }),
     status: 'pending',
     translationStatus: 'idle',
     createdAt: timestamp,
@@ -154,6 +155,7 @@ function applySettingsToSegment(segment: InternalSegmentState, settings: AppSett
 }
 
 export function TranscriptionProvider({ children }: React.PropsWithChildren) {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const settingsRef = useLatestRef(settings);
 
@@ -240,7 +242,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       recordingRef.current = null;
       setIsRecording(false);
       console.error('[transcription] Failed to start recording', startError);
-      setError('无法启动录音: ' + (startError as Error).message);
+      setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
     }
   }, []);
 
@@ -267,8 +269,8 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('需要麦克风权限', '请在系统设置中授予麦克风权限以继续录音');
-        setError('麦克风权限未授权');
+        Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
+        setError(t('transcription.errors.permission_denied'));
         return;
       }
       await Audio.setAudioModeAsync({
@@ -284,7 +286,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       startNewRecording();
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
-      setError('启动录音失败: ' + (startError as Error).message);
+      setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
       setIsSessionActive(false);
     }
   }, [resetSegmentState, sessionActiveRef, startNewRecording]);
@@ -331,7 +333,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       await recording.stopAndUnloadAsync();
       const fileUri = recording.getURI();
       if (!fileUri) {
-        throw new Error('录音结果为空');
+        throw new Error(t('transcription.errors.empty_recording'));
       }
       payload.fileUri = fileUri;
       recordingRef.current = null;
@@ -405,7 +407,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
             updateMessage(currentMessageId, (msg) => ({
               ...msg,
               translationStatus: 'failed',
-              translationError: '翻译结果为空',
+              translationError: t('translation.errors.empty_result'),
               updatedAt: Date.now(),
             }));
           }
@@ -413,7 +415,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           updateMessage(currentMessageId, (msg) => ({
             ...msg,
             translationStatus: 'failed',
-            translationError: translateError?.message || 'Translation failed',
+            translationError: translateError?.message || t('translation.status.failed'),
             updatedAt: Date.now(),
           }));
         }
@@ -456,7 +458,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           const messageId = nextMessageIdRef.current++;
           segment.messageId = messageId;
           applySettingsToSegment(segment, currentSettings, durationMs);
-          const newMessage = createInitialMessage(messageId);
+          const newMessage = createInitialMessage(messageId, t);
           if (currentSettings.enableTranslation && currentSettings.translationEngine !== 'none') {
             newMessage.translationStatus = 'idle';
           } else {

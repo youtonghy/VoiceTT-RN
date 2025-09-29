@@ -1,20 +1,8 @@
-<<<<<<< HEAD
 import { useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Surface, Text, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
-=======
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
 
 import { useSettings } from '@/contexts/settings-context';
 import {
@@ -34,6 +22,7 @@ import {
 import { settingsStyles, useSettingsForm } from './shared';
 
 export default function CredentialSettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const theme = useTheme();
@@ -64,7 +53,6 @@ export default function CredentialSettingsScreen() {
           contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-<<<<<<< HEAD
           keyboardShouldPersistTaps="handled"
         >
           <Surface style={sectionCardStyle} mode="flat" elevation={1}>
@@ -73,18 +61,6 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.base_url')}</Text>
               <PaperTextInput
-=======
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              OpenAI
-            </ThemedText>
-            <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                Base URL
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.openaiBaseUrl}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiBaseUrl: text }))}
                 onBlur={() =>
@@ -100,15 +76,8 @@ export default function CredentialSettingsScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-<<<<<<< HEAD
               <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
               <PaperTextInput
-=======
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.openaiApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiApiKey: text }))}
                 onBlur={() =>
@@ -122,15 +91,8 @@ export default function CredentialSettingsScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-<<<<<<< HEAD
               <Text variant="labelLarge">{t('settings.credentials.labels.transcription_model')}</Text>
               <PaperTextInput
-=======
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                转写模型
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.openaiTranscriptionModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
@@ -149,15 +111,8 @@ export default function CredentialSettingsScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-<<<<<<< HEAD
               <Text variant="labelLarge">{t('settings.credentials.labels.translation_model')}</Text>
               <PaperTextInput
-=======
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                翻译模型
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.openaiTranslationModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
@@ -175,7 +130,6 @@ export default function CredentialSettingsScreen() {
               />
             </View>
 
-<<<<<<< HEAD
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.title_model')}</Text>
               <PaperTextInput
@@ -221,17 +175,6 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
               <PaperTextInput
-=======
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Gemini
-            </ThemedText>
-            <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.geminiApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiApiKey: text }))}
                 onBlur={() =>
@@ -245,15 +188,8 @@ export default function CredentialSettingsScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-<<<<<<< HEAD
               <Text variant="labelLarge">{t('settings.credentials.labels.translation_model')}</Text>
               <PaperTextInput
-=======
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                翻译模型
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.geminiTranslationModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
@@ -271,7 +207,6 @@ export default function CredentialSettingsScreen() {
               />
             </View>
 
-<<<<<<< HEAD
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.title_model')}</Text>
               <PaperTextInput
@@ -314,17 +249,6 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
               <PaperTextInput
-=======
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Soniox
-            </ThemedText>
-            <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.sonioxApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, sonioxApiKey: text }))}
                 onBlur={() =>
@@ -341,21 +265,9 @@ export default function CredentialSettingsScreen() {
           <Surface style={sectionCardStyle} mode="flat" elevation={1}>
             <Text variant="titleMedium">{t('settings.credentials.sections.qwen.title')}</Text>
 
-<<<<<<< HEAD
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.credentials.labels.api_key')}</Text>
               <PaperTextInput
-=======
-          <View style={styles.section}>
-            <ThemedText style={sectionTitleStyle} lightColor="#0f172a" darkColor="#e2e8f0">
-              Qwen3
-            </ThemedText>
-            <View style={styles.fieldGroup}>
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                API Key
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.qwenApiKey}
                 onChangeText={(text) => setFormState((prev) => ({ ...prev, qwenApiKey: text }))}
                 onBlur={() =>
@@ -369,15 +281,8 @@ export default function CredentialSettingsScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-<<<<<<< HEAD
               <Text variant="labelLarge">{t('settings.credentials.labels.transcription_model')}</Text>
               <PaperTextInput
-=======
-              <ThemedText style={credentialLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                转写模型
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.qwenTranscriptionModel}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, qwenTranscriptionModel: text }))

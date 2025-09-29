@@ -6,11 +6,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-<<<<<<< HEAD
 import { useTranslation } from 'react-i18next';
 import { Surface, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
-=======
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
 
 import { useSettings } from '@/contexts/settings-context';
 import type { AppSettings } from '@/types/settings';
@@ -23,6 +20,7 @@ import {
 } from './shared';
 
 export default function RecordingSettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const theme = useTheme();
@@ -50,7 +48,6 @@ export default function RecordingSettingsScreen() {
     }
   };
 
-<<<<<<< HEAD
   const renderNumericField = (
     labelKey: string,
     value: string,
@@ -69,8 +66,6 @@ export default function RecordingSettingsScreen() {
     />
   );
 
-=======
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -81,7 +76,6 @@ export default function RecordingSettingsScreen() {
           contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-<<<<<<< HEAD
           keyboardShouldPersistTaps="handled"
         >
           <Surface style={sectionCardStyle} mode="flat" elevation={1}>
@@ -91,77 +85,28 @@ export default function RecordingSettingsScreen() {
               (text) => setFormState((prev) => ({ ...prev, activationThreshold: text })),
               'activationThreshold'
             )}
-=======
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                激活阈值
-              </ThemedText>
-              <TextInput
-                value={formState.activationThreshold}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, activationThreshold: formatNumberInput(text) }))
-                }
-                onBlur={() => handleNumericCommit('activationThreshold', formState.activationThreshold)}
-                keyboardType="decimal-pad"
-                style={inputStyle}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
 
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                激活持续(秒)
-              </ThemedText>
-              <TextInput
-                value={formState.activationDurationSec}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, activationDurationSec: formatNumberInput(text) }))
-                }
-                onBlur={() =>
-                  handleNumericCommit('activationDurationSec', formState.activationDurationSec)
-                }
-                keyboardType="decimal-pad"
-                style={inputStyle}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
+            {renderNumericField(
+              'settings.recording.labels.activation_duration',
+              formState.activationDurationSec,
+              (text) => setFormState((prev) => ({ ...prev, activationDurationSec: text })),
+              'activationDurationSec'
+            )}
 
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                静音判定(秒)
-              </ThemedText>
-              <TextInput
-                value={formState.silenceDurationSec}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, silenceDurationSec: formatNumberInput(text) }))
-                }
-                onBlur={() => handleNumericCommit('silenceDurationSec', formState.silenceDurationSec)}
-                keyboardType="decimal-pad"
-                style={inputStyle}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
+            {renderNumericField(
+              'settings.recording.labels.silence_duration',
+              formState.silenceDurationSec,
+              (text) => setFormState((prev) => ({ ...prev, silenceDurationSec: text })),
+              'silenceDurationSec'
+            )}
 
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                前滚时长(秒)
-              </ThemedText>
-              <TextInput
-                value={formState.preRollDurationSec}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, preRollDurationSec: formatNumberInput(text) }))
-                }
-                onBlur={() => handleNumericCommit('preRollDurationSec', formState.preRollDurationSec)}
-                keyboardType="decimal-pad"
-                style={inputStyle}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
+            {renderNumericField(
+              'settings.recording.labels.pre_roll',
+              formState.preRollDurationSec,
+              (text) => setFormState((prev) => ({ ...prev, preRollDurationSec: text })),
+              'preRollDurationSec'
+            )}
 
-<<<<<<< HEAD
             {renderNumericField(
               'settings.recording.labels.max_segment',
               formState.maxSegmentDurationSec,
@@ -169,26 +114,6 @@ export default function RecordingSettingsScreen() {
               'maxSegmentDurationSec'
             )}
           </Surface>
-=======
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                最大片段(秒)
-              </ThemedText>
-              <TextInput
-                value={formState.maxSegmentDurationSec}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, maxSegmentDurationSec: formatNumberInput(text) }))
-                }
-                onBlur={() =>
-                  handleNumericCommit('maxSegmentDurationSec', formState.maxSegmentDurationSec)
-                }
-                keyboardType="decimal-pad"
-                style={inputStyle}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
-          </View>
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

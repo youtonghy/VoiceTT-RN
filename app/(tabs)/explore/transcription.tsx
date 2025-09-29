@@ -1,13 +1,8 @@
-<<<<<<< HEAD
 import { useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Surface, Text, TextInput as PaperTextInput, useTheme } from 'react-native-paper';
-=======
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
 
 import { useSettings } from '@/contexts/settings-context';
 import type { TranscriptionEngine } from '@/types/settings';
@@ -17,6 +12,7 @@ import { OptionPill, settingsStyles, useSettingsForm } from './shared';
 const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
 
 export default function TranscriptionSettingsScreen() {
+  const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const theme = useTheme();
@@ -47,7 +43,6 @@ export default function TranscriptionSettingsScreen() {
           contentContainerStyle={scrollContentStyle}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-<<<<<<< HEAD
           keyboardShouldPersistTaps="handled"
         >
           <Surface style={sectionCardStyle} mode="flat" elevation={1}>
@@ -70,29 +65,6 @@ export default function TranscriptionSettingsScreen() {
             <View style={styles.fieldGroup}>
               <Text variant="labelLarge">{t('settings.transcription.labels.source_language')}</Text>
               <PaperTextInput
-=======
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              转写引擎
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {transcriptionEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={engine.toUpperCase()}
-                  active={settings.transcriptionEngine === engine}
-                  onPress={() => updateSettings({ transcriptionEngine: engine })}
-                />
-              ))}
-            </View>
-
-            <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-                源语言
-              </ThemedText>
-              <TextInput
->>>>>>> parent of e9751a1 (Add i18n support and localize UI text)
                 value={formState.transcriptionLanguage}
                 onChangeText={(text) =>
                   setFormState((prev) => ({ ...prev, transcriptionLanguage: text }))
