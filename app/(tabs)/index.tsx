@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import KeyboardStickyInput from "@/KeyboardStickyInput";
+
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useThemeColor } from "@/hooks/use-theme-color";
@@ -1189,35 +1191,42 @@ export default function TranscriptionScreen() {
                     )}
                   </ScrollView>
                 </View>
-                <View style={styles.assistantComposer}>
-                  <TextInput
-                    value={assistantDraft}
-                    onChangeText={handleAssistantChange}
-                    style={[styles.assistantInput, { color: searchInputColor }]}
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    selectionColor="#2563eb"
-                  />
-                  {assistantCanSend ? (
-                    <Pressable
-                      onPress={handleAssistantSend}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('assistant.accessibility.send_input')}
-                      disabled={assistantSending}
-                      style={({ pressed }) => [
-                        styles.assistantSendButton,
-                        pressed && styles.assistantSendButtonPressed,
-                        assistantSending && styles.assistantSendButtonDisabled,
-                      ]}>
-                      <Ionicons name="paper-plane" size={18} color="#ffffff" />
-                    </Pressable>
-                  ) : null}
-                </View>
+                <View style={styles.assistantComposerPlaceholder} />
               </ThemedView>
             </View>
           </ScrollView>
         </View>
+        <KeyboardStickyInput
+          containerStyle={styles.assistantComposerContainer}
+          inputContainerStyle={styles.assistantComposer}
+          inputStyle={[styles.assistantInput, { color: searchInputColor }]}
+          value={assistantDraft}
+          onChangeText={handleAssistantChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="done"
+          selectionColor="#2563eb"
+          onSubmitEditing={() => {
+            if (assistantCanSend) {
+              handleAssistantSend();
+            }
+          }}
+        >
+          {assistantCanSend ? (
+            <Pressable
+              onPress={handleAssistantSend}
+              accessibilityRole="button"
+              accessibilityLabel={t('assistant.accessibility.send_input')}
+              disabled={assistantSending}
+              style={({ pressed }) => [
+                styles.assistantSendButton,
+                pressed && styles.assistantSendButtonPressed,
+                assistantSending && styles.assistantSendButtonDisabled,
+              ]}>
+              <Ionicons name="paper-plane" size={18} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </KeyboardStickyInput>
       </ThemedView>
     </SafeAreaView>
   );
@@ -1291,7 +1300,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "flex-start",
     paddingVertical: 0,
-    paddingBottom: 16,
+    paddingBottom: 120,
   },
   assistantEmptyText: {
     textAlign: "center",
@@ -1339,6 +1348,10 @@ const styles = StyleSheet.create({
   assistantSendButtonDisabled: {
     opacity: 0.7,
   },
+  assistantComposerContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
   assistantComposer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1347,6 +1360,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
+    marginHorizontal: 4,
   },
   assistantInput: {
     flex: 1,
@@ -1362,6 +1376,9 @@ const styles = StyleSheet.create({
   },
   assistantSendButtonPressed: {
     opacity: 0.85,
+  },
+  assistantComposerPlaceholder: {
+    height: 88,
   },
   historyCard: {
     gap: 16,
