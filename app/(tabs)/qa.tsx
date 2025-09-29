@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -58,7 +58,8 @@ export default function QaScreen() {
     setQaState({});
   }, [
     settings.qaEngine,
-    settings.qaPrompt,
+    settings.qaQuestionPrompt,
+    settings.qaAnswerPrompt,
     settings.credentials.openaiQaModel,
     settings.credentials.geminiQaModel,
     settings.credentials.openaiApiKey,
@@ -388,3 +389,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+
+
+

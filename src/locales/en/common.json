@@ -142,7 +142,7 @@
       },
       "qa": {
         "title": "Live Q&A",
-        "subtitle": "Question extraction model and prompt"
+        "subtitle": "Question extraction and answer prompts"
       },
       "credentials": {
         "title": "Credentials",
@@ -234,7 +234,8 @@
       },
       "openai_label": "OpenAI Q&A model",
       "gemini_label": "Gemini Q&A model",
-      "prompt_label": "Extraction prompt"
+      "question_prompt_label": "Question extraction prompt",
+      "answer_prompt_label": "Answer generation prompt"
     }
   }
 }

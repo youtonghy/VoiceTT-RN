@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -35,7 +35,8 @@ export interface FormState {
   transcriptionLanguage: string;
   titleSummaryPrompt: string;
   conversationSummaryPrompt: string;
-  qaPrompt: string;
+  qaQuestionPrompt: string;
+  qaAnswerPrompt: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiTranscriptionModel: string;
@@ -63,7 +64,8 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   titleSummaryPrompt: settings.titleSummaryPrompt,
   conversationSummaryPrompt:
     settings.conversationSummaryPrompt || DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-  qaPrompt: settings.qaPrompt,
+  qaQuestionPrompt: settings.qaQuestionPrompt,
+  qaAnswerPrompt: settings.qaAnswerPrompt,
   openaiApiKey: settings.credentials.openaiApiKey ?? '',
   openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
   openaiTranscriptionModel:
@@ -74,7 +76,10 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.openaiTitleModel ?? DEFAULT_OPENAI_TITLE_MODEL,
   openaiConversationModel:
     settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
-  openaiQaModel: settings.credentials.openaiQaModel ?? settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
+  openaiQaModel:
+    settings.credentials.openaiQaModel ??
+    settings.credentials.openaiConversationModel ??
+    DEFAULT_OPENAI_CONVERSATION_MODEL,
   geminiApiKey: settings.credentials.geminiApiKey ?? '',
   geminiTranslationModel:
     settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
@@ -82,7 +87,10 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.geminiTitleModel ?? DEFAULT_GEMINI_TITLE_MODEL,
   geminiConversationModel:
     settings.credentials.geminiConversationModel ?? DEFAULT_GEMINI_CONVERSATION_MODEL,
-  geminiQaModel: settings.credentials.geminiQaModel ?? settings.credentials.geminiConversationModel ?? DEFAULT_GEMINI_CONVERSATION_MODEL,
+  geminiQaModel:
+    settings.credentials.geminiQaModel ??
+    settings.credentials.geminiConversationModel ??
+    DEFAULT_GEMINI_CONVERSATION_MODEL,
   sonioxApiKey: settings.credentials.sonioxApiKey ?? '',
   qwenApiKey: settings.credentials.qwenApiKey ?? '',
   qwenTranscriptionModel:
@@ -243,3 +251,7 @@ export const settingsStyles = StyleSheet.create({
     opacity: 0.9,
   },
 });
+
+
+
+

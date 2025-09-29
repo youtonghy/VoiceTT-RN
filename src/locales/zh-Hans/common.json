@@ -234,7 +234,8 @@
       },
       "openai_label": "OpenAI 问答模型",
       "gemini_label": "Gemini 问答模型",
-      "prompt_label": "抽取提示词"
+      "question_prompt_label": "闂鎶藉彇鎸囧嵃"
+      "answer_prompt_label": "绛旈鐢熸垚鎸囧嵃"
     }
   }
 }
