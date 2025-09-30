@@ -1,4 +1,4 @@
-﻿import {
+import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -116,42 +116,18 @@ export default function QaSettingsScreen() {
 
           <View style={styles.section}>
             <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.qa.question_prompt_label')}
+              {t('settings.qa.prompt_label')}
             </ThemedText>
             <TextInput
-              value={formState.qaQuestionPrompt}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, qaQuestionPrompt: text }))
-              }
+              value={formState.qaPrompt}
+              onChangeText={(text) => setFormState((prev) => ({ ...prev, qaPrompt: text }))}
               onBlur={() =>
                 updateSettings({
-                  qaQuestionPrompt:
-                    formState.qaQuestionPrompt.trim() || DEFAULT_QA_QUESTION_PROMPT,
+                  qaPrompt: formState.qaPrompt.trim() || DEFAULT_QA_PROMPT,
                 })
               }
               style={multilineInputStyle}
-              placeholder={DEFAULT_QA_QUESTION_PROMPT}
-              placeholderTextColor={placeholderTextColor}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
-              {t('settings.qa.answer_prompt_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.qaAnswerPrompt}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, qaAnswerPrompt: text }))}
-              onBlur={() =>
-                updateSettings({
-                  qaAnswerPrompt:
-                    formState.qaAnswerPrompt.trim() || DEFAULT_QA_ANSWER_PROMPT,
-                })
-              }
-              style={multilineInputStyle}
-              placeholder={DEFAULT_QA_ANSWER_PROMPT}
+              placeholder={DEFAULT_QA_PROMPT}
               placeholderTextColor={placeholderTextColor}
               multiline
               textAlignVertical="top"
@@ -177,4 +153,3 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
   },
 });
-

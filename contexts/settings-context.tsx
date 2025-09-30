@@ -1,4 +1,4 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
@@ -57,12 +57,8 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (parsed.qaEngine === undefined) {
       merged.qaEngine = defaultSettings.qaEngine;
     }
-    const legacyQaPrompt = (parsed as any).qaPrompt;
-    if (!parsed.qaQuestionPrompt) {
-      merged.qaQuestionPrompt = legacyQaPrompt || defaultSettings.qaQuestionPrompt;
-    }
-    if (!parsed.qaAnswerPrompt) {
-      merged.qaAnswerPrompt = legacyQaPrompt || defaultSettings.qaAnswerPrompt;
+    if (!parsed.qaPrompt) {
+      merged.qaPrompt = defaultSettings.qaPrompt;
     }
     if (parsedCredentials.openaiQaModel === undefined && merged.credentials.openaiConversationModel) {
       merged.credentials.openaiQaModel = merged.credentials.openaiConversationModel;
@@ -158,10 +154,3 @@ export function useSettings() {
   }
   return context;
 }
-
-
-
-
-
-
-
