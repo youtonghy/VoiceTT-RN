@@ -28,14 +28,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: tabs.transcription,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="waveform" color={color} />,
         }}
       />
       <Tabs.Screen
         name="qa"
         options={{
           title: tabs.qa,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="questionmark.circle.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
         }}
       />
       <Tabs.Screen
