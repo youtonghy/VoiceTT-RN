@@ -1,6 +1,15 @@
 import { AppSettings, DEFAULT_GEMINI_QA_MODEL, DEFAULT_OPENAI_QA_MODEL, DEFAULT_QA_PROMPT } from '@/types/settings';
 import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
 import { TranscriptQaItem } from '@/types/transcription';
+import {
+  validateTranscript,
+  validatePrompt,
+  validateApiKey,
+  validateModelName,
+  validateQuestion,
+} from '@/services/input-validation';
+import { RateLimiter, DEFAULT_RATE_LIMITS } from '@/services/rate-limiter';
+import { createSafeError, ErrorCategory } from '@/services/error-handler';
 
 export interface ExtractTranscriptQuestionsOptions {
   transcript: string;
@@ -13,6 +22,10 @@ const DEFAULT_QA_RESPONSE_TEMPERATURE = 0.1;
 const MAX_QA_OUTPUT_TOKENS = 512;
 const MAX_QUESTION_EXTRACTION_TOKENS = 256;
 const MAX_ANSWER_TOKENS = 384;
+
+// Create rate limiters for Q&A services
+const openaiQaRateLimiter = new RateLimiter('openai-qa', DEFAULT_RATE_LIMITS.qa);
+const geminiQaRateLimiter = new RateLimiter('gemini-qa', DEFAULT_RATE_LIMITS.qa);
 
 function resolveOpenAIBaseUrl(settings: AppSettings): string {
   const baseUrl = settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
@@ -55,7 +68,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     if (items.length > 0) {
       return items;
     }
-  } catch (error) {
+  } catch {
     // Continue to fallback parsers
   }
 
@@ -69,7 +82,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
       if (items.length > 0) {
         return items;
       }
-    } catch (error) {
+    } catch {
       // Continue to fallback parsers
     }
   }
@@ -85,7 +98,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
         return items;
       }
     }
-  } catch (error) {
+  } catch {
     // Continue to fallback parsers
   }
 
@@ -207,11 +220,31 @@ function collectOpenAIText(data: any): string {
 }
 
 async function extractQuestionsWithOpenAI(transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string[]> {
-  const apiKey = settings.credentials.openaiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing OpenAI API key for Q&A extraction');
+  // Rate limiting
+  await openaiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.openaiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`OpenAI API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`OpenAI model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
   const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
   const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
   const payload = {
@@ -223,7 +256,7 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
       },
       {
         role: 'user',
-        content: `Transcript segment:\n${transcript.trim()}`,
+        content: `Transcript segment:\n${validatedTranscript}`,
       },
     ],
     temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
@@ -245,7 +278,11 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('OpenAI question extraction failed: ' + (errorText || response.statusText));
+    const safeError = createSafeError(
+      new Error('OpenAI question extraction failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -257,7 +294,7 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
     if (Array.isArray(parsed.questions)) {
       return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
     }
-  } catch (error) {
+  } catch {
     // Fallback to regex extraction
   }
 
@@ -268,11 +305,38 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
 }
 
 async function answerQuestionWithOpenAI(question: string, transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string> {
-  const apiKey = settings.credentials.openaiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing OpenAI API key for Q&A extraction');
+  // Rate limiting
+  await openaiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.openaiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`OpenAI API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`OpenAI model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate question
+  const questionValidation = validateQuestion(question);
+  if (!questionValidation.valid) {
+    throw new Error(`Question validation failed: ${questionValidation.error}`);
+  }
+  const validatedQuestion = questionValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
   const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
   const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
   const payload = {
@@ -284,7 +348,7 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
       },
       {
         role: 'user',
-        content: `Transcript context:\n${transcript.trim()}\n\nQuestion: ${question}`,
+        content: `Transcript context:\n${validatedTranscript}\n\nQuestion: ${validatedQuestion}`,
       },
     ],
     temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
@@ -303,7 +367,11 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('OpenAI question answering failed: ' + (errorText || response.statusText));
+    const safeError = createSafeError(
+      new Error('OpenAI question answering failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -313,12 +381,39 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
 }
 
 async function extractWithOpenAI({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
-  const apiKey = settings.credentials.openaiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing OpenAI API key for Q&A extraction');
+  // Rate limiting
+  await openaiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.openaiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`OpenAI API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
-  const prompt = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`OpenAI model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
+  // Validate prompt
+  const promptInput = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
+  const promptValidation = validatePrompt(promptInput);
+  if (!promptValidation.valid) {
+    throw new Error(`Prompt validation failed: ${promptValidation.error}`);
+  }
+  const prompt = promptValidation.sanitized!;
+
   const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
   const payload = {
     model,
@@ -329,7 +424,7 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
       },
       {
         role: 'user',
-        content: `Transcript segment:\n${transcript.trim()}`,
+        content: `Transcript segment:\n${validatedTranscript}`,
       },
     ],
     temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
@@ -351,7 +446,11 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('OpenAI Q&A extraction failed: ' + (errorText || response.statusText));
+    const safeError = createSafeError(
+      new Error('OpenAI Q&A extraction failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -390,11 +489,31 @@ function collectGeminiText(data: any): string {
 }
 
 async function extractQuestionsWithGemini(transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string[]> {
-  const apiKey = settings.credentials.geminiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing Gemini API key for Q&A extraction');
+  // Rate limiting
+  await geminiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.geminiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`Gemini API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`Gemini model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
   const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -404,7 +523,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
         role: 'user',
         parts: [
           {
-            text: `${prompt}\n\nTranscript segment:\n${transcript.trim()}`,
+            text: `${prompt}\n\nTranscript segment:\n${validatedTranscript}`,
           },
         ],
       },
@@ -428,9 +547,11 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
 
   if (!response.ok) {
     const errorText = await response.text();
-    // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
-    throw new Error('Gemini question extraction failed: ' + (safeError || response.statusText));
+    const safeError = createSafeError(
+      new Error('Gemini question extraction failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -442,7 +563,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
     if (Array.isArray(parsed.questions)) {
       return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
     }
-  } catch (error) {
+  } catch {
     // Fallback to regex extraction
   }
 
@@ -453,11 +574,38 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
 }
 
 async function answerQuestionWithGemini(question: string, transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string> {
-  const apiKey = settings.credentials.geminiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing Gemini API key for Q&A extraction');
+  // Rate limiting
+  await geminiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.geminiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`Gemini API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`Gemini model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate question
+  const questionValidation = validateQuestion(question);
+  if (!questionValidation.valid) {
+    throw new Error(`Question validation failed: ${questionValidation.error}`);
+  }
+  const validatedQuestion = questionValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
   const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -467,7 +615,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
         role: 'user',
         parts: [
           {
-            text: `${prompt}\n\nTranscript context:\n${transcript.trim()}\n\nQuestion: ${question}`,
+            text: `${prompt}\n\nTranscript context:\n${validatedTranscript}\n\nQuestion: ${validatedQuestion}`,
           },
         ],
       },
@@ -491,9 +639,11 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
 
   if (!response.ok) {
     const errorText = await response.text();
-    // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
-    throw new Error('Gemini question answering failed: ' + (safeError || response.statusText));
+    const safeError = createSafeError(
+      new Error('Gemini question answering failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -503,12 +653,39 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
 }
 
 async function extractWithGemini({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
-  const apiKey = settings.credentials.geminiApiKey?.trim();
-  if (!apiKey) {
-    throw new Error('Missing Gemini API key for Q&A extraction');
+  // Rate limiting
+  await geminiQaRateLimiter.acquire();
+
+  // Validate API key
+  const apiKeyValidation = validateApiKey(settings.credentials.geminiApiKey);
+  if (!apiKeyValidation.valid) {
+    throw new Error(`Gemini API key validation failed: ${apiKeyValidation.error}`);
   }
-  const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
-  const prompt = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
+  const apiKey = apiKeyValidation.sanitized!;
+
+  // Validate model name
+  const modelInput = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const modelValidation = validateModelName(modelInput);
+  if (!modelValidation.valid) {
+    throw new Error(`Gemini model validation failed: ${modelValidation.error}`);
+  }
+  const model = modelValidation.sanitized!;
+
+  // Validate transcript
+  const transcriptValidation = validateTranscript(transcript);
+  if (!transcriptValidation.valid) {
+    throw new Error(`Transcript validation failed: ${transcriptValidation.error}`);
+  }
+  const validatedTranscript = transcriptValidation.sanitized!;
+
+  // Validate prompt
+  const promptInput = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
+  const promptValidation = validatePrompt(promptInput);
+  if (!promptValidation.valid) {
+    throw new Error(`Prompt validation failed: ${promptValidation.error}`);
+  }
+  const prompt = promptValidation.sanitized!;
+
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
@@ -517,7 +694,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
         role: 'user',
         parts: [
           {
-            text: `${prompt}\n\nTranscript segment:\n${transcript.trim()}`,
+            text: `${prompt}\n\nTranscript segment:\n${validatedTranscript}`,
           },
         ],
       },
@@ -541,9 +718,11 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
 
   if (!response.ok) {
     const errorText = await response.text();
-    // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
-    throw new Error('Gemini Q&A extraction failed: ' + (safeError || response.statusText));
+    const safeError = createSafeError(
+      new Error('Gemini Q&A extraction failed: ' + (errorText || response.statusText)),
+      ErrorCategory.NETWORK
+    );
+    throw new Error(safeError.userMessage);
   }
 
   const data = await response.json();
@@ -568,7 +747,7 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
     } else {
       questions = await extractQuestionsWithOpenAI(transcript, options.settings, options.signal);
     }
-  } catch (error) {
+  } catch {
     // Fallback: extract questions ending with ?
     const questionRegex = /[^.!?]*\?/g;
     questions = transcript.match(questionRegex) || [];
@@ -592,7 +771,7 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
       }
 
       items.push({ question, answer });
-    } catch (error) {
+    } catch {
       // If answering fails, still include the question with a default answer
       items.push({ question, answer: 'No answer available' });
     }
