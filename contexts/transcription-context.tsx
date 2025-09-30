@@ -28,6 +28,7 @@ import { AppSettings } from '@/types/settings';
 import {
   TranscriptionMessage,
   SegmentMetadata,
+  TranscriptQaItem,
 } from '@/types/transcription';
 
 interface InternalSegmentState {
@@ -46,6 +47,13 @@ const initialSegmentState: InternalSegmentState = {
   isActive: false,
 };
 
+interface UpdateMessageQaPayload {
+  items: TranscriptQaItem[];
+  processedLength: number;
+  transcriptHash: string;
+  settingsSignature: string;
+}
+
 interface TranscriptionContextValue {
   messages: TranscriptionMessage[];
   isSessionActive: boolean;
@@ -55,6 +63,7 @@ interface TranscriptionContextValue {
   error: string | null;
   clearError: () => void;
   replaceMessages: (nextMessages: TranscriptionMessage[]) => void;
+  updateMessageQa: (messageId: number, payload: UpdateMessageQaPayload) => void;
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
@@ -101,6 +110,24 @@ function useLatestRef<T>(value: T) {
     ref.current = value;
   }, [value]);
   return ref;
+}
+
+function areQaItemsEqual(left?: TranscriptQaItem[], right?: TranscriptQaItem[]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return !left && !right;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index].question !== right[index].question || left[index].answer !== right[index].answer) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void): Promise<T> {
@@ -198,7 +225,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           existing.status !== incoming.status ||
           existing.transcript !== incoming.transcript ||
           existing.translationStatus !== incoming.translationStatus ||
-          existing.translation !== incoming.translation
+          existing.translation !== incoming.translation ||
+          existing.qaUpdatedAt !== incoming.qaUpdatedAt ||
+          existing.qaProcessedLength !== incoming.qaProcessedLength ||
+          existing.qaTranscriptHash !== incoming.qaTranscriptHash ||
+          existing.qaSettingsSignature !== incoming.qaSettingsSignature ||
+          !areQaItemsEqual(existing.qaItems, incoming.qaItems)
         ) {
           hasDifference = true;
           break;
@@ -215,6 +247,29 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const updateMessage = useCallback((messageId: number, updater: (msg: TranscriptionMessage) => TranscriptionMessage) => {
     setMessagesAndRef((prev) => prev.map((msg) => (msg.id === messageId ? updater(msg) : msg)));
   }, [setMessagesAndRef]);
+
+  const updateMessageQa = useCallback((messageId: number, payload: UpdateMessageQaPayload) => {
+    const timestamp = Date.now();
+    updateMessage(messageId, (msg) => {
+      const sameItems = areQaItemsEqual(msg.qaItems, payload.items);
+      const sameProcessedLength = (msg.qaProcessedLength ?? 0) === payload.processedLength;
+      const sameTranscriptHash = msg.qaTranscriptHash === payload.transcriptHash;
+      const sameSignature = msg.qaSettingsSignature === payload.settingsSignature;
+      if (sameItems && sameProcessedLength && sameTranscriptHash && sameSignature) {
+        return msg;
+      }
+      const normalizedItems = payload.items.map((item) => ({ ...item }));
+      return {
+        ...msg,
+        qaItems: normalizedItems,
+        qaProcessedLength: payload.processedLength,
+        qaTranscriptHash: payload.transcriptHash,
+        qaSettingsSignature: payload.settingsSignature,
+        qaUpdatedAt: timestamp,
+        updatedAt: Math.max(msg.updatedAt, timestamp),
+      };
+    });
+  }, [updateMessage]);
 
   const cleanupRecordingFile = useCallback(async (fileUri: string | null | undefined) => {
     if (fileUri) {
@@ -503,10 +558,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     toggleSession,
     stopSession,
     replaceMessages,
+    updateMessageQa,
     isRecording,
     error,
     clearError: () => setError(null),
-  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, isRecording, error]);
+  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, updateMessageQa, isRecording, error]);
 
   return <TranscriptionContext.Provider value={value}>{children}</TranscriptionContext.Provider>;
 }

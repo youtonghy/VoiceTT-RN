@@ -1,6 +1,11 @@
 export type MessageStatus = 'pending' | 'transcribing' | 'completed' | 'failed';
 export type TranslationStatus = 'idle' | 'pending' | 'completed' | 'failed';
 
+export interface TranscriptQaItem {
+  question: string;
+  answer: string;
+}
+
 export interface SegmentMetadata {
   fileUri: string;
   startOffsetMs: number;
@@ -22,6 +27,11 @@ export interface TranscriptionMessage {
   translationError?: string;
   createdAt: number;
   updatedAt: number;
+  qaItems?: TranscriptQaItem[];
+  qaUpdatedAt?: number;
+  qaProcessedLength?: number;
+  qaTranscriptHash?: string;
+  qaSettingsSignature?: string;
   segment?: SegmentMetadata;
   language?: string;
 }

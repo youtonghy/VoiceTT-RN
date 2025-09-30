@@ -1,15 +1,12 @@
 import { AppSettings, DEFAULT_GEMINI_QA_MODEL, DEFAULT_OPENAI_QA_MODEL, DEFAULT_QA_PROMPT } from '@/types/settings';
 import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
-
-export interface TranscriptQaItem {
-  question: string;
-  answer: string;
-}
+import { TranscriptQaItem } from '@/types/transcription';
 
 export interface ExtractTranscriptQuestionsOptions {
   transcript: string;
   settings: AppSettings;
   signal?: AbortSignal;
+  contextTranscript?: string;
 }
 
 const DEFAULT_QA_RESPONSE_TEMPERATURE = 0.1;
@@ -147,7 +144,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
         if (cleanQuestion && cleanQuestion.length > 5) { // Ensure it's a meaningful question
           fallbackItems.push({
             question: cleanQuestion,
-            answer: '无问题'  // Default answer when only question is extracted
+            answer: 'No answer available', // Default answer when only question is extracted
           });
         }
       });
@@ -344,7 +341,7 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
     console.log('[qa] Generated answer:', answer);
   }
 
-  return answer || '无问题';
+  return answer || 'No answer available';
 }
 
 async function extractWithOpenAI({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
@@ -535,7 +532,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
   const data = await response.json();
   const answer = collectGeminiText(data).trim();
 
-  return answer || '无问题';
+  return answer || 'No answer available';
 }
 
 async function extractWithGemini({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
@@ -586,9 +583,12 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
 
 export async function extractTranscriptQuestions(options: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
   const transcript = options.transcript.trim();
+  const contextTranscript = (options.contextTranscript ?? options.transcript).trim();
   if (!transcript) {
     return [];
   }
+
+  const answerContext = contextTranscript || transcript;
 
   // First extract questions
   let questions: string[] = [];
@@ -619,9 +619,9 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
     try {
       let answer: string;
       if (options.settings.qaEngine === 'gemini') {
-        answer = await answerQuestionWithGemini(question, transcript, options.settings, options.signal);
+        answer = await answerQuestionWithGemini(question, answerContext, options.settings, options.signal);
       } else {
-        answer = await answerQuestionWithOpenAI(question, transcript, options.settings, options.signal);
+        answer = await answerQuestionWithOpenAI(question, answerContext, options.settings, options.signal);
       }
 
       items.push({ question, answer });
@@ -630,7 +630,7 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
         console.warn('[qa] Failed to answer question:', question, error);
       }
       // If answering fails, still include the question with a default answer
-      items.push({ question, answer: '无问题' });
+      items.push({ question, answer: 'No answer available' });
     }
   }
 

@@ -10,13 +10,15 @@ import { MarkdownText } from '@/components/markdown-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useTranscription } from '@/contexts/transcription-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { extractTranscriptQuestions, TranscriptQaItem } from '@/services/qa';
-import { TranscriptionMessage } from '@/types/transcription';
+import { extractTranscriptQuestions } from '@/services/qa';
+import { TranscriptionMessage, TranscriptQaItem } from '@/types/transcription';
+import type { AppSettings } from '@/types/settings';
 
 type QaStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 interface MessageQaState {
   transcript: string;
+  processedLength: number;
   status: QaStatus;
   items: TranscriptQaItem[];
   error?: string;
@@ -28,10 +30,74 @@ function resolveMessageTitle(message: TranscriptionMessage, fallback: string): s
   return trimmed || fallback;
 }
 
+function hashString(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value.charCodeAt(index);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return hash.toString(16);
+}
+
+function createSettingsSignature(settings: AppSettings): string {
+  const prompt = (settings.qaPrompt || '').trim();
+  const openaiModel = settings.credentials.openaiQaModel?.trim() || '';
+  const geminiModel = settings.credentials.geminiQaModel?.trim() || '';
+  const baseUrl = settings.credentials.openaiBaseUrl?.trim() || '';
+  return hashString(
+    [settings.qaEngine || '', prompt, openaiModel, geminiModel, baseUrl].join('|')
+  );
+}
+
+type CachedQaEntry = {
+  transcript: string;
+  items: TranscriptQaItem[];
+  processedLength: number;
+  updatedAt: number;
+};
+
+function buildQaCacheKey(message: TranscriptionMessage, signature: string): string {
+  return `${signature}:${message.createdAt}:${message.id}`;
+}
+
+function mergeQaItems(existing: TranscriptQaItem[], incoming: TranscriptQaItem[]): TranscriptQaItem[] {
+  if (incoming.length === 0) {
+    return existing;
+  }
+  if (existing.length === 0) {
+    return incoming;
+  }
+
+  const merged = existing.slice();
+  const indexByKey = new Map<string, number>();
+
+  merged.forEach((item, index) => {
+    const key = item.question.trim().toLowerCase();
+    if (key) {
+      indexByKey.set(key, index);
+    }
+  });
+
+  incoming.forEach((item) => {
+    const key = item.question.trim().toLowerCase();
+    if (key && indexByKey.has(key)) {
+      merged[indexByKey.get(key)!] = item;
+    } else {
+      if (key) {
+        indexByKey.set(key, merged.length);
+      }
+      merged.push(item);
+    }
+  });
+
+  return merged;
+}
+
 export default function QaScreen() {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const { messages } = useTranscription();
+  const { messages, updateMessageQa } = useTranscription();
   const backgroundColor = useThemeColor({}, 'background');
   const cardLight = '#f8fafc';
   const cardDark = '#0f172a';
@@ -39,12 +105,30 @@ export default function QaScreen() {
 
   const [qaState, setQaState] = useState<Record<number, MessageQaState>>({});
   const qaStateRef = useRef<Record<number, MessageQaState>>({});
+  const qaCacheRef = useRef<Map<string, CachedQaEntry>>(new Map());
   const controllersRef = useRef<Map<number, AbortController>>(new Map());
   const scrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     qaStateRef.current = qaState;
   }, [qaState]);
+
+  const settingsSignature = useMemo(() => createSettingsSignature(settings), [settings]);
+
+  const qaEntries = useMemo(() => {
+    return messages
+      .filter((message) => message.status === 'completed' && typeof message.transcript === 'string' && message.transcript.trim())
+      .map((message) => ({
+        message,
+        state: qaState[message.id],
+      }))
+      .sort((a, b) => a.message.createdAt - b.message.createdAt);
+  }, [messages, qaState]);
+
+  const anyLoading = useMemo(
+    () => qaEntries.some((entry) => entry.state && entry.state.status === 'loading'),
+    [qaEntries]
+  );
 
   useEffect(() => {
     if (qaEntries.length > 0) {
@@ -63,6 +147,7 @@ export default function QaScreen() {
   useEffect(() => {
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current.clear();
+    qaCacheRef.current.clear();
     setQaState({});
   }, [
     settings.qaEngine,
@@ -72,56 +157,190 @@ export default function QaScreen() {
     settings.credentials.openaiApiKey,
     settings.credentials.geminiApiKey,
     settings.credentials.openaiBaseUrl,
+    settingsSignature,
   ]);
 
   useEffect(() => {
     const activeIds = new Set<number>();
+    const cache = qaCacheRef.current;
 
     messages.forEach((message) => {
       if (message.status !== 'completed') {
         return;
       }
-      const transcript = typeof message.transcript === 'string' ? message.transcript.trim() : '';
+
+      const rawTranscript = typeof message.transcript === 'string' ? message.transcript : '';
+      const transcript = rawTranscript.trim();
       if (!transcript) {
         return;
       }
+
+      const transcriptHash = hashString(transcript);
+      const persistedItems = Array.isArray(message.qaItems) ? message.qaItems : [];
+      const persistedProcessedLengthRaw = message.qaProcessedLength;
+      const persistedProcessedLength =
+        typeof persistedProcessedLengthRaw === 'number' && Number.isFinite(persistedProcessedLengthRaw)
+          ? Math.min(persistedProcessedLengthRaw, transcript.length)
+          : transcript.length;
+      const hasPersistedQa =
+        persistedItems.length > 0 &&
+        message.qaSettingsSignature === settingsSignature &&
+        message.qaTranscriptHash === transcriptHash;
+
       activeIds.add(message.id);
       const previous = qaStateRef.current[message.id];
+
+      const persistQaResult = (items: TranscriptQaItem[], processedLength: number) => {
+        const normalizedLength = Math.max(0, Math.min(processedLength, transcript.length));
+        updateMessageQa(message.id, {
+          items,
+          processedLength: normalizedLength,
+          transcriptHash,
+          settingsSignature,
+        });
+      };
+
       if (previous && previous.transcript === transcript && (previous.status === 'loading' || previous.status === 'ready')) {
         return;
       }
+
+      const cacheKey = buildQaCacheKey(message, settingsSignature);
+      const cached = cache.get(cacheKey);
+      const cachedTranscript = cached?.transcript ?? '';
+      const previousTranscript =
+        previous?.transcript ?? (cachedTranscript || (hasPersistedQa ? transcript : ''));
+      const previousItems =
+        previous?.items ?? cached?.items ?? (hasPersistedQa ? persistedItems : []);
+      const previousProcessedLength =
+        previous?.processedLength ??
+        cached?.processedLength ??
+        (hasPersistedQa ? persistedProcessedLength : previousTranscript ? previousTranscript.length : 0);
+
+      if (!previous && !cached && hasPersistedQa) {
+        const processedLength = persistedProcessedLength;
+        setQaState((prevState) => ({
+          ...prevState,
+          [message.id]: {
+            transcript,
+            processedLength,
+            status: 'ready',
+            items: persistedItems,
+            error: undefined,
+            updatedAt: Date.now(),
+          },
+        }));
+        cache.set(cacheKey, {
+          transcript,
+          items: persistedItems.map((item) => ({ ...item })),
+          processedLength,
+          updatedAt: Date.now(),
+        });
+        persistQaResult(persistedItems, processedLength);
+        return;
+      }
+
+      if (!previous && cached && cachedTranscript === transcript) {
+        const processedLength = cached.processedLength ?? transcript.length;
+        setQaState((prevState) => ({
+          ...prevState,
+          [message.id]: {
+            transcript,
+            processedLength,
+            status: 'ready',
+            items: cached.items,
+            error: undefined,
+            updatedAt: Date.now(),
+          },
+        }));
+        cache.set(cacheKey, {
+          transcript,
+          items: cached.items.map((item) => ({ ...item })),
+          processedLength,
+          updatedAt: Date.now(),
+        });
+        persistQaResult(cached.items, processedLength);
+        return;
+      }
+
+      const canAppend =
+        previousTranscript.length > 0 &&
+        transcript.length > previousTranscript.length &&
+        transcript.startsWith(previousTranscript);
+
+      const segmentTranscript = canAppend ? transcript.slice(previousTranscript.length).trim() : transcript;
+
+      if (canAppend && !segmentTranscript) {
+        const nextState: MessageQaState = {
+          transcript,
+          processedLength: transcript.length,
+          status: previous?.status ?? 'ready',
+          items: previousItems,
+          error: previous?.error,
+          updatedAt: Date.now(),
+        };
+        setQaState((prevState) => ({
+          ...prevState,
+          [message.id]: nextState,
+        }));
+        cache.set(cacheKey, {
+          transcript,
+          items: previousItems.map((item) => ({ ...item })),
+          processedLength: transcript.length,
+          updatedAt: Date.now(),
+        });
+        persistQaResult(previousItems, transcript.length);
+        return;
+      }
+
       const controller = new AbortController();
-      const previousItems = previous?.items ?? [];
       const existingController = controllersRef.current.get(message.id);
       if (existingController) {
         existingController.abort();
       }
       controllersRef.current.set(message.id, controller);
-      setQaState((prev) => ({
-        ...prev,
+
+      setQaState((prevState) => ({
+        ...prevState,
         [message.id]: {
           transcript,
+          processedLength: canAppend ? previousProcessedLength : 0,
           status: 'loading',
           items: previousItems,
           error: undefined,
           updatedAt: Date.now(),
         },
       }));
-      extractTranscriptQuestions({ transcript, settings, signal: controller.signal })
-        .then((items) => {
+
+      extractTranscriptQuestions({
+        transcript: segmentTranscript,
+        contextTranscript: transcript,
+        settings,
+        signal: controller.signal,
+      })
+        .then((incomingItems) => {
           if (controller.signal.aborted) {
             return;
           }
-          setQaState((prev) => ({
-            ...prev,
+          const mergedItems = canAppend ? mergeQaItems(previousItems, incomingItems) : incomingItems;
+          const processedLength = transcript.length;
+          setQaState((prevState) => ({
+            ...prevState,
             [message.id]: {
               transcript,
+              processedLength,
               status: 'ready',
-              items,
+              items: mergedItems,
               error: undefined,
               updatedAt: Date.now(),
             },
           }));
+          cache.set(cacheKey, {
+            transcript,
+            items: mergedItems.map((item) => ({ ...item })),
+            processedLength,
+            updatedAt: Date.now(),
+          });
+          persistQaResult(mergedItems, processedLength);
         })
         .catch((error) => {
           if (controller.signal.aborted) {
@@ -131,10 +350,11 @@ export default function QaScreen() {
             error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
               ? String((error as { message: string }).message)
               : String(error ?? '');
-          setQaState((prev) => ({
-            ...prev,
+          setQaState((prevState) => ({
+            ...prevState,
             [message.id]: {
               transcript,
+              processedLength: canAppend ? previousProcessedLength : 0,
               status: 'failed',
               items: previousItems,
               error: messageText,
@@ -170,22 +390,7 @@ export default function QaScreen() {
         controllersRef.current.delete(id);
       }
     });
-  }, [messages, settings]);
-
-  const qaEntries = useMemo(() => {
-    return messages
-      .filter((message) => message.status === 'completed' && typeof message.transcript === 'string' && message.transcript.trim())
-      .map((message) => ({
-        message,
-        state: qaState[message.id],
-      }))
-      .sort((a, b) => a.message.createdAt - b.message.createdAt);
-  }, [messages, qaState]);
-
-  const anyLoading = useMemo(
-    () => qaEntries.some((entry) => entry.state && entry.state.status === 'loading'),
-    [qaEntries]
-  );
+  }, [messages, settings, settingsSignature, updateMessageQa]);
 
   const safeAreaStyle = [styles.safeArea, { backgroundColor }];
 
@@ -404,3 +609,4 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+

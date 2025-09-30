@@ -25,7 +25,7 @@ import { MarkdownText } from "@/components/markdown-text";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
-import { TranscriptionMessage } from "@/types/transcription";
+import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import {
   generateConversationTitle,
   generateConversationSummary,
@@ -117,6 +117,24 @@ function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
     });
   });
   return sanitized;
+}
+
+function areQaItemsEqual(left?: TranscriptQaItem[], right?: TranscriptQaItem[]): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return !left && !right;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index].question !== right[index].question || left[index].answer !== right[index].answer) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isConversationEmpty(conversation: HistoryConversation): boolean {
@@ -523,7 +541,12 @@ export default function TranscriptionScreen() {
             stored.status !== incoming.status ||
             stored.transcript !== incoming.transcript ||
             stored.translationStatus !== incoming.translationStatus ||
-            stored.translation !== incoming.translation
+            stored.translation !== incoming.translation ||
+            stored.qaUpdatedAt !== incoming.qaUpdatedAt ||
+            stored.qaProcessedLength !== incoming.qaProcessedLength ||
+            stored.qaTranscriptHash !== incoming.qaTranscriptHash ||
+            stored.qaSettingsSignature !== incoming.qaSettingsSignature ||
+            !areQaItemsEqual(stored.qaItems, incoming.qaItems)
           ) {
             hasDifference = true;
             break;
@@ -534,7 +557,10 @@ export default function TranscriptionScreen() {
         return prev;
       }
 
-      const clonedMessages = currentMessages.map((msg) => ({ ...msg }));
+      const clonedMessages = currentMessages.map((msg) => ({
+        ...msg,
+        qaItems: msg.qaItems ? msg.qaItems.map((item) => ({ ...item })) : undefined,
+      }));
       const transcriptSegments = clonedMessages
         .map((msg) => msg.transcript?.trim())
         .filter((segment): segment is string => !!segment && segment.length > 0);
