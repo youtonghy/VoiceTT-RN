@@ -21,7 +21,6 @@ interface MessageQaState {
   items: TranscriptQaItem[];
   error?: string;
   updatedAt: number;
-  processedLength: number; // Track how much of transcript has been processed
 }
 
 function resolveMessageTitle(message: TranscriptionMessage, fallback: string): string {
@@ -88,21 +87,9 @@ export default function QaScreen() {
       }
       activeIds.add(message.id);
       const previous = qaStateRef.current[message.id];
-
-      // Check if transcript has grown since last processing
-      const previousProcessedLength = previous?.processedLength ?? 0;
-      const newContentLength = transcript.length - previousProcessedLength;
-
-      // Skip if no new content or already processing/ready with same transcript
       if (previous && previous.transcript === transcript && (previous.status === 'loading' || previous.status === 'ready')) {
         return;
       }
-
-      // Skip if there's less than 50 characters of new content (avoid processing tiny updates)
-      if (previous && newContentLength < 50 && previous.status === 'ready') {
-        return;
-      }
-
       const controller = new AbortController();
       const previousItems = previous?.items ?? [];
       const existingController = controllersRef.current.get(message.id);
@@ -110,12 +97,6 @@ export default function QaScreen() {
         existingController.abort();
       }
       controllersRef.current.set(message.id, controller);
-
-      // Extract only the new content if we have previous state
-      const transcriptToProcess = previousProcessedLength > 0
-        ? transcript.slice(previousProcessedLength)
-        : transcript;
-
       setQaState((prev) => ({
         ...prev,
         [message.id]: {
@@ -124,25 +105,21 @@ export default function QaScreen() {
           items: previousItems,
           error: undefined,
           updatedAt: Date.now(),
-          processedLength: previousProcessedLength,
         },
       }));
-      extractTranscriptQuestions({ transcript: transcriptToProcess, settings, signal: controller.signal })
+      extractTranscriptQuestions({ transcript, settings, signal: controller.signal })
         .then((items) => {
           if (controller.signal.aborted) {
             return;
           }
-          // Merge new items with previous items
-          const mergedItems = [...previousItems, ...items];
           setQaState((prev) => ({
             ...prev,
             [message.id]: {
               transcript,
               status: 'ready',
-              items: mergedItems,
+              items,
               error: undefined,
               updatedAt: Date.now(),
-              processedLength: transcript.length, // Update processed length to full transcript length
             },
           }));
         })
@@ -162,7 +139,6 @@ export default function QaScreen() {
               items: previousItems,
               error: messageText,
               updatedAt: Date.now(),
-              processedLength: previousProcessedLength, // Keep the previous processed length on error
             },
           }));
         })
