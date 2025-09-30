@@ -12,7 +12,7 @@ export interface ExtractTranscriptQuestionsOptions {
   signal?: AbortSignal;
 }
 
-const DEFAULT_QA_RESPONSE_TEMPERATURE = 0.25;
+const DEFAULT_QA_RESPONSE_TEMPERATURE = 0.1;
 const MAX_QA_OUTPUT_TOKENS = 512;
 
 function resolveOpenAIBaseUrl(settings: AppSettings): string {
@@ -45,30 +45,117 @@ function sanitizeQaItems(raw: unknown): TranscriptQaItem[] {
 
 function parseQaResponseText(text: string): TranscriptQaItem[] {
   if (!text) {
+    if (__DEV__) {
+      console.log('[qa] parseQaResponseText: empty text input');
+    }
     return [];
   }
   const trimmed = text.trim();
+
+  if (__DEV__) {
+    console.log('[qa] parseQaResponseText: processing text:', trimmed);
+  }
+
+  // First attempt: parse as JSON
   try {
     const parsed = JSON.parse(trimmed);
-    return sanitizeQaItems(parsed);
+    const items = sanitizeQaItems(parsed);
+    if (items.length > 0) {
+      if (__DEV__) {
+        console.log('[qa] Successfully parsed JSON, found items:', items);
+      }
+      return items;
+    }
   } catch (error) {
     if (__DEV__) {
       console.warn('[qa] Failed to parse JSON response, attempting fallback', error);
     }
   }
-  // Fallback: attempt to extract simple question/answer pairs split by newline
+
+  // Second attempt: look for JSON-like structure within the text
+  const jsonMatch = trimmed.match(/\{[\s\S]*?\}/);
+  if (jsonMatch) {
+    try {
+      const jsonText = jsonMatch[0];
+      const parsed = JSON.parse(jsonText);
+      const items = sanitizeQaItems(parsed);
+      if (items.length > 0) {
+        return items;
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[qa] Failed to parse embedded JSON, continuing with fallback', error);
+      }
+    }
+  }
+
+  // Additional attempt: try to extract JSON from content field if it exists
+  try {
+    const contentMatch = trimmed.match(/"content"\s*:\s*"([^"]+)"/);
+    if (contentMatch && contentMatch[1]) {
+      const contentText = contentMatch[1].replace(/\\"/g, '"');
+      const parsed = JSON.parse(contentText);
+      const items = sanitizeQaItems(parsed);
+      if (items.length > 0) {
+        return items;
+      }
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[qa] Failed to parse content field JSON', error);
+    }
+  }
+
+  // Third attempt: extract structured Q&A pairs
   const fallbackItems: TranscriptQaItem[] = [];
-  const lines = trimmed.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  lines.forEach((line) => {
-    const match = line.match(/^(?:[-*]\s*)?(?:Q[:：]\s*)?(.+?)(?:\s*[—-]|\s*A[:：])\s*(.+)$/i);
-    if (match) {
-      const question = match[1].trim();
-      const answer = match[2].trim();
-      if (question && answer) {
+
+  // Try to find question-answer pairs in various formats
+  const qaPatterns = [
+    // JSON-like format without proper structure
+    /"question"\s*[:：]\s*"([^"]+)"\s*[,，]?\s*"answer"\s*[:：]\s*"([^"]+)"/g,
+    // JSON-like format with single quotes
+    /'question'\s*[:：]\s*'([^']+)'\s*[,，]?\s*'answer'\s*[:：]\s*'([^']+)'/g,
+    // JSON-like format without quotes
+    /question\s*[:：]\s*([^,\n]+?)\s*[,，]?\s*answer\s*[:：]\s*([^,\n]+?)(?=\s*[,，\n]|$)/gi,
+    // Markdown-style Q&A
+    /(?:Q|问题|Question)[:：]?\s*(.+?)\s*(?:A|答案|Answer)[:：]?\s*(.+?)(?=\n|$)/gi,
+    // Numbered Q&A
+    /(?:\d+\.\s*)?(.+?)\?\s*(.+?)(?=\n|$)/gi,
+  ];
+
+  for (const pattern of qaPatterns) {
+    const matches = [...trimmed.matchAll(pattern)];
+    for (const match of matches) {
+      const question = match[1]?.trim();
+      const answer = match[2]?.trim();
+      if (question && answer && !question.includes('{') && !answer.includes('{')) {
         fallbackItems.push({ question, answer });
       }
     }
-  });
+    if (fallbackItems.length > 0) break;
+  }
+
+  // Fourth fallback: if no structured Q&A found, extract sentences ending with ? as questions
+  if (fallbackItems.length === 0) {
+    const questionRegex = /[^.!?]*\?/g;
+    const questions = trimmed.match(questionRegex);
+    if (questions && questions.length > 0) {
+      questions.forEach((question) => {
+        const cleanQuestion = question.trim();
+        if (cleanQuestion && cleanQuestion.length > 5) { // Ensure it's a meaningful question
+          fallbackItems.push({
+            question: cleanQuestion,
+            answer: '无问题'  // Default answer when only question is extracted
+          });
+        }
+      });
+    }
+  }
+
+  if (__DEV__) {
+    console.log('[qa] Final parsed items:', fallbackItems);
+  }
+
   return fallbackItems;
 }
 
@@ -76,6 +163,29 @@ function collectOpenAIText(data: any): string {
   if (!data) {
     return '';
   }
+
+  // Handle standard chat completions response format
+  if (Array.isArray(data.choices)) {
+    return data.choices
+      .map((choice: any) => {
+        const message = choice?.message;
+        if (typeof message?.content === 'string') {
+          return message.content;
+        }
+        if (Array.isArray(message?.content)) {
+          return message.content
+            .map((inner: any) => (typeof inner?.text === 'string' ? inner.text : ''))
+            .filter(Boolean)
+            .join('\n');
+        }
+        const text = choice?.text;
+        return typeof text === 'string' ? text : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  // Handle legacy responses format
   if (typeof data.output_text === 'string') {
     return data.output_text;
   }
@@ -113,25 +223,7 @@ function collectOpenAIText(data: any): string {
       .filter(Boolean)
       .join('\n');
   }
-  if (Array.isArray(data.choices)) {
-    return data.choices
-      .map((choice: any) => {
-        const message = choice?.message;
-        if (typeof message?.content === 'string') {
-          return message.content;
-        }
-        if (Array.isArray(message?.content)) {
-          return message.content
-            .map((inner: any) => (typeof inner?.text === 'string' ? inner.text : ''))
-            .filter(Boolean)
-            .join('\n');
-        }
-        const text = choice?.text;
-        return typeof text === 'string' ? text : '';
-      })
-      .filter(Boolean)
-      .join('\n');
-  }
+
   return '';
 }
 
@@ -142,50 +234,23 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
   }
   const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
   const prompt = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
-  const url = `${resolveOpenAIBaseUrl(settings)}/v1/responses`;
+  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
   const payload = {
     model,
-    input: [
+    messages: [
       {
         role: 'system',
-        content: [{ type: 'input_text', text: prompt }],
+        content: prompt,
       },
       {
         role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `Transcript segment:\n${transcript.trim()}`,
-          },
-        ],
+        content: `Transcript segment:\n${transcript.trim()}`,
       },
     ],
     temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
-    max_output_tokens: MAX_QA_OUTPUT_TOKENS,
+    max_tokens: MAX_QA_OUTPUT_TOKENS,
     response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'transcript_questions',
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['question', 'answer'],
-                properties: {
-                  question: { type: 'string' },
-                  answer: { type: 'string' },
-                },
-              },
-            },
-          },
-          required: ['items'],
-        },
-      },
+      type: 'json_object',
     },
   };
 
@@ -206,6 +271,12 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
 
   const data = await response.json();
   const text = collectOpenAIText(data).trim();
+
+  if (__DEV__) {
+    console.log('[qa] OpenAI response data:', data);
+    console.log('[qa] Extracted text:', text);
+  }
+
   return parseQaResponseText(text);
 }
 
@@ -260,7 +331,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
     generationConfig: {
       temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
       maxOutputTokens: MAX_QA_OUTPUT_TOKENS,
-      topP: 0.95,
+      topP: 0.9,
       topK: 40,
     },
   };
