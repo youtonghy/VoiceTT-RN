@@ -21,6 +21,7 @@ import KeyboardStickyInput from "@/KeyboardStickyInput";
 import { RecordingToggle } from "@/components/recording-toggle";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { MarkdownText } from "@/components/markdown-text";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
@@ -1087,12 +1088,13 @@ export default function TranscriptionScreen() {
                         darkColor="#e2e8f0">
                         {t('assistant.section.summary_title')}
                       </ThemedText>
-                      <ThemedText
+                      <MarkdownText
                         style={styles.assistantSummaryText}
                         lightColor="#f8fafc"
-                        darkColor="#f8fafc">
+                        darkColor="#f8fafc"
+                      >
                         {assistantSummary || assistantSummaryPlaceholder}
-                      </ThemedText>
+                      </MarkdownText>
                     </LinearGradient>
                     {assistantMessages.length === 0 ? (
                       <ThemedText
@@ -1127,13 +1129,23 @@ export default function TranscriptionScreen() {
                                   : styles.assistantMessageBubbleAssistant,
                                 !isUser && { backgroundColor: assistantAssistantBubbleColor },
                               ]}>
-                              <ThemedText
-                                style={[
-                                  styles.assistantMessageText,
-                                  isUser && styles.assistantMessageTextUser,
-                                ]}>
-                                {message.content}
-                              </ThemedText>
+                              {isUser ? (
+                                <ThemedText
+                                  style={[
+                                    styles.assistantMessageText,
+                                    styles.assistantMessageTextUser,
+                                  ]}>
+                                  {message.content}
+                                </ThemedText>
+                              ) : (
+                                <MarkdownText
+                                  style={styles.assistantMessageText}
+                                  lightColor="#0f172a"
+                                  darkColor="#e2e8f0"
+                                >
+                                  {message.content}
+                                </MarkdownText>
+                              )}
                               {statusText ? (
                                 <ThemedText
                                   style={[

@@ -303,7 +303,7 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
     throw new Error('Missing OpenAI API key for Q&A extraction');
   }
   const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
-  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer.';
+  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
   const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
   const payload = {
     model,
@@ -497,7 +497,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
     throw new Error('Missing Gemini API key for Q&A extraction');
   }
   const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
-  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer.';
+  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [

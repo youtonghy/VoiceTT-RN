@@ -1528,6 +1528,7 @@ export async function generateAssistantReply({
     'You are a helpful conversation assistant who answers follow-up questions using the provided meeting context.',
     'Ground responses in the transcript and avoid inventing details. If the answer is unknown, say you do not know.',
     'Respond in the same language as the user whenever possible.',
+    'You can use Markdown formatting to structure your responses with headings, lists, code blocks, and emphasis where appropriate.',
   ];
   if (context) {
     instructionsParts.push('Conversation context:\n' + context);

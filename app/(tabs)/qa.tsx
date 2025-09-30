@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { RecordingToggle } from '@/components/recording-toggle';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { MarkdownText } from '@/components/markdown-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useTranscription } from '@/contexts/transcription-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -276,9 +277,13 @@ export default function QaScreen() {
                           <ThemedText style={styles.qaLabel} lightColor="#16a34a" darkColor="#4ade80">
                             {t('qa.labels.answer')}
                           </ThemedText>
-                          <ThemedText style={styles.qaContent} lightColor="#0f172a" darkColor="#e2e8f0">
+                          <MarkdownText
+                            style={styles.qaContent}
+                            lightColor="#0f172a"
+                            darkColor="#e2e8f0"
+                          >
                             {item.answer}
-                          </ThemedText>
+                          </MarkdownText>
                         </View>
                       </View>
                     ))}
