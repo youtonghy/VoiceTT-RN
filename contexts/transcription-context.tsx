@@ -1,4 +1,11 @@
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingOptions,
+  setAudioModeAsync,
+  requestRecordingPermissionsAsync,
+  type AudioRecorder,
+} from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, {
   createContext,
@@ -68,7 +75,12 @@ interface TranscriptionContextValue {
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
 
-type RecordingStatus = Audio.RecordingStatus;
+interface RecordingStatus {
+  isRecording: boolean;
+  durationMillis: number;
+  metering?: number;
+  isDoneRecording: boolean;
+}
 
 function meteringToRms(value: number | undefined): number {
   if (typeof value !== 'number') {
@@ -80,30 +92,30 @@ function meteringToRms(value: number | undefined): number {
   return Math.pow(10, value / 20);
 }
 
-function buildRecordingOptions(): Audio.RecordingOptions {
+function buildRecordingOptions(): RecordingOptions {
   return {
     isMeteringEnabled: true,
     android: {
       extension: '.m4a',
-      outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-      audioEncoder: Audio.AndroidAudioEncoder.AAC,
+      outputFormat: 'mpeg4',
+      audioEncoder: 'aac',
       sampleRate: 44100,
       numberOfChannels: 1,
       bitRate: 128000,
     },
     ios: {
       extension: '.m4a',
-      audioQuality: Audio.IOSAudioQuality.HIGH,
+      audioQuality: 96, // HIGH
       sampleRate: 44100,
       numberOfChannels: 1,
       bitRate: 128000,
-      outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+      outputFormat: 'aac',
     },
     web: {
       mimeType: 'audio/webm',
       bitsPerSecond: 128000,
     },
-  } as Audio.RecordingOptions;
+  };
 }
 
 function useLatestRef<T>(value: T) {
@@ -198,13 +210,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const [qaAutoMode, setQaAutoMode] = useState(false);
   const qaAutoModeRef = useLatestRef(qaAutoMode);
 
-  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(buildRecordingOptions());
+  const recorderState = useAudioRecorderState(recorder);
+  const isRecording = recorderState.isRecording;
+
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(1);
-  const lastStatusRef = useRef<RecordingStatus | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
 
   const setMessagesAndRef = useCallback((updater: (prev: TranscriptionMessage[]) => TranscriptionMessage[]) => {
     setMessages((prev) => {
@@ -288,96 +303,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
 
-  const startNewRecording = useCallback(async () => {
-    const recording = new Audio.Recording();
-    try {
-      await recording.prepareToRecordAsync(buildRecordingOptions());
-      recording.setProgressUpdateInterval(100);
-      recording.setOnRecordingStatusUpdate((status) => {
-        lastStatusRef.current = status;
-        handleStatusUpdate(status);
-      });
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setIsRecording(true);
-    } catch (startError) {
-      recordingRef.current = null;
-      setIsRecording(false);
-      console.error('[transcription] Failed to start recording', startError);
-      setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
-    }
-  }, []);
-
-  const stopAndResetRecording = useCallback(async () => {
-    const recording = recordingRef.current;
-    if (!recording) {
-      return;
-    }
-    recordingRef.current = null;
-    try {
-      recording.setOnRecordingStatusUpdate(null);
-      await recording.stopAndUnloadAsync();
-    } catch (stopError) {
-      console.warn('[transcription] Failed to stop recording', stopError);
-    } finally {
-      setIsRecording(false);
-    }
-  }, []);
-
-  const startSession = useCallback(async (options?: SessionToggleOptions) => {
-    if (sessionActiveRef.current) {
-      return;
-    }
-    try {
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
-        setError(t('transcription.errors.permission_denied'));
-        return;
-      }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-        shouldDuckAndroid: false,
-      });
-      resetSegmentState();
-      setQaAutoMode(options?.qaAutoEnabled ?? false);
-      setIsSessionActive(true);
-      startNewRecording();
-    } catch (startError) {
-      console.error('[transcription] Failed to start session', startError);
-      setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
-      setQaAutoMode(false);
-      setIsSessionActive(false);
-    }
-  }, [resetSegmentState, sessionActiveRef, startNewRecording]);
-
-  const stopSession = useCallback(async () => {
-    if (!sessionActiveRef.current) {
-      return;
-    }
-    setIsSessionActive(false);
-    setQaAutoMode(false);
-    await stopAndResetRecording();
-    resetSegmentState();
-  }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
-
-  const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
-    if (sessionActiveRef.current) {
-      await stopSession();
-    } else {
-      await startSession(options);
-    }
-  }, [sessionActiveRef, startSession, stopSession]);
-
   const finalizeSegment = useCallback(async (status: RecordingStatus | null) => {
-    const recording = recordingRef.current;
-    if (!recording) {
-      return;
-    }
     const snapshot = { ...segmentStateRef.current };
     if (snapshot.messageId == null) {
       return;
@@ -385,7 +311,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     resetSegmentState();
     const currentMessageId = snapshot.messageId;
     const startOffsetMs = snapshot.confirmedStartMs ?? 0;
-    const durationMs = status?.durationMillis ?? lastStatusRef.current?.durationMillis ?? 0;
+    const durationMs = status?.durationMillis ?? recorder.currentTime * 1000;
     const payload: TranscriptionSegmentPayload = {
       fileUri: '',
       startOffsetMs,
@@ -394,16 +320,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       messageId: currentMessageId,
     };
     try {
-      recording.setOnRecordingStatusUpdate(null);
-      await recording.stopAndUnloadAsync();
-      const fileUri = recording.getURI();
+      // Stop the current recording
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+        statusIntervalRef.current = null;
+      }
+      await recorder.stop();
+      const fileUri = recorder.uri;
       if (!fileUri) {
         throw new Error(t('transcription.errors.empty_recording'));
       }
       payload.fileUri = fileUri;
-      recordingRef.current = null;
-      lastStatusRef.current = null;
-      setIsRecording(false);
 
       if (sessionActiveRef.current) {
         startNewRecording().catch((restartError) => {
@@ -500,16 +427,104 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         cleanupRecordingFile(payload.fileUri);
       }
     }
-  }, [cleanupRecordingFile, resetSegmentState, settingsRef, startNewRecording, updateMessage]);
+  }, [cleanupRecordingFile, recorder, resetSegmentState, sessionActiveRef, settingsRef, t, updateMessage]);
+
+  // Update the ref when finalizeSegment changes
+  useEffect(() => {
+    finalizeSegmentRef.current = finalizeSegment;
+  }, [finalizeSegment]);
+
+  const startNewRecording = useCallback(async () => {
+    try {
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+
+      // Poll recording status periodically for metering and duration
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+      }
+      statusIntervalRef.current = setInterval(() => {
+        const status: RecordingStatus = {
+          isRecording: recorder.isRecording,
+          durationMillis: recorder.currentTime * 1000,
+          metering: recorderState.metering,
+          isDoneRecording: recorderState.isDoneRecording,
+        };
+        handleStatusUpdate(status);
+      }, 100);
+    } catch (startError) {
+      console.error('[transcription] Failed to start recording', startError);
+      setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
+    }
+  }, [handleStatusUpdate, recorder, recorderState, t]);
+
+  const stopAndResetRecording = useCallback(async () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    if (recorder.isRecording) {
+      try {
+        await recorder.stop();
+      } catch (stopError) {
+        console.warn('[transcription] Failed to stop recording', stopError);
+      }
+    }
+  }, [recorder]);
+
+  const startSession = useCallback(async (options?: SessionToggleOptions) => {
+    if (sessionActiveRef.current) {
+      return;
+    }
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
+        setError(t('transcription.errors.permission_denied'));
+        return;
+      }
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+      resetSegmentState();
+      setQaAutoMode(options?.qaAutoEnabled ?? false);
+      setIsSessionActive(true);
+      startNewRecording();
+    } catch (startError) {
+      console.error('[transcription] Failed to start session', startError);
+      setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
+      setQaAutoMode(false);
+      setIsSessionActive(false);
+    }
+  }, [resetSegmentState, sessionActiveRef, startNewRecording, t]);
+
+  const stopSession = useCallback(async () => {
+    if (!sessionActiveRef.current) {
+      return;
+    }
+    setIsSessionActive(false);
+    setQaAutoMode(false);
+    await stopAndResetRecording();
+    resetSegmentState();
+  }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
+
+  const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
+    if (sessionActiveRef.current) {
+      await stopSession();
+    } else {
+      await startSession(options);
+    }
+  }, [sessionActiveRef, startSession, stopSession]);
 
   const handleStatusUpdate = useCallback((status: RecordingStatus) => {
-    if (!status.canRecord) {
+    if (!status.isRecording && !status.isDoneRecording) {
       return;
     }
     const currentSettings = settingsRef.current;
     const segment = segmentStateRef.current;
     const durationMs = status.durationMillis ?? 0;
-    const rms = meteringToRms(status.metering as number | undefined);
+    const rms = meteringToRms(status.metering);
     const threshold = currentSettings.activationThreshold;
 
     if (!segment.isActive) {
@@ -541,7 +556,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         }
         const silenceElapsed = durationMs - (segment.belowThresholdStartMs ?? durationMs);
         if (silenceElapsed >= currentSettings.silenceDurationSec * 1000) {
-          finalizeSegment(status);
+          finalizeSegmentRef.current?.(status);
         }
       } else {
         segment.belowThresholdStartMs = null;
@@ -550,14 +565,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         const startMs = segment.confirmedStartMs ?? 0;
         const segmentElapsed = durationMs - startMs;
         if (segmentElapsed >= currentSettings.maxSegmentDurationSec * 1000) {
-          finalizeSegment(status);
+          finalizeSegmentRef.current?.(status);
         }
       }
     }
-  }, [finalizeSegment, setMessagesAndRef, settingsRef]);
+  }, [qaAutoModeRef, setMessagesAndRef, settingsRef, t]);
 
   useEffect(() => {
     return () => {
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+      }
       stopAndResetRecording();
     };
   }, [stopAndResetRecording]);
