@@ -1,4 +1,4 @@
-﻿import {
+import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +15,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_QA_MODEL,
   DEFAULT_OPENAI_QA_MODEL,
-  DEFAULT_QA_PROMPT,
+  DEFAULT_QA_QUESTION_PROMPT,
+  DEFAULT_QA_ANSWER_PROMPT,
   type QaEngine,
 } from '@/types/settings';
 
