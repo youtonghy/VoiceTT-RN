@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { RecordingToggle } from '@/components/recording-toggle';
 import { ThemedText } from '@/components/themed-text';
@@ -102,11 +104,12 @@ export default function QaScreen() {
   const cardLight = '#f8fafc';
   const cardDark = '#0f172a';
   const indicatorColor = useThemeColor({ light: '#0f172a', dark: '#e2e8f0' }, 'text');
-  const manualTrackOnColor = useThemeColor({ light: '#22d3ee', dark: '#0ea5e9' }, 'tint');
-  const manualTrackOffColor = useThemeColor({ light: 'rgba(148, 163, 184, 0.35)', dark: 'rgba(71, 85, 105, 0.55)' }, 'text');
-  const manualThumbColor = useThemeColor({ light: '#ffffff', dark: '#0f172a' }, 'background');
+  const manualButtonBg = useThemeColor({ light: '#0f172a', dark: '#1f2937' }, 'background');
+  const manualButtonPressedBg = useThemeColor({ light: '#1d4ed8', dark: '#2563eb' }, 'tint');
+  const manualButtonIconColor = useThemeColor({ light: '#f8fafc', dark: '#e2e8f0' }, 'text');
 
-  const [manualRecognitionEnabled, setManualRecognitionEnabled] = useState(false);
+  const [manualRunVersion, setManualRunVersion] = useState(0);
+  const manualTargetsRef = useRef<Set<number>>(new Set());
   const [qaState, setQaState] = useState<Record<number, MessageQaState>>({});
   const qaStateRef = useRef<Record<number, MessageQaState>>({});
   const qaCacheRef = useRef<Map<string, CachedQaEntry>>(new Map());
@@ -133,6 +136,28 @@ export default function QaScreen() {
     () => qaEntries.some((entry) => entry.state && entry.state.status === 'loading'),
     [qaEntries]
   );
+
+  const handleManualRun = useCallback(() => {
+    const targets = new Set<number>();
+    messages.forEach((message) => {
+      if (message.status !== 'completed') {
+        return;
+      }
+      if (message.qaAutoEnabled === true) {
+        return;
+      }
+      const transcript = typeof message.transcript === 'string' ? message.transcript.trim() : '';
+      if (!transcript) {
+        return;
+      }
+      targets.add(message.id);
+    });
+    manualTargetsRef.current = targets;
+    if (targets.size === 0) {
+      return;
+    }
+    setManualRunVersion((prev) => prev + 1);
+  }, [messages]);
 
   useEffect(() => {
     if (qaEntries.length > 0) {
@@ -167,6 +192,7 @@ export default function QaScreen() {
   useEffect(() => {
     const activeIds = new Set<number>();
     const cache = qaCacheRef.current;
+    const manualTargets = manualTargetsRef.current;
 
     messages.forEach((message) => {
       if (message.status !== 'completed') {
@@ -204,12 +230,17 @@ export default function QaScreen() {
         });
       };
 
+      const autoQaEnabled = message.qaAutoEnabled === true;
+      const shouldManualRun = !autoQaEnabled && manualTargets.has(message.id);
+      if (shouldManualRun) {
+        manualTargets.delete(message.id);
+      }
+
       if (previous && previous.transcript === transcript) {
-        if (previous.status === 'ready') {
+        if (!shouldManualRun && previous.status === 'ready') {
           return;
         }
-        const wasProcessing = previous.status === 'loading';
-        if (wasProcessing && (message.qaAutoEnabled === true || manualRecognitionEnabled)) {
+        if (previous.status === 'loading') {
           return;
         }
       }
@@ -226,7 +257,7 @@ export default function QaScreen() {
         cached?.processedLength ??
         (hasPersistedQa ? persistedProcessedLength : previousTranscript ? previousTranscript.length : 0);
 
-      if (!previous && !cached && hasPersistedQa) {
+      if (!shouldManualRun && !previous && !cached && hasPersistedQa) {
         const processedLength = persistedProcessedLength;
         setQaState((prevState) => ({
           ...prevState,
@@ -249,7 +280,7 @@ export default function QaScreen() {
         return;
       }
 
-      if (!previous && cached && cachedTranscript === transcript) {
+      if (!shouldManualRun && !previous && cached && cachedTranscript === transcript) {
         const processedLength = cached.processedLength ?? transcript.length;
         setQaState((prevState) => ({
           ...prevState,
@@ -272,22 +303,19 @@ export default function QaScreen() {
         return;
       }
 
-      const autoQaEnabled = message.qaAutoEnabled === true;
-      if (!autoQaEnabled && !manualRecognitionEnabled) {
+      if (!autoQaEnabled && !shouldManualRun) {
         const existingController = controllersRef.current.get(message.id);
         if (existingController) {
           existingController.abort();
           controllersRef.current.delete(message.id);
         }
         const previousStatus = previous?.status;
-        const nextStatus =
-          previousStatus === 'ready' || previousStatus === 'failed'
-            ? previousStatus
-            : previousItems.length > 0
-              ? 'ready'
-              : 'idle';
-        const nextError =
-          nextStatus === 'failed' ? previous?.error : undefined;
+        const nextStatus: QaStatus = previousItems.length > 0
+          ? 'ready'
+          : previousStatus === 'failed'
+            ? 'failed'
+            : 'idle';
+        const nextError = nextStatus === 'failed' ? previous?.error : undefined;
         setQaState((prevState) => ({
           ...prevState,
           [message.id]: {
@@ -302,7 +330,7 @@ export default function QaScreen() {
         return;
       }
 
-      const canAppend =
+      const canAppend = !shouldManualRun &&
         previousTranscript.length > 0 &&
         transcript.length > previousTranscript.length &&
         transcript.startsWith(previousTranscript);
@@ -339,11 +367,13 @@ export default function QaScreen() {
       }
       controllersRef.current.set(message.id, controller);
 
+      const initialProcessedLength = canAppend ? previousProcessedLength : 0;
+
       setQaState((prevState) => ({
         ...prevState,
         [message.id]: {
           transcript,
-          processedLength: canAppend ? previousProcessedLength : 0,
+          processedLength: initialProcessedLength,
           status: 'loading',
           items: previousItems,
           error: undefined,
@@ -361,7 +391,8 @@ export default function QaScreen() {
           if (controller.signal.aborted) {
             return;
           }
-          const mergedItems = canAppend ? mergeQaItems(previousItems, incomingItems) : incomingItems;
+          const shouldMerge = canAppend;
+          const mergedItems = shouldMerge ? mergeQaItems(previousItems, incomingItems) : incomingItems;
           const processedLength = transcript.length;
           setQaState((prevState) => ({
             ...prevState,
@@ -394,7 +425,7 @@ export default function QaScreen() {
             ...prevState,
             [message.id]: {
               transcript,
-              processedLength: canAppend ? previousProcessedLength : 0,
+              processedLength: initialProcessedLength,
               status: 'failed',
               items: previousItems,
               error: messageText,
@@ -408,6 +439,12 @@ export default function QaScreen() {
             controllersRef.current.delete(message.id);
           }
         });
+    });
+
+    manualTargets.forEach((id) => {
+      if (!activeIds.has(id)) {
+        manualTargets.delete(id);
+      }
     });
 
     setQaState((prev) => {
@@ -430,7 +467,8 @@ export default function QaScreen() {
         controllersRef.current.delete(id);
       }
     });
-  }, [manualRecognitionEnabled, messages, settings, settingsSignature, updateMessageQa]);
+
+  }, [manualRunVersion, messages, settings, settingsSignature, updateMessageQa]);
 
   const safeAreaStyle = [styles.safeArea, { backgroundColor }];
 
@@ -446,31 +484,25 @@ export default function QaScreen() {
           </ThemedText>
         </View>
         <View style={styles.toggleContainer}>
-          <RecordingToggle qaAutoEnabled />
-        </View>
-        <ThemedView
-          lightColor="rgba(148, 163, 184, 0.12)"
-          darkColor="rgba(15, 23, 42, 0.7)"
-          style={styles.manualCard}>
-          <View style={styles.manualTexts}>
-            <ThemedText style={styles.manualTitle} lightColor="#0f172a" darkColor="#e2e8f0">
-              {t('qa.manual_toggle.title')}
-            </ThemedText>
-            <ThemedText style={styles.manualCaption} lightColor="#475569" darkColor="#94a3b8">
-              {manualRecognitionEnabled
-                ? t('qa.manual_toggle.enabled')
-                : t('qa.manual_toggle.disabled')}
-            </ThemedText>
+          <View style={styles.toggleRow}>
+            <View style={styles.togglePrimary}>
+              <RecordingToggle qaAutoEnabled />
+            </View>
+            <View style={styles.manualButtonGroup}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('qa.manual_button.accessibility')}
+                onPress={handleManualRun}
+                style={({ pressed }) => [
+                  styles.manualButton,
+                  { backgroundColor: pressed ? manualButtonPressedBg : manualButtonBg },
+                ]}
+              >
+                <Ionicons name="help" size={20} color={manualButtonIconColor} />
+              </Pressable>
+            </View>
           </View>
-          <Switch
-            value={manualRecognitionEnabled}
-            onValueChange={setManualRecognitionEnabled}
-            trackColor={{ false: manualTrackOffColor, true: manualTrackOnColor }}
-            thumbColor={manualThumbColor}
-            ios_backgroundColor={manualTrackOffColor}
-            style={styles.manualSwitch}
-          />
-        </ThemedView>
+        </View>
         {anyLoading ? (
           <View style={styles.statusRow}>
             <ActivityIndicator size="small" color={indicatorColor} style={styles.statusSpinner} />
@@ -527,7 +559,7 @@ export default function QaScreen() {
                         {t('qa.entry.error', { message: state.error })}
                       </ThemedText>
                     ) : null}
-                    {hasState && status === 'idle' && !autoQaEnabled && !manualRecognitionEnabled ? (
+                    {hasState && status === 'idle' && !autoQaEnabled ? (
                       <ThemedText style={styles.manualHint} lightColor="#475569" darkColor="#94a3b8">
                         {t('qa.entry.manual_hint')}
                       </ThemedText>
@@ -595,29 +627,31 @@ const styles = StyleSheet.create({
   toggleContainer: {
     paddingVertical: 12,
   },
-  manualCard: {
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 20,
     gap: 16,
   },
-  manualTexts: {
+  togglePrimary: {
     flex: 1,
-    gap: 4,
   },
-  manualTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  manualButtonGroup: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  manualCaption: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  manualSwitch: {
-    marginLeft: 12,
+  manualButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
   manualHint: {
     fontSize: 14,
@@ -706,4 +740,5 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+
 

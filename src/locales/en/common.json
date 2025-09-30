@@ -83,10 +83,9 @@
   "qa": {
     "title": "Live Q&A",
     "subtitle": "Start recording to surface questions and quick answers in real time.",
-    "manual_toggle": {
-      "title": "Manual recognition",
-      "enabled": "Analyzes other conversations while this is on.",
-      "disabled": "Turn on to extract Q&A for calls recorded elsewhere."
+    "manual_button": {
+      "label": "Manual Q&A",
+      "accessibility": "Run manual Q&A extraction for this conversation"
     },
     "empty": {
       "title": "No questions yet",
@@ -99,7 +98,7 @@
       "label": "Segment {{title}}",
       "default_title": "Message #{{id}}",
       "no_questions": "No questions detected in this segment.",
-      "manual_hint": "Enable manual recognition above to extract questions for this conversation.",
+      "manual_hint": "Tap the manual Q&A button above to extract questions for this segment.",
       "error": "Unable to extract questions: {{message}}"
     },
     "labels": {
