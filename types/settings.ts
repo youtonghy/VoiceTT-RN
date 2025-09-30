@@ -50,7 +50,7 @@ export const DEFAULT_CONVERSATION_SUMMARY_PROMPT =
 export const DEFAULT_OPENAI_QA_MODEL = DEFAULT_OPENAI_CONVERSATION_MODEL;
 export const DEFAULT_GEMINI_QA_MODEL = DEFAULT_GEMINI_CONVERSATION_MODEL;
 export const DEFAULT_QA_PROMPT =
-  'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. For each, provide a concise factual answer using only the provided content. Respond in JSON with an `items` array of objects containing `question` and `answer`. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: When identifying questions, only return the question text itself without any additional commentary or context.';
+  'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. For each question, provide a concise factual answer. Use the transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Respond in JSON with an `items` array of objects containing `question` and `answer`. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: When identifying questions, only return the question text itself without any additional commentary or context.';
 
 export interface AppSettings extends TranscriptionSettings {
   titleSummaryEngine: TitleSummaryEngine;

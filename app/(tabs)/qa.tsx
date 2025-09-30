@@ -39,10 +39,17 @@ export default function QaScreen() {
   const [qaState, setQaState] = useState<Record<number, MessageQaState>>({});
   const qaStateRef = useRef<Record<number, MessageQaState>>({});
   const controllersRef = useRef<Map<number, AbortController>>(new Map());
+  const scrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     qaStateRef.current = qaState;
   }, [qaState]);
+
+  useEffect(() => {
+    if (qaEntries.length > 0) {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [qaEntries]);
 
   useEffect(() => {
     const controllers = controllersRef.current;
@@ -203,7 +210,11 @@ export default function QaScreen() {
             </ThemedText>
           </View>
         ) : null}
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
           {qaEntries.length === 0
             ? (
               <ThemedView lightColor="rgba(148, 163, 184, 0.12)" darkColor="rgba(15, 23, 42, 0.7)" style={styles.emptyCard}>

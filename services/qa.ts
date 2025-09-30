@@ -14,6 +14,8 @@ export interface ExtractTranscriptQuestionsOptions {
 
 const DEFAULT_QA_RESPONSE_TEMPERATURE = 0.1;
 const MAX_QA_OUTPUT_TOKENS = 512;
+const MAX_QUESTION_EXTRACTION_TOKENS = 256;
+const MAX_ANSWER_TOKENS = 384;
 
 function resolveOpenAIBaseUrl(settings: AppSettings): string {
   const baseUrl = settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
@@ -227,6 +229,124 @@ function collectOpenAIText(data: any): string {
   return '';
 }
 
+async function extractQuestionsWithOpenAI(transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string[]> {
+  const apiKey = settings.credentials.openaiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for Q&A extraction');
+  }
+  const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
+  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
+  const payload = {
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: prompt,
+      },
+      {
+        role: 'user',
+        content: `Transcript segment:\n${transcript.trim()}`,
+      },
+    ],
+    temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+    max_tokens: MAX_QUESTION_EXTRACTION_TOKENS,
+    response_format: {
+      type: 'json_object',
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI question extraction failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectOpenAIText(data).trim();
+
+  if (__DEV__) {
+    console.log('[qa] OpenAI question extraction response:', data);
+    console.log('[qa] Extracted question text:', text);
+  }
+
+  // Parse questions from response
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed.questions)) {
+      return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[qa] Failed to parse questions JSON, attempting fallback', error);
+    }
+  }
+
+  // Fallback: extract questions ending with ?
+  const questionRegex = /[^.!?]*\?/g;
+  const questions = text.match(questionRegex) || [];
+  return questions.map(q => q.trim()).filter(q => q.length > 5);
+}
+
+async function answerQuestionWithOpenAI(question: string, transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string> {
+  const apiKey = settings.credentials.openaiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for Q&A extraction');
+  }
+  const model = settings.credentials.openaiQaModel?.trim() || DEFAULT_OPENAI_QA_MODEL;
+  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer.';
+  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
+  const payload = {
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: prompt,
+      },
+      {
+        role: 'user',
+        content: `Transcript context:\n${transcript.trim()}\n\nQuestion: ${question}`,
+      },
+    ],
+    temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+    max_tokens: MAX_ANSWER_TOKENS,
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI question answering failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const answer = collectOpenAIText(data).trim();
+
+  if (__DEV__) {
+    console.log('[qa] OpenAI answer response:', data);
+    console.log('[qa] Generated answer:', answer);
+  }
+
+  return answer || '无问题';
+}
+
 async function extractWithOpenAI({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
   const apiKey = settings.credentials.openaiApiKey?.trim();
   if (!apiKey) {
@@ -309,6 +429,115 @@ function collectGeminiText(data: any): string {
   return '';
 }
 
+async function extractQuestionsWithGemini(transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string[]> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for Q&A extraction');
+  }
+  const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `${prompt}\n\nTranscript segment:\n${transcript.trim()}`,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+      maxOutputTokens: MAX_QUESTION_EXTRACTION_TOKENS,
+      topP: 0.9,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini question extraction failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectGeminiText(data).trim();
+
+  // Parse questions from response
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed.questions)) {
+      return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[qa] Failed to parse questions JSON, attempting fallback', error);
+    }
+  }
+
+  // Fallback: extract questions ending with ?
+  const questionRegex = /[^.!?]*\?/g;
+  const questions = text.match(questionRegex) || [];
+  return questions.map(q => q.trim()).filter(q => q.length > 5);
+}
+
+async function answerQuestionWithGemini(question: string, transcript: string, settings: AppSettings, signal?: AbortSignal): Promise<string> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for Q&A extraction');
+  }
+  const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
+  const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer.';
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `${prompt}\n\nTranscript context:\n${transcript.trim()}\n\nQuestion: ${question}`,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+      maxOutputTokens: MAX_ANSWER_TOKENS,
+      topP: 0.9,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('Gemini question answering failed: ' + (errorText || response.statusText));
+  }
+
+  const data = await response.json();
+  const answer = collectGeminiText(data).trim();
+
+  return answer || '无问题';
+}
+
 async function extractWithGemini({ transcript, settings, signal }: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
   const apiKey = settings.credentials.geminiApiKey?.trim();
   if (!apiKey) {
@@ -360,8 +589,50 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
   if (!transcript) {
     return [];
   }
-  if (options.settings.qaEngine === 'gemini') {
-    return extractWithGemini(options);
+
+  // First extract questions
+  let questions: string[] = [];
+  try {
+    if (options.settings.qaEngine === 'gemini') {
+      questions = await extractQuestionsWithGemini(transcript, options.settings, options.signal);
+    } else {
+      questions = await extractQuestionsWithOpenAI(transcript, options.settings, options.signal);
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[qa] Failed to extract questions, using fallback', error);
+    }
+    // Fallback: extract questions ending with ?
+    const questionRegex = /[^.!?]*\?/g;
+    questions = transcript.match(questionRegex) || [];
+    questions = questions.map(q => q.trim()).filter(q => q.length > 5);
   }
-  return extractWithOpenAI(options);
+
+  if (questions.length === 0) {
+    return [];
+  }
+
+  // Then answer each question in separate conversations
+  const items: TranscriptQaItem[] = [];
+
+  for (const question of questions.slice(0, 3)) { // Limit to 3 questions
+    try {
+      let answer: string;
+      if (options.settings.qaEngine === 'gemini') {
+        answer = await answerQuestionWithGemini(question, transcript, options.settings, options.signal);
+      } else {
+        answer = await answerQuestionWithOpenAI(question, transcript, options.settings, options.signal);
+      }
+
+      items.push({ question, answer });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[qa] Failed to answer question:', question, error);
+      }
+      // If answering fails, still include the question with a default answer
+      items.push({ question, answer: '无问题' });
+    }
+  }
+
+  return items;
 }
