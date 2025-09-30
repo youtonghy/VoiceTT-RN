@@ -1069,6 +1069,7 @@ async function generateTitleWithGemini(
     throw new Error('Missing Gemini API key for title summarization');
   }
   const model = settings.credentials.geminiTitleModel?.trim() || DEFAULT_GEMINI_TITLE_MODEL;
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [
@@ -1100,7 +1101,9 @@ async function generateTitleWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini title generation failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini title generation failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();
@@ -1223,6 +1226,7 @@ async function generateConversationSummaryWithGemini(
   }
   const model =
     settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [
@@ -1254,7 +1258,9 @@ async function generateConversationSummaryWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini conversation summarization failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini conversation summarization failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();
@@ -1458,6 +1464,7 @@ async function generateAssistantReplyWithGemini({
   }
   const model =
     settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const contents = history.map((message) => ({
     role: message.role === 'assistant' ? 'model' : 'user',
@@ -1489,7 +1496,9 @@ async function generateAssistantReplyWithGemini({
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini conversation assistant failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini conversation assistant failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();

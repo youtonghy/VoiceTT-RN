@@ -44,31 +44,19 @@ function sanitizeQaItems(raw: unknown): TranscriptQaItem[] {
 
 function parseQaResponseText(text: string): TranscriptQaItem[] {
   if (!text) {
-    if (__DEV__) {
-      console.log('[qa] parseQaResponseText: empty text input');
-    }
     return [];
   }
   const trimmed = text.trim();
-
-  if (__DEV__) {
-    console.log('[qa] parseQaResponseText: processing text:', trimmed);
-  }
 
   // First attempt: parse as JSON
   try {
     const parsed = JSON.parse(trimmed);
     const items = sanitizeQaItems(parsed);
     if (items.length > 0) {
-      if (__DEV__) {
-        console.log('[qa] Successfully parsed JSON, found items:', items);
-      }
       return items;
     }
   } catch (error) {
-    if (__DEV__) {
-      console.warn('[qa] Failed to parse JSON response, attempting fallback', error);
-    }
+    // Continue to fallback parsers
   }
 
   // Second attempt: look for JSON-like structure within the text
@@ -82,9 +70,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
         return items;
       }
     } catch (error) {
-      if (__DEV__) {
-        console.warn('[qa] Failed to parse embedded JSON, continuing with fallback', error);
-      }
+      // Continue to fallback parsers
     }
   }
 
@@ -100,9 +86,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
       }
     }
   } catch (error) {
-    if (__DEV__) {
-      console.warn('[qa] Failed to parse content field JSON', error);
-    }
+    // Continue to fallback parsers
   }
 
   // Third attempt: extract structured Q&A pairs
@@ -149,10 +133,6 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
         }
       });
     }
-  }
-
-  if (__DEV__) {
-    console.log('[qa] Final parsed items:', fallbackItems);
   }
 
   return fallbackItems;
@@ -271,11 +251,6 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
   const data = await response.json();
   const text = collectOpenAIText(data).trim();
 
-  if (__DEV__) {
-    console.log('[qa] OpenAI question extraction response:', data);
-    console.log('[qa] Extracted question text:', text);
-  }
-
   // Parse questions from response
   try {
     const parsed = JSON.parse(text);
@@ -283,9 +258,7 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
       return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
     }
   } catch (error) {
-    if (__DEV__) {
-      console.warn('[qa] Failed to parse questions JSON, attempting fallback', error);
-    }
+    // Fallback to regex extraction
   }
 
   // Fallback: extract questions ending with ?
@@ -336,11 +309,6 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
   const data = await response.json();
   const answer = collectOpenAIText(data).trim();
 
-  if (__DEV__) {
-    console.log('[qa] OpenAI answer response:', data);
-    console.log('[qa] Generated answer:', answer);
-  }
-
   return answer || 'No answer available';
 }
 
@@ -389,11 +357,6 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
   const data = await response.json();
   const text = collectOpenAIText(data).trim();
 
-  if (__DEV__) {
-    console.log('[qa] OpenAI response data:', data);
-    console.log('[qa] Extracted text:', text);
-  }
-
   return parseQaResponseText(text);
 }
 
@@ -433,6 +396,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
   }
   const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
   const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [
@@ -464,7 +428,9 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini question extraction failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini question extraction failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();
@@ -477,9 +443,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
       return parsed.questions.filter((q: unknown) => typeof q === 'string' && q.trim().length > 0);
     }
   } catch (error) {
-    if (__DEV__) {
-      console.warn('[qa] Failed to parse questions JSON, attempting fallback', error);
-    }
+    // Fallback to regex extraction
   }
 
   // Fallback: extract questions ending with ?
@@ -495,6 +459,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
   }
   const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
   const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [
@@ -526,7 +491,9 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini question answering failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini question answering failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();
@@ -542,6 +509,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
   }
   const model = settings.credentials.geminiQaModel?.trim() || DEFAULT_GEMINI_QA_MODEL;
   const prompt = (settings.qaPrompt || '').trim() || DEFAULT_QA_PROMPT;
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [
@@ -573,7 +541,9 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error('Gemini Q&A extraction failed: ' + (errorText || response.statusText));
+    // Sanitize error to not expose API key
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini Q&A extraction failed: ' + (safeError || response.statusText));
   }
 
   const data = await response.json();
@@ -599,9 +569,6 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
       questions = await extractQuestionsWithOpenAI(transcript, options.settings, options.signal);
     }
   } catch (error) {
-    if (__DEV__) {
-      console.warn('[qa] Failed to extract questions, using fallback', error);
-    }
     // Fallback: extract questions ending with ?
     const questionRegex = /[^.!?]*\?/g;
     questions = transcript.match(questionRegex) || [];
@@ -626,9 +593,6 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
 
       items.push({ question, answer });
     } catch (error) {
-      if (__DEV__) {
-        console.warn('[qa] Failed to answer question:', question, error);
-      }
       // If answering fails, still include the question with a default answer
       items.push({ question, answer: 'No answer available' });
     }

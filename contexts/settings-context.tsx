@@ -13,6 +13,11 @@ import {
   EngineCredentials,
   defaultSettings,
 } from '@/types/settings';
+import {
+  secureGetCredentials,
+  secureSetCredentials,
+  secureClearAll,
+} from '@/services/secure-storage';
 
 const SETTINGS_STORAGE_KEY = '@agents/app-settings';
 
@@ -28,6 +33,7 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 
 async function loadPersistedSettings(): Promise<AppSettings | null> {
   try {
+    // Load non-sensitive settings from AsyncStorage
     const value = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!value) {
       return null;
@@ -36,7 +42,11 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (!parsed || typeof parsed !== 'object') {
       return null;
     }
-    const parsedCredentials = parsed.credentials ?? {};
+
+    // Load sensitive credentials from secure storage
+    const secureCredentials = await secureGetCredentials();
+    const parsedCredentials = secureCredentials ?? parsed.credentials ?? {};
+
     const merged: AppSettings = {
       ...defaultSettings,
       ...parsed,
@@ -75,9 +85,22 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
 
 async function persistSettings(settings: AppSettings) {
   try {
-    await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    // Separate sensitive credentials from other settings
+    const { credentials, ...nonSensitiveSettings } = settings;
+
+    // Store non-sensitive settings in AsyncStorage
+    const settingsToStore = {
+      ...nonSensitiveSettings,
+      credentials: {}, // Don't store credentials in AsyncStorage
+    };
+    await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsToStore));
+
+    // Store sensitive credentials in secure storage
+    await secureSetCredentials(credentials);
   } catch (error) {
-    console.warn('[settings] Failed to persist settings', error);
+    if (__DEV__) {
+      console.warn('[settings] Failed to persist settings', error);
+    }
   }
 }
 
@@ -137,6 +160,12 @@ export function SettingsProvider({ children }: React.PropsWithChildren) {
 
   const resetSettings = useCallback(() => {
     runUpdate(() => defaultSettings);
+    // Clear secure storage when resetting
+    secureClearAll().catch((error) => {
+      if (__DEV__) {
+        console.warn('[settings] Failed to clear secure storage', error);
+      }
+    });
   }, [runUpdate]);
 
   const value = useMemo<SettingsContextValue>(
