@@ -8,7 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const STORAGE_PREFIX = '@agents/secure/';
+const STORAGE_PREFIX = '@agents_secure_';
 const USE_SECURE_STORE = Platform.OS !== 'web';
 
 /**

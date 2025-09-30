@@ -243,3 +243,8 @@ export const settingsStyles = StyleSheet.create({
     opacity: 0.9,
   },
 });
+
+// Default export required for route
+export default function SharedScreen() {
+  return null;
+}
