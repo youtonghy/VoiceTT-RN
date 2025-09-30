@@ -61,7 +61,7 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
   }
   const trimmed = text.trim();
 
-  // First attempt: parse as JSON
+  // First attempt: parse as direct JSON
   try {
     const parsed = JSON.parse(trimmed);
     const items = sanitizeQaItems(parsed);
@@ -72,8 +72,8 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     // Continue to fallback parsers
   }
 
-  // Second attempt: look for JSON-like structure within the text
-  const jsonMatch = trimmed.match(/\{[\s\S]*?\}/);
+  // Second attempt: look for JSON object within the text (handle markdown code blocks)
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
       const jsonText = jsonMatch[0];
@@ -87,36 +87,21 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     }
   }
 
-  // Additional attempt: try to extract JSON from content field if it exists
-  try {
-    const contentMatch = trimmed.match(/"content"\s*:\s*"([^"]+)"/);
-    if (contentMatch && contentMatch[1]) {
-      const contentText = contentMatch[1].replace(/\\"/g, '"');
-      const parsed = JSON.parse(contentText);
-      const items = sanitizeQaItems(parsed);
-      if (items.length > 0) {
-        return items;
-      }
-    }
-  } catch {
-    // Continue to fallback parsers
-  }
-
-  // Third attempt: extract structured Q&A pairs
+  // Third attempt: extract structured Q&A pairs from text
   const fallbackItems: TranscriptQaItem[] = [];
 
   // Try to find question-answer pairs in various formats
   const qaPatterns = [
-    // JSON-like format without proper structure
+    // JSON-like format with double quotes
     /"question"\s*[:：]\s*"([^"]+)"\s*[,，]?\s*"answer"\s*[:：]\s*"([^"]+)"/g,
     // JSON-like format with single quotes
     /'question'\s*[:：]\s*'([^']+)'\s*[,，]?\s*'answer'\s*[:：]\s*'([^']+)'/g,
-    // JSON-like format without quotes
-    /question\s*[:：]\s*([^,\n]+?)\s*[,，]?\s*answer\s*[:：]\s*([^,\n]+?)(?=\s*[,，\n]|$)/gi,
+    // Plain text Q&A format (more lenient)
+    /(?:question|问题)\s*[:：]\s*([^\n]+?)\s*(?:answer|答案)\s*[:：]\s*([^\n]+?)(?=(?:question|问题)|$)/gis,
     // Markdown-style Q&A
-    /(?:Q|问题|Question)[:：]?\s*(.+?)\s*(?:A|答案|Answer)[:：]?\s*(.+?)(?=\n|$)/gi,
-    // Numbered Q&A
-    /(?:\d+\.\s*)?(.+?)\?\s*(.+?)(?=\n|$)/gi,
+    /(?:^|\n)(?:Q|问题|Question)[:：]?\s*([^\n]+)\s*(?:A|答案|Answer)[:：]?\s*([^\n]+)/gi,
+    // Numbered Q&A with answers
+    /(?:^|\n)\d+\.\s*([^\n?]+\?)\s*([^\n]+?)(?=\n\d+\.|\n*$)/g,
   ];
 
   for (const pattern of qaPatterns) {
@@ -124,7 +109,8 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     for (const match of matches) {
       const question = match[1]?.trim();
       const answer = match[2]?.trim();
-      if (question && answer && !question.includes('{') && !answer.includes('{')) {
+      if (question && answer && question.length > 3 && answer.length > 3) {
+        // Avoid false positives with very short matches
         fallbackItems.push({ question, answer });
       }
     }
@@ -138,10 +124,10 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     if (questions && questions.length > 0) {
       questions.forEach((question) => {
         const cleanQuestion = question.trim();
-        if (cleanQuestion && cleanQuestion.length > 5) { // Ensure it's a meaningful question
+        if (cleanQuestion && cleanQuestion.length > 5) {
           fallbackItems.push({
             question: cleanQuestion,
-            answer: 'No answer available', // Default answer when only question is extracted
+            answer: 'Answer not available in the response.',
           });
         }
       });
@@ -737,45 +723,30 @@ export async function extractTranscriptQuestions(options: ExtractTranscriptQuest
     return [];
   }
 
-  const answerContext = contextTranscript || transcript;
-
-  // First extract questions
-  let questions: string[] = [];
+  // Use the original single-call approach for better reliability
   try {
     if (options.settings.qaEngine === 'gemini') {
-      questions = await extractQuestionsWithGemini(transcript, options.settings, options.signal);
+      return await extractWithGemini(options);
     } else {
-      questions = await extractQuestionsWithOpenAI(transcript, options.settings, options.signal);
+      return await extractWithOpenAI(options);
     }
-  } catch {
-    // Fallback: extract questions ending with ?
+  } catch (error) {
+    // Fallback: try to extract questions only from the transcript
     const questionRegex = /[^.!?]*\?/g;
-    questions = transcript.match(questionRegex) || [];
-    questions = questions.map(q => q.trim()).filter(q => q.length > 5);
+    const questions = transcript.match(questionRegex) || [];
+    const items: TranscriptQaItem[] = [];
+
+    questions
+      .map(q => q.trim())
+      .filter(q => q.length > 5)
+      .slice(0, 3)
+      .forEach(question => {
+        items.push({
+          question,
+          answer: 'Unable to generate answer. Please check your API credentials and try again.'
+        });
+      });
+
+    return items;
   }
-
-  if (questions.length === 0) {
-    return [];
-  }
-
-  // Then answer each question in separate conversations
-  const items: TranscriptQaItem[] = [];
-
-  for (const question of questions.slice(0, 3)) { // Limit to 3 questions
-    try {
-      let answer: string;
-      if (options.settings.qaEngine === 'gemini') {
-        answer = await answerQuestionWithGemini(question, answerContext, options.settings, options.signal);
-      } else {
-        answer = await answerQuestionWithOpenAI(question, answerContext, options.settings, options.signal);
-      }
-
-      items.push({ question, answer });
-    } catch {
-      // If answering fails, still include the question with a default answer
-      items.push({ question, answer: 'No answer available' });
-    }
-  }
-
-  return items;
 }
