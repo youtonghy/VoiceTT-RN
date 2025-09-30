@@ -95,6 +95,11 @@ function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
     if (!textContent) {
       return;
     }
+    const status: AssistantMessageStatus =
+      candidate.status === "failed" || candidate.status === "pending"
+        ? candidate.status
+        : "succeeded";
+
     sanitized.push({
       id:
         typeof candidate.id === "string" && candidate.id.trim()
@@ -106,10 +111,7 @@ function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
         typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
           ? candidate.createdAt
           : Date.now(),
-      status:
-        candidate.status === "failed" || candidate.status === "pending"
-          ? candidate.status
-          : "succeeded",
+      status,
       error:
         typeof candidate.error === "string" && candidate.error.trim()
           ? candidate.error.trim()
@@ -542,6 +544,7 @@ export default function TranscriptionScreen() {
             stored.transcript !== incoming.transcript ||
             stored.translationStatus !== incoming.translationStatus ||
             stored.translation !== incoming.translation ||
+            stored.qaAutoEnabled !== incoming.qaAutoEnabled ||
             stored.qaUpdatedAt !== incoming.qaUpdatedAt ||
             stored.qaProcessedLength !== incoming.qaProcessedLength ||
             stored.qaTranscriptHash !== incoming.qaTranscriptHash ||
@@ -806,11 +809,19 @@ export default function TranscriptionScreen() {
     setAssistantDraft('');
     setAssistantSending(true);
     setHistoryItems((prev) =>
-      prev.map((item) =>
-        item.id === conversationId
-          ? { ...item, assistantMessages: [...item.assistantMessages, userMessage] }
-          : item
-      )
+      prev.map((item) => {
+        if (item.id !== conversationId) {
+          return item;
+        }
+        const nextAssistantMessages: AssistantMessage[] = [
+          ...item.assistantMessages,
+          userMessage,
+        ];
+        return {
+          ...item,
+          assistantMessages: nextAssistantMessages,
+        };
+      })
     );
 
     assistantAbortRef.current?.abort();
@@ -846,12 +857,16 @@ export default function TranscriptionScreen() {
           if (item.id !== conversationId) {
             return item;
           }
-          const updated = item.assistantMessages.map((msg) =>
+          const updatedMessages: AssistantMessage[] = item.assistantMessages.map((msg) =>
             msg.id === messageId ? { ...msg, status: 'succeeded' } : msg
           );
+          const nextAssistantMessages: AssistantMessage[] = [
+            ...updatedMessages,
+            assistantMessage,
+          ];
           return {
             ...item,
-            assistantMessages: [...updated, assistantMessage],
+            assistantMessages: nextAssistantMessages,
           };
         })
       );
@@ -866,16 +881,22 @@ export default function TranscriptionScreen() {
             return item;
           }
           if (isAbort) {
+            const filteredMessages: AssistantMessage[] = item.assistantMessages.filter(
+              (msg) => msg.id !== messageId
+            );
             return {
               ...item,
-              assistantMessages: item.assistantMessages.filter((msg) => msg.id !== messageId),
+              assistantMessages: filteredMessages,
             };
           }
+          const updatedMessages: AssistantMessage[] = item.assistantMessages.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, status: "failed", error: displayMessage }
+              : msg
+          );
           return {
             ...item,
-            assistantMessages: item.assistantMessages.map((msg) =>
-              msg.id === messageId ? { ...msg, status: 'failed', error: displayMessage } : msg
-            ),
+            assistantMessages: updatedMessages,
           };
         })
       );

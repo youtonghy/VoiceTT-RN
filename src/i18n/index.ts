@@ -1,5 +1,5 @@
 /* eslint-disable import/no-named-as-default-member */
-import i18next from 'i18next';
+import i18next, { type Resource } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
 
@@ -8,15 +8,10 @@ import zhHans from '@/locales/zh-Hans/common.json';
 
 export type SupportedLanguage = 'en' | 'zh-Hans';
 
-type ResourceBundle = {
-  en: { common: typeof en };
-  'zh-Hans': { common: typeof zhHans };
-};
-
-const resources: ResourceBundle = {
+const resources = {
   en: { common: en },
   'zh-Hans': { common: zhHans },
-};
+} satisfies Resource;
 
 const fallbackLng: SupportedLanguage = 'en';
 
@@ -46,7 +41,7 @@ if (!i18next.isInitialized) {
       ns: ['common'],
       defaultNS: 'common',
       interpolation: { escapeValue: false },
-      compatibilityJSON: 'v3',
+      compatibilityJSON: 'v4',
       returnNull: false,
     })
     .catch((error) => {

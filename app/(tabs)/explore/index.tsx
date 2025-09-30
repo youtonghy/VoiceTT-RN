@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,8 +10,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { settingsStyles } from './shared';
 
+type RouteHref = Extract<Href, string>;
+
 interface SettingsEntry {
-  route: `/explore/${string}`;
+  route: RouteHref;
   title: string;
   subtitle: string;
 }
@@ -29,32 +31,32 @@ export default function SettingsIndexScreen() {
   const entryItems: SettingsEntry[] = useMemo(
     () => [
       {
-        route: '/explore/recording',
+        route: '/explore/recording' as RouteHref,
         title: t('settings.sections.recording.title'),
         subtitle: t('settings.sections.recording.subtitle'),
       },
       {
-        route: '/explore/transcription',
+        route: '/explore/transcription' as RouteHref,
         title: t('settings.sections.transcription.title'),
         subtitle: t('settings.sections.transcription.subtitle'),
       },
       {
-        route: '/explore/translation',
+        route: '/explore/translation' as RouteHref,
         title: t('settings.sections.translation.title'),
         subtitle: t('settings.sections.translation.subtitle'),
       },
       {
-        route: '/explore/summary',
+        route: '/explore/summary' as RouteHref,
         title: t('settings.sections.summary.title'),
         subtitle: t('settings.sections.summary.subtitle'),
       },
       {
-        route: '/explore/qa',
+        route: '/explore/qa' as RouteHref,
         title: t('settings.sections.qa.title'),
         subtitle: t('settings.sections.qa.subtitle'),
       },
       {
-        route: '/explore/credentials',
+        route: '/explore/credentials' as RouteHref,
         title: t('settings.sections.credentials.title'),
         subtitle: t('settings.sections.credentials.subtitle'),
       },

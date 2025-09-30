@@ -27,6 +27,7 @@ export interface TranscriptionMessage {
   translationError?: string;
   createdAt: number;
   updatedAt: number;
+  qaAutoEnabled?: boolean;
   qaItems?: TranscriptQaItem[];
   qaUpdatedAt?: number;
   qaProcessedLength?: number;

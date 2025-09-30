@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ColorValue,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +15,11 @@ import { useTranscription } from '@/contexts/transcription-context';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
-export function RecordingToggle() {
+type RecordingToggleProps = {
+  qaAutoEnabled?: boolean;
+};
+
+export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps = {}) {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
   const { t } = useTranslation();
   const shimmerProgress = useRef(new Animated.Value(0)).current;
@@ -51,7 +56,14 @@ export function RecordingToggle() {
     outputRange: [-120, 120],
   });
 
-  const colors = isSessionActive ? ['#F87171', '#EF4444'] : ['#34D399', '#22C55E'];
+  const colors: readonly [ColorValue, ColorValue] = isSessionActive
+    ? ['#F87171', '#EF4444']
+    : ['#34D399', '#22C55E'];
+  const shimmerColors: readonly [ColorValue, ColorValue, ColorValue] = [
+    'rgba(255,255,255,0)',
+    'rgba(255,255,255,0.35)',
+    'rgba(255,255,255,0)',
+  ];
 
   const accessibilityLabel = isSessionActive
     ? t('transcription.accessibility.stop_recording')
@@ -66,7 +78,7 @@ export function RecordingToggle() {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
-      onPress={toggleSession}
+      onPress={() => { void toggleSession({ qaAutoEnabled }); }}
       style={styles.recordButtonWrapper}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
         <View style={styles.recordButtonContent}>
@@ -76,7 +88,7 @@ export function RecordingToggle() {
         </View>
         {isSessionActive ? (
           <AnimatedLinearGradient
-            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']}
+            colors={shimmerColors}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={[styles.recordButtonShimmer, { transform: [{ translateX: shimmerTranslate }] }]}

@@ -1,9 +1,4 @@
-import {
-  Audio,
-  InterruptionModeAndroid,
-  InterruptionModeIOS,
-  type RecordingStatus,
-} from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, {
   createContext,
@@ -15,7 +10,8 @@ import React, {
   useState,
 } from 'react';
 import { Alert } from 'react-native';
-import { useTranslation, type TFunction } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { useSettings } from '@/contexts/settings-context';
 import {
@@ -54,10 +50,14 @@ interface UpdateMessageQaPayload {
   settingsSignature: string;
 }
 
+interface SessionToggleOptions {
+  qaAutoEnabled?: boolean;
+}
+
 interface TranscriptionContextValue {
   messages: TranscriptionMessage[];
   isSessionActive: boolean;
-  toggleSession: () => Promise<void>;
+  toggleSession: (options?: SessionToggleOptions) => Promise<void>;
   stopSession: () => Promise<void>;
   isRecording: boolean;
   error: string | null;
@@ -67,6 +67,8 @@ interface TranscriptionContextValue {
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
+
+type RecordingStatus = Audio.RecordingStatus;
 
 function meteringToRms(value: number | undefined): number {
   if (typeof value !== 'number') {
@@ -146,7 +148,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void):
   });
 }
 
-function createInitialMessage(messageId: number, t: TFunction<'common'>): TranscriptionMessage {
+function createInitialMessage(messageId: number, qaAutoEnabled: boolean, t: TFunction<'common'>): TranscriptionMessage {
   const timestamp = Date.now();
   return {
     id: messageId,
@@ -155,6 +157,7 @@ function createInitialMessage(messageId: number, t: TFunction<'common'>): Transc
     translationStatus: 'idle',
     createdAt: timestamp,
     updatedAt: timestamp,
+    qaAutoEnabled,
   };
 }
 
@@ -192,6 +195,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const sessionActiveRef = useLatestRef(isSessionActive);
 
+  const [qaAutoMode, setQaAutoMode] = useState(false);
+  const qaAutoModeRef = useLatestRef(qaAutoMode);
+
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -226,6 +232,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           existing.transcript !== incoming.transcript ||
           existing.translationStatus !== incoming.translationStatus ||
           existing.translation !== incoming.translation ||
+          existing.qaAutoEnabled !== incoming.qaAutoEnabled ||
           existing.qaUpdatedAt !== incoming.qaUpdatedAt ||
           existing.qaProcessedLength !== incoming.qaProcessedLength ||
           existing.qaTranscriptHash !== incoming.qaTranscriptHash ||
@@ -308,7 +315,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
     recordingRef.current = null;
     try {
-      recording.setOnRecordingStatusUpdate(undefined);
+      recording.setOnRecordingStatusUpdate(null);
       await recording.stopAndUnloadAsync();
     } catch (stopError) {
       console.warn('[transcription] Failed to stop recording', stopError);
@@ -317,7 +324,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
 
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (options?: SessionToggleOptions) => {
     if (sessionActiveRef.current) {
       return;
     }
@@ -337,11 +344,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         shouldDuckAndroid: false,
       });
       resetSegmentState();
+      setQaAutoMode(options?.qaAutoEnabled ?? false);
       setIsSessionActive(true);
       startNewRecording();
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
       setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
+      setQaAutoMode(false);
       setIsSessionActive(false);
     }
   }, [resetSegmentState, sessionActiveRef, startNewRecording]);
@@ -351,15 +360,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     setIsSessionActive(false);
+    setQaAutoMode(false);
     await stopAndResetRecording();
     resetSegmentState();
   }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
 
-  const toggleSession = useCallback(async () => {
+  const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
     if (sessionActiveRef.current) {
       await stopSession();
     } else {
-      await startSession();
+      await startSession(options);
     }
   }, [sessionActiveRef, startSession, stopSession]);
 
@@ -384,7 +394,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       messageId: currentMessageId,
     };
     try {
-      recording.setOnRecordingStatusUpdate(undefined);
+      recording.setOnRecordingStatusUpdate(null);
       await recording.stopAndUnloadAsync();
       const fileUri = recording.getURI();
       if (!fileUri) {
@@ -513,7 +523,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           const messageId = nextMessageIdRef.current++;
           segment.messageId = messageId;
           applySettingsToSegment(segment, currentSettings, durationMs);
-          const newMessage = createInitialMessage(messageId, t);
+          const newMessage = createInitialMessage(messageId, qaAutoModeRef.current, t);
           if (currentSettings.enableTranslation && currentSettings.translationEngine !== 'none') {
             newMessage.translationStatus = 'idle';
           } else {
