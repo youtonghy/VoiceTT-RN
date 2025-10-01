@@ -16,7 +16,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
+import { Alert, InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -485,6 +485,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         setError(t('transcription.errors.permission_denied'));
         return;
       }
+
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
@@ -492,7 +493,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       resetSegmentState();
       setQaAutoMode(options?.qaAutoEnabled ?? false);
       setIsSessionActive(true);
-      startNewRecording();
+
+      // Use InteractionManager to ensure UI is ready before starting recording
+      // This is critical for React Native New Architecture
+      InteractionManager.runAfterInteractions(() => {
+        startNewRecording().catch((recordError) => {
+          console.error('[transcription] Failed to start recording after interactions', recordError);
+          setError(t('transcription.errors.unable_to_start', { message: (recordError as Error).message }));
+          setIsSessionActive(false);
+          setQaAutoMode(false);
+        });
+      });
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
       setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
