@@ -220,6 +220,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const nextMessageIdRef = useRef(1);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
+  const handleStatusUpdateRef = useRef<((status: RecordingStatus) => void) | null>(null);
 
   const setMessagesAndRef = useCallback((updater: (prev: TranscriptionMessage[]) => TranscriptionMessage[]) => {
     setMessages((prev) => {
@@ -444,19 +445,20 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         clearInterval(statusIntervalRef.current);
       }
       statusIntervalRef.current = setInterval(() => {
+        const recorderStatus = recorder.getStatus();
         const status: RecordingStatus = {
-          isRecording: recorder.isRecording,
-          durationMillis: recorder.currentTime * 1000,
-          metering: recorderState.metering,
-          isDoneRecording: recorderState.isDoneRecording,
+          isRecording: recorderStatus.isRecording,
+          durationMillis: recorderStatus.durationMillis,
+          metering: recorderStatus.metering,
+          isDoneRecording: false,
         };
-        handleStatusUpdate(status);
+        handleStatusUpdateRef.current?.(status);
       }, 100);
     } catch (startError) {
       console.error('[transcription] Failed to start recording', startError);
       setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
     }
-  }, [handleStatusUpdate, recorder, recorderState, t]);
+  }, [recorder, t]);
 
   const stopAndResetRecording = useCallback(async () => {
     if (statusIntervalRef.current) {
@@ -570,6 +572,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
     }
   }, [qaAutoModeRef, setMessagesAndRef, settingsRef, t]);
+
+  // Update the ref when handleStatusUpdate changes
+  useEffect(() => {
+    handleStatusUpdateRef.current = handleStatusUpdate;
+  }, [handleStatusUpdate]);
 
   useEffect(() => {
     return () => {
