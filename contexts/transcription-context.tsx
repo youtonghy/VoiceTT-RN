@@ -4,6 +4,7 @@ import {
   RecordingOptions,
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
+  getRecordingPermissionsAsync,
   type AudioRecorder,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
@@ -493,14 +494,22 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     try {
-      console.log('[transcription] requesting recording permissions');
-      const permission = await requestRecordingPermissionsAsync();
-      console.log('[transcription] permission result:', permission);
+      console.log('[transcription] checking existing permissions');
+      let permission = await getRecordingPermissionsAsync();
+      console.log('[transcription] existing permission status:', permission);
+
       if (!permission.granted) {
-        console.log('[transcription] permission denied');
-        Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
-        setError(t('transcription.errors.permission_denied'));
-        return;
+        console.log('[transcription] requesting recording permissions');
+        permission = await requestRecordingPermissionsAsync();
+        console.log('[transcription] permission result:', permission);
+        if (!permission.granted) {
+          console.log('[transcription] permission denied');
+          Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
+          setError(t('transcription.errors.permission_denied'));
+          return;
+        }
+      } else {
+        console.log('[transcription] permission already granted, skipping request');
       }
       console.log('[transcription] setting audio mode');
       await setAudioModeAsync({
