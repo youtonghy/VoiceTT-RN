@@ -546,8 +546,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const handleStatusUpdate = useCallback((status: RecordingStatus) => {
     const durationMs = status.durationMillis ?? 0;
     if (!status.isRecording && !status.isDoneRecording && durationMs <= 0) {
+      console.log('[transcription] handleStatusUpdate - skipping (not recording and duration=0)');
       return;
     }
+    console.log('[transcription] handleStatusUpdate - duration:', durationMs, 'metering:', status.metering);
     const currentSettings = settingsRef.current;
     const segment = segmentStateRef.current;
     const normalizedMetering =
@@ -567,13 +569,18 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const shouldForceActivation = normalizedMetering === undefined && meteringUnavailableMs >= activationDurationMs;
     const rms = shouldForceActivation ? threshold + 0.05 : meteringToRms(normalizedMetering);
 
+    console.log('[transcription] rms:', rms, 'threshold:', threshold, 'segment.isActive:', segment.isActive);
+
     if (!segment.isActive) {
       if (shouldForceActivation || rms >= threshold) {
         if (segment.candidateStartMs == null) {
           segment.candidateStartMs = durationMs;
+          console.log('[transcription] candidate start set at:', durationMs);
         }
         const elapsedAbove = durationMs - (segment.candidateStartMs ?? durationMs);
+        console.log('[transcription] elapsed above threshold:', elapsedAbove, 'need:', activationDurationMs);
         if (elapsedAbove >= activationDurationMs) {
+          console.log('[transcription] ACTIVATING SEGMENT');
           segment.isActive = true;
           const messageId = nextMessageIdRef.current++;
           segment.messageId = messageId;
