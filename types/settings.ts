@@ -1,3 +1,25 @@
+export interface SettingsPromoCard {
+  id: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  href: string;
+  gradient: string[];
+  glowColor: string;
+  sheenColor: string;
+}
+
+export const proVersionPromoCard: SettingsPromoCard = {
+  id: 'pro-version',
+  title: 'Pro 版本',
+  description: '解锁更快的语音处理、AI 翻译与会议精华能力，轻松驾驭每一次对话。',
+  ctaLabel: '立即升级',
+  href: 'https://vtt.tokisantike.net/pro.html',
+  gradient: ['#052e16', '#047857', '#22c55e', '#bbf7d0'],
+  glowColor: 'rgba(74, 222, 128, 0.35)',
+  sheenColor: 'rgba(16, 185, 129, 0.5)',
+};
+
 export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox';
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
