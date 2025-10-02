@@ -102,6 +102,7 @@ function buildRecordingOptions(): RecordingOptions {
       sampleRate: 44100,
       numberOfChannels: 1,
       bitRate: 128000,
+      audioSource: 'voice_recognition',
     },
     ios: {
       extension: '.m4a',
@@ -221,6 +222,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
   const handleStatusUpdateRef = useRef<((status: RecordingStatus) => void) | null>(null);
+  const meteringStaleSinceRef = useRef<number | null>(null);
 
   const setMessagesAndRef = useCallback((updater: (prev: TranscriptionMessage[]) => TranscriptionMessage[]) => {
     setMessages((prev) => {
@@ -488,11 +490,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionModeAndroid: 'duckOthers',
       });
       resetSegmentState();
       setQaAutoMode(options?.qaAutoEnabled ?? false);
       setIsSessionActive(true);
-      startNewRecording();
+      await startNewRecording();
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
       setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
@@ -530,16 +534,26 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       typeof status.metering === 'number' && Number.isFinite(status.metering)
         ? status.metering
         : undefined;
-    const rms = meteringToRms(normalizedMetering);
+    const now = Date.now();
+    if (normalizedMetering === undefined) {
+      meteringStaleSinceRef.current ??= now;
+    } else {
+      meteringStaleSinceRef.current = null;
+    }
+    const meteringUnavailableMs =
+      meteringStaleSinceRef.current != null ? now - meteringStaleSinceRef.current : 0;
     const threshold = currentSettings.activationThreshold;
+    const activationDurationMs = currentSettings.activationDurationSec * 1000;
+    const shouldForceActivation = normalizedMetering === undefined && meteringUnavailableMs >= activationDurationMs;
+    const rms = shouldForceActivation ? threshold + 0.05 : meteringToRms(normalizedMetering);
 
     if (!segment.isActive) {
-      if (rms >= threshold) {
+      if (shouldForceActivation || rms >= threshold) {
         if (segment.candidateStartMs == null) {
           segment.candidateStartMs = durationMs;
         }
         const elapsedAbove = durationMs - (segment.candidateStartMs ?? durationMs);
-        if (elapsedAbove >= currentSettings.activationDurationSec * 1000) {
+        if (elapsedAbove >= activationDurationMs) {
           segment.isActive = true;
           const messageId = nextMessageIdRef.current++;
           segment.messageId = messageId;
@@ -556,7 +570,8 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         segment.candidateStartMs = null;
       }
     } else {
-      if (rms < threshold) {
+      const isBelowThreshold = normalizedMetering === undefined ? false : rms < threshold;
+      if (isBelowThreshold) {
         if (segment.belowThresholdStartMs == null) {
           segment.belowThresholdStartMs = durationMs;
         }
@@ -613,4 +628,3 @@ export function useTranscription() {
   }
   return context;
 }
-
