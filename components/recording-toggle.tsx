@@ -25,6 +25,8 @@ export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps 
   const shimmerProgress = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
 
+  console.log('[RecordingToggle] Render - isSessionActive:', isSessionActive, 'isRecording:', isRecording);
+
   useEffect(() => {
     return () => {
       shimmerLoop.current?.stop();

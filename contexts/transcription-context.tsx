@@ -217,6 +217,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const recorderState = useAudioRecorderState(recorder);
   const isRecording = recorderState.isRecording;
 
+  console.log('[TranscriptionProvider] recorderState:', {
+    isRecording: recorderState.isRecording,
+    durationMillis: recorderState.durationMillis,
+    metering: recorderState.metering,
+  });
+
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(1);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
