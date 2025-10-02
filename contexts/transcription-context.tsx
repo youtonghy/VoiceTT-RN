@@ -520,13 +520,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [sessionActiveRef, startSession, stopSession]);
 
   const handleStatusUpdate = useCallback((status: RecordingStatus) => {
-    if (!status.isRecording && !status.isDoneRecording) {
+    const durationMs = status.durationMillis ?? 0;
+    if (!status.isRecording && !status.isDoneRecording && durationMs <= 0) {
       return;
     }
     const currentSettings = settingsRef.current;
     const segment = segmentStateRef.current;
-    const durationMs = status.durationMillis ?? 0;
-    const rms = meteringToRms(status.metering);
+    const normalizedMetering =
+      typeof status.metering === 'number' && Number.isFinite(status.metering)
+        ? status.metering
+        : undefined;
+    const rms = meteringToRms(normalizedMetering);
     const threshold = currentSettings.activationThreshold;
 
     if (!segment.isActive) {
@@ -609,3 +613,4 @@ export function useTranscription() {
   }
   return context;
 }
+
