@@ -438,9 +438,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [finalizeSegment]);
 
   const startNewRecording = useCallback(async () => {
+    console.log('[transcription] startNewRecording - preparing to record');
     try {
       await recorder.prepareToRecordAsync();
+      console.log('[transcription] recorder prepared, starting record');
       recorder.record();
+      console.log('[transcription] record() called');
 
       // Poll recording status periodically for metering and duration
       if (statusIntervalRef.current) {
@@ -456,6 +459,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         };
         handleStatusUpdateRef.current?.(status);
       }, 100);
+      console.log('[transcription] status interval started');
     } catch (startError) {
       console.error('[transcription] Failed to start recording', startError);
       setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
@@ -492,16 +496,20 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         setError(t('transcription.errors.permission_denied'));
         return;
       }
+      console.log('[transcription] setting audio mode');
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
         shouldPlayInBackground: true,
         interruptionModeAndroid: 'duckOthers',
       });
+      console.log('[transcription] audio mode set, resetting segment state');
       resetSegmentState();
       setQaAutoMode(options?.qaAutoEnabled ?? false);
       setIsSessionActive(true);
+      console.log('[transcription] starting new recording');
       await startNewRecording();
+      console.log('[transcription] recording started successfully');
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
       setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
