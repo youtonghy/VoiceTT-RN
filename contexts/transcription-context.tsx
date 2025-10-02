@@ -477,12 +477,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [recorder]);
 
   const startSession = useCallback(async (options?: SessionToggleOptions) => {
+    console.log('[transcription] startSession called');
     if (sessionActiveRef.current) {
+      console.log('[transcription] session already active, returning');
       return;
     }
     try {
+      console.log('[transcription] requesting recording permissions');
       const permission = await requestRecordingPermissionsAsync();
+      console.log('[transcription] permission result:', permission);
       if (!permission.granted) {
+        console.log('[transcription] permission denied');
         Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
         setError(t('transcription.errors.permission_denied'));
         return;
@@ -516,6 +521,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
+    console.log('[transcription] toggleSession called, isActive:', sessionActiveRef.current);
     if (sessionActiveRef.current) {
       await stopSession();
     } else {

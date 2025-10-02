@@ -78,7 +78,10 @@ export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps 
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
-      onPress={() => { void toggleSession({ qaAutoEnabled }); }}
+      onPress={() => {
+        console.log('[RecordingToggle] Button pressed');
+        void toggleSession({ qaAutoEnabled });
+      }}
       style={styles.recordButtonWrapper}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
         <View style={styles.recordButtonContent}>
