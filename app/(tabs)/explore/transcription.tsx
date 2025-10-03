@@ -1,5 +1,5 @@
 
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,14 @@ import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
 
-import { OptionPill, settingsStyles, useSettingsForm } from './shared';
+import {
+  CARD_SUBTLE_TEXT_COLOR,
+  CARD_TEXT_COLOR,
+  OptionPill,
+  SettingsCard,
+  settingsStyles,
+  useSettingsForm,
+} from './shared';
 
 const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
 
@@ -42,8 +49,11 @@ export default function TranscriptionSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="interaction">
+            <ThemedText
+              style={groupLabelStyle}
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.transcription.labels.engine')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -58,7 +68,10 @@ export default function TranscriptionSettingsScreen() {
             </View>
 
             <View style={settingsStyles.fieldRow}>
-              <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+              <ThemedText
+                style={labelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
                 {t('settings.transcription.labels.source_language')}
               </ThemedText>
               <TextInput
@@ -75,15 +88,10 @@ export default function TranscriptionSettingsScreen() {
                 placeholderTextColor={placeholderTextColor}
               />
             </View>
-          </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    gap: 16,
-  },
-});

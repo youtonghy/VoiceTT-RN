@@ -19,7 +19,14 @@ import {
   type QaEngine,
 } from '@/types/settings';
 
-import { OptionPill, settingsStyles, useSettingsForm } from './shared';
+import {
+  CARD_SUBTLE_TEXT_COLOR,
+  CARD_TEXT_COLOR,
+  OptionPill,
+  SettingsCard,
+  settingsStyles,
+  useSettingsForm,
+} from './shared';
 
 const qaEngines: QaEngine[] = ['openai', 'gemini'];
 
@@ -58,8 +65,11 @@ export default function QaSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+          <SettingsCard variant="interaction">
+            <ThemedText
+              type="subtitle"
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.qa.engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -72,10 +82,13 @@ export default function QaSettingsScreen() {
                 />
               ))}
             </View>
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="openai">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.qa.openai_label')}
             </ThemedText>
             <TextInput
@@ -92,10 +105,13 @@ export default function QaSettingsScreen() {
               placeholder={DEFAULT_OPENAI_QA_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="gemini">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.qa.gemini_label')}
             </ThemedText>
             <TextInput
@@ -112,10 +128,13 @@ export default function QaSettingsScreen() {
               placeholder={DEFAULT_GEMINI_QA_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="prompt">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.qa.prompt_label')}
             </ThemedText>
             <TextInput
@@ -132,7 +151,7 @@ export default function QaSettingsScreen() {
               multiline
               textAlignVertical="top"
             />
-          </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -140,8 +159,10 @@ export default function QaSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 12,
+  cardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   promptInput: {
     minHeight: 140,

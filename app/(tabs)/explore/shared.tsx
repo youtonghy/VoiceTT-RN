@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -18,6 +20,7 @@ import {
   DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
 } from '@/types/settings';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export type NumericSettingKey =
   | 'activationThreshold'
@@ -241,6 +244,80 @@ export const settingsStyles = StyleSheet.create({
   },
   cardLabelDark: {
     opacity: 0.9,
+  },
+});
+
+export const SETTINGS_CARD_GRADIENTS = {
+  openai: ['#22d3ee', '#6366f1', '#a855f7'],
+  gemini: ['#34d399', '#22d3ee', '#2563eb'],
+  soniox: ['#f97316', '#fb7185', '#ec4899'],
+  qwen: ['#a855f7', '#6366f1', '#14b8a6'],
+  interaction: ['#38bdf8', '#6366f1', '#c084fc'],
+  prompt: ['#fb7185', '#f97316', '#a855f7'],
+  system: ['#fbbf24', '#f97316', '#ef4444'],
+} as const;
+
+export type SettingsCardVariant = keyof typeof SETTINGS_CARD_GRADIENTS;
+
+export const CARD_TEXT_COLOR = '#f8fafc';
+export const CARD_SUBTLE_TEXT_COLOR = '#e2e8f0';
+
+export function SettingsCard({
+  variant = 'interaction',
+  children,
+  style,
+  contentStyle,
+}: {
+  variant?: SettingsCardVariant;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+}) {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const gradientColors = SETTINGS_CARD_GRADIENTS[variant] ?? SETTINGS_CARD_GRADIENTS.interaction;
+
+  return (
+    <LinearGradient
+      colors={gradientColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[cardStyles.surface, cardStyles.shadow, style]}>
+      <ThemedView
+        lightColor="transparent"
+        darkColor="transparent"
+        style={[cardStyles.content, isDark ? cardStyles.contentDark : cardStyles.contentLight, contentStyle]}>
+        {children}
+      </ThemedView>
+    </LinearGradient>
+  );
+}
+
+const cardStyles = StyleSheet.create({
+  surface: {
+    borderRadius: 28,
+    padding: 2,
+    overflow: 'hidden',
+  },
+  shadow: {
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  content: {
+    borderRadius: 26,
+    padding: 20,
+    gap: 16,
+  },
+  contentLight: {
+    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+  },
+  contentDark: {
+    backgroundColor: 'rgba(2, 6, 23, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
   },
 });
 

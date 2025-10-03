@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   TextInput,
   View,
 } from 'react-native';
@@ -17,7 +16,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AppSettings } from '@/types/settings';
 
 import {
+  CARD_SUBTLE_TEXT_COLOR,
   NumericSettingKey,
+  SettingsCard,
   formatNumberInput,
   settingsStyles,
   useSettingsForm,
@@ -57,7 +58,10 @@ export default function RecordingSettingsScreen() {
     onCommitKey: NumericSettingKey,
   ) => (
     <View style={settingsStyles.fieldRow}>
-      <ThemedText style={labelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+      <ThemedText
+        style={labelStyle}
+        lightColor={CARD_SUBTLE_TEXT_COLOR}
+        darkColor={CARD_SUBTLE_TEXT_COLOR}>
         {t(labelKey)}
       </ThemedText>
       <TextInput
@@ -81,7 +85,7 @@ export default function RecordingSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
+          <SettingsCard variant="system">
             {renderNumericField(
               'settings.recording.labels.activation_threshold',
               formState.activationThreshold,
@@ -116,15 +120,10 @@ export default function RecordingSettingsScreen() {
               (text) => setFormState((prev) => ({ ...prev, maxSegmentDurationSec: text })),
               'maxSegmentDurationSec'
             )}
-          </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    gap: 16,
-  },
-});

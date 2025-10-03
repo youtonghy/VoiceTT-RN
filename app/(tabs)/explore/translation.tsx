@@ -1,5 +1,5 @@
 
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,13 @@ import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranslationEngine } from '@/types/settings';
 
-import { OptionPill, settingsStyles } from './shared';
+import {
+  CARD_SUBTLE_TEXT_COLOR,
+  CARD_TEXT_COLOR,
+  OptionPill,
+  SettingsCard,
+  settingsStyles,
+} from './shared';
 
 const translationEngines: TranslationEngine[] = ['openai', 'gemini', 'none'];
 
@@ -38,9 +44,12 @@ export default function TranslationSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
+          <SettingsCard variant="interaction">
             <View style={settingsStyles.rowBetween}>
-              <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+              <ThemedText
+                type="subtitle"
+                lightColor={CARD_TEXT_COLOR}
+                darkColor={CARD_TEXT_COLOR}>
                 {t('settings.translation.labels.enable_translation')}
               </ThemedText>
               <Switch
@@ -49,7 +58,10 @@ export default function TranslationSettingsScreen() {
               />
             </View>
 
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+            <ThemedText
+              style={groupLabelStyle}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.translation.labels.engine')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -63,15 +75,10 @@ export default function TranslationSettingsScreen() {
                 />
               ))}
             </View>
-          </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  section: {
-    gap: 16,
-  },
-});

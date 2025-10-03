@@ -25,7 +25,10 @@ import {
 } from '@/types/settings';
 
 import {
+  CARD_SUBTLE_TEXT_COLOR,
+  CARD_TEXT_COLOR,
   OptionPill,
+  SettingsCard,
   settingsStyles,
   useSettingsForm,
 } from './shared';
@@ -68,8 +71,11 @@ export default function SummarySettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+          <SettingsCard variant="interaction">
+            <ThemedText
+              type="subtitle"
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.summary.title_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -82,10 +88,13 @@ export default function SummarySettingsScreen() {
                 />
               ))}
             </View>
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="openai">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.summary.title_engine.openai_label')}
             </ThemedText>
             <TextInput
@@ -103,10 +112,13 @@ export default function SummarySettingsScreen() {
               placeholder={DEFAULT_OPENAI_TITLE_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="gemini">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.summary.title_engine.gemini_label')}
             </ThemedText>
             <TextInput
@@ -124,10 +136,13 @@ export default function SummarySettingsScreen() {
               placeholder={DEFAULT_GEMINI_TITLE_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="prompt">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.summary.title_engine.prompt_label')}
             </ThemedText>
             <TextInput
@@ -145,10 +160,13 @@ export default function SummarySettingsScreen() {
               multiline
               textAlignVertical="top"
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText type="subtitle" lightColor="#0f172a" darkColor="#e2e8f0">
+          <SettingsCard variant="interaction">
+            <ThemedText
+              type="subtitle"
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.summary.conversation_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -161,10 +179,13 @@ export default function SummarySettingsScreen() {
                 />
               ))}
             </View>
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="openai">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.summary.conversation_engine.openai_label')}
             </ThemedText>
             <TextInput
@@ -184,10 +205,13 @@ export default function SummarySettingsScreen() {
               placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="gemini">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_TEXT_COLOR}
+              darkColor={CARD_SUBTLE_TEXT_COLOR}>
               {t('settings.summary.conversation_engine.gemini_label')}
             </ThemedText>
             <TextInput
@@ -207,10 +231,13 @@ export default function SummarySettingsScreen() {
               placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
               placeholderTextColor={placeholderTextColor}
             />
-          </View>
+          </SettingsCard>
 
-          <View style={styles.section}>
-            <ThemedText style={groupLabelStyle} lightColor="#1f2937" darkColor="#e2e8f0">
+          <SettingsCard variant="prompt">
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_TEXT_COLOR}
+              darkColor={CARD_TEXT_COLOR}>
               {t('settings.summary.conversation_engine.prompt_label')}
             </ThemedText>
             <TextInput
@@ -231,7 +258,7 @@ export default function SummarySettingsScreen() {
               multiline
               textAlignVertical="top"
             />
-          </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -239,8 +266,10 @@ export default function SummarySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    gap: 12,
+  cardLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   promptInput: {
     minHeight: 140,
