@@ -11,6 +11,7 @@ import React, {
 import {
   AppSettings,
   EngineCredentials,
+  RecordingPreset,
   defaultSettings,
 } from '@/types/settings';
 import {
@@ -75,6 +76,54 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     }
     if (parsedCredentials.geminiQaModel === undefined && merged.credentials.geminiConversationModel) {
       merged.credentials.geminiQaModel = merged.credentials.geminiConversationModel;
+    }
+    if (!Array.isArray(parsed.recordingPresets)) {
+      merged.recordingPresets = [];
+    } else {
+      merged.recordingPresets = parsed.recordingPresets
+        .map((preset) => {
+          if (!preset || typeof preset !== 'object') {
+            return null;
+          }
+          const candidate = preset as Partial<RecordingPreset>;
+          if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
+            return null;
+          }
+          const normalize = <T extends number>(value: unknown, fallback: T): T => {
+            const numeric = Number(value);
+            return Number.isFinite(numeric) ? (numeric as T) : fallback;
+          };
+          return {
+            id: candidate.id,
+            name: candidate.name,
+            activationThreshold: normalize(
+              candidate.activationThreshold,
+              defaultSettings.activationThreshold
+            ),
+            activationDurationSec: normalize(
+              candidate.activationDurationSec,
+              defaultSettings.activationDurationSec
+            ),
+            silenceDurationSec: normalize(
+              candidate.silenceDurationSec,
+              defaultSettings.silenceDurationSec
+            ),
+            preRollDurationSec: normalize(
+              candidate.preRollDurationSec,
+              defaultSettings.preRollDurationSec
+            ),
+            maxSegmentDurationSec: normalize(
+              candidate.maxSegmentDurationSec,
+              defaultSettings.maxSegmentDurationSec
+            ),
+          } satisfies RecordingPreset;
+        })
+        .filter(Boolean) as RecordingPreset[];
+    }
+    if (typeof merged.activeRecordingPresetId !== 'string') {
+      merged.activeRecordingPresetId = null;
+    } else if (!merged.recordingPresets.some((preset) => preset.id === merged.activeRecordingPresetId)) {
+      merged.activeRecordingPresetId = null;
     }
     return merged;
   } catch (error) {

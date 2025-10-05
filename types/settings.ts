@@ -61,6 +61,16 @@ export interface TranscriptionSettings {
   enableAutoStart: boolean;
 }
 
+export interface RecordingPreset {
+  id: string;
+  name: string;
+  activationThreshold: number;
+  activationDurationSec: number;
+  silenceDurationSec: number;
+  preRollDurationSec: number;
+  maxSegmentDurationSec: number;
+}
+
 export const DEFAULT_OPENAI_TITLE_MODEL = 'gpt-4o';
 export const DEFAULT_GEMINI_TITLE_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_TITLE_SUMMARY_PROMPT =
@@ -82,6 +92,8 @@ export interface AppSettings extends TranscriptionSettings {
   qaEngine: QaEngine;
   qaPrompt: string;
   credentials: EngineCredentials;
+  recordingPresets: RecordingPreset[];
+  activeRecordingPresetId: string | null;
 }
 
 export const defaultSettings: AppSettings = {
@@ -116,4 +128,6 @@ export const defaultSettings: AppSettings = {
     geminiQaModel: DEFAULT_GEMINI_QA_MODEL,
     qwenTranscriptionModel: 'Qwen3-ASR',
   },
+  recordingPresets: [],
+  activeRecordingPresetId: null,
 };

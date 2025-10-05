@@ -196,6 +196,22 @@
         "silence_duration": "静音判定 (秒)",
         "pre_roll": "前滚时长 (秒)",
         "max_segment": "最大片段 (秒)"
+      },
+      "presets": {
+        "save_title": "保存当前配置",
+        "save_description": "将当前灵敏度参数保存为可复用的卡片。",
+        "name_placeholder": "预设名称",
+        "save_button": "保存预设",
+        "empty": "还没有保存的参数卡片。",
+        "apply_button": "使用预设",
+        "delete_button": "删除预设",
+        "active_badge": "已应用",
+        "default_name": "预设 {{index}}",
+        "invalid_title": "无法保存预设",
+        "invalid_message": "请先填写有效的数值后再保存。",
+        "delete_title": "删除预设？",
+        "delete_message": "确定要删除“{{name}}”这张卡片吗？",
+        "cancel": "取消"
       }
     },
     "transcription": {

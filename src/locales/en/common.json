@@ -196,6 +196,22 @@
         "silence_duration": "Silence duration (sec)",
         "pre_roll": "Pre-roll duration (sec)",
         "max_segment": "Maximum segment length (sec)"
+      },
+      "presets": {
+        "save_title": "Save current setup",
+        "save_description": "Store the current sensitivity parameters as a reusable card.",
+        "name_placeholder": "Preset name",
+        "save_button": "Save preset",
+        "empty": "No saved presets yet.",
+        "apply_button": "Use preset",
+        "delete_button": "Delete preset",
+        "active_badge": "Active",
+        "default_name": "Preset {{index}}",
+        "invalid_title": "Unable to save preset",
+        "invalid_message": "Fill in valid numbers before saving this preset.",
+        "delete_title": "Delete preset?",
+        "delete_message": "Delete \"{{name}}\" from saved presets?",
+        "cancel": "Cancel"
       }
     },
     "transcription": {
