@@ -537,8 +537,26 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     if (!sessionActiveRef.current) {
       return;
     }
+
     setIsSessionActive(false);
     setQaAutoMode(false);
+
+    const hasActiveSegment = segmentStateRef.current.isActive && segmentStateRef.current.messageId != null;
+
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+
+    if (hasActiveSegment && finalizeSegmentRef.current) {
+      sessionActiveRef.current = false;
+      try {
+        await finalizeSegmentRef.current(null);
+      } catch (finalizeError) {
+        console.warn('[transcription] Failed to finalize active segment on stop', finalizeError);
+      }
+    }
+
     await stopAndResetRecording();
     resetSegmentState();
   }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
