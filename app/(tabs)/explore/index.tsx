@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, Alert, Linking } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, Alert, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,11 @@ interface SettingsEntry {
   subtitle: string;
 }
 
+const WEBSITE_URL = 'https://vtt.tokisantike.net/';
+const REPOSITORY_URL = 'https://github.com/youtonghy/VoiceTT';
+
+const aboutIconSource = require('../../../assets/images/icon.png');
+
 export default function SettingsIndexScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -30,12 +35,24 @@ export default function SettingsIndexScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
 
-  const handleOpenProCard = useCallback(() => {
-    Linking.openURL(proVersionPromoCard.href).catch((error) => {
-      console.warn('[settings] Failed to open Pro version URL', error);
+  const openExternalLink = useCallback((url: string) => {
+    Linking.openURL(url).catch((error) => {
+      console.warn('[settings] Failed to open link', url, error);
       Alert.alert('Unable to open link', 'Please try again later.');
     });
   }, []);
+
+  const handleOpenProCard = useCallback(() => {
+    openExternalLink(proVersionPromoCard.href);
+  }, [openExternalLink]);
+
+  const handleOpenWebsite = useCallback(() => {
+    openExternalLink(WEBSITE_URL);
+  }, [openExternalLink]);
+
+  const handleOpenRepository = useCallback(() => {
+    openExternalLink(REPOSITORY_URL);
+  }, [openExternalLink]);
 
   const entryItems: SettingsEntry[] = useMemo(
     () => [
@@ -71,6 +88,24 @@ export default function SettingsIndexScreen() {
       },
     ],
     [t]
+  );
+
+  const aboutLinks = useMemo(
+    () => [
+      {
+        key: 'website',
+        label: t('settings.about.links.website'),
+        url: WEBSITE_URL,
+        onPress: handleOpenWebsite,
+      },
+      {
+        key: 'repository',
+        label: t('settings.about.links.repository'),
+        url: REPOSITORY_URL,
+        onPress: handleOpenRepository,
+      },
+    ],
+    [handleOpenRepository, handleOpenWebsite, t]
   );
 
   return (
@@ -153,6 +188,68 @@ export default function SettingsIndexScreen() {
               </ThemedView>
             </Pressable>
           ))}
+          <ThemedView
+            lightColor="rgba(148, 163, 184, 0.12)"
+            darkColor="rgba(15, 23, 42, 0.7)"
+            style={styles.aboutCard}>
+            <Image
+              source={aboutIconSource}
+              style={styles.aboutIcon}
+              accessibilityLabel={t('settings.about.icon_accessibility')}
+            />
+            <ThemedText
+              type="title"
+              style={styles.aboutTitle}
+              lightColor="#0f172a"
+              darkColor="#e2e8f0">
+              {t('settings.about.title')}
+            </ThemedText>
+            <View style={styles.aboutLinks}>
+              {aboutLinks.map((link) => (
+                <Pressable
+                  key={link.key}
+                  accessibilityRole="link"
+                  accessibilityLabel={`${link.label} ${link.url}`}
+                  onPress={link.onPress}
+                  style={({ pressed }) => [styles.aboutLinkPressable, pressed && styles.aboutLinkPressed]}>
+                  <ThemedView
+                    lightColor="rgba(248, 250, 252, 0.65)"
+                    darkColor="rgba(15, 23, 42, 0.6)"
+                    style={styles.aboutLinkCard}>
+                    <ThemedText
+                      style={styles.aboutLinkLabel}
+                      lightColor="#0f172a"
+                      darkColor="#e2e8f0">
+                      {link.label}
+                    </ThemedText>
+                    <ThemedText type="link" style={styles.aboutLinkUrl}>
+                      {link.url}
+                    </ThemedText>
+                  </ThemedView>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.aboutFooter}>
+              <ThemedText
+                style={styles.aboutFooterText}
+                lightColor="rgba(15, 23, 42, 0.55)"
+                darkColor="rgba(226, 232, 240, 0.65)">
+                {t('settings.about.footer.copyright')}
+              </ThemedText>
+              <ThemedText
+                style={styles.aboutFooterText}
+                lightColor="rgba(15, 23, 42, 0.55)"
+                darkColor="rgba(226, 232, 240, 0.65)">
+                {t('settings.about.footer.powered')}
+              </ThemedText>
+              <ThemedText
+                style={styles.aboutFooterText}
+                lightColor="rgba(15, 23, 42, 0.55)"
+                darkColor="rgba(226, 232, 240, 0.65)">
+                {t('settings.about.footer.location')}
+              </ThemedText>
+            </View>
+          </ThemedView>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -265,5 +362,55 @@ const styles = StyleSheet.create({
   entrySubtitle: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  aboutCard: {
+    width: '100%',
+    padding: 24,
+    borderRadius: 24,
+    alignItems: 'center',
+    gap: 20,
+  },
+  aboutIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+  },
+  aboutTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  aboutLinks: {
+    width: '100%',
+    gap: 12,
+  },
+  aboutLinkPressable: {
+    width: '100%',
+    borderRadius: 18,
+  },
+  aboutLinkPressed: {
+    opacity: 0.85,
+  },
+  aboutLinkCard: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    gap: 4,
+  },
+  aboutLinkLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  aboutLinkUrl: {
+    fontSize: 14,
+  },
+  aboutFooter: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  aboutFooterText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

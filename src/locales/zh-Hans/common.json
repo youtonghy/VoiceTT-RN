@@ -154,6 +154,19 @@
         "subtitle": "管理模型密钥"
       }
     },
+    "about": {
+      "title": "关于",
+      "icon_accessibility": "VoiceTT 应用图标",
+      "links": {
+        "website": "软件网址",
+        "repository": "软件仓库"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
     "credentials": {
       "sections": {
         "openai": {

@@ -154,6 +154,19 @@
         "subtitle": "Manage API keys"
       }
     },
+    "about": {
+      "title": "About",
+      "icon_accessibility": "VoiceTT app icon",
+      "links": {
+        "website": "Website",
+        "repository": "Repository"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
     "credentials": {
       "sections": {
         "openai": {
