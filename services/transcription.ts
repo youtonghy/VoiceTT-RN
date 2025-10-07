@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import { EncodingType, getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 import {
@@ -18,6 +18,7 @@ export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
+const DEFAULT_ANDROID_RECOGNIZER_MODEL = 'android.speech.SpeechRecognizer';
 export const DEFAULT_TITLE_RESPONSE_MAX_TOKENS = 96;
 export const DEFAULT_TITLE_RESPONSE_TEMPERATURE = 0.4;
 export const DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS = 512;
@@ -50,6 +51,8 @@ export function resolveTranscriptionModel(settings: AppSettings): string {
       return settings.credentials.qwenTranscriptionModel?.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL;
     case 'soniox':
       return DEFAULT_SONIOX_TRANSCRIPTION_MODEL;
+    case 'android':
+      return DEFAULT_ANDROID_RECOGNIZER_MODEL;
     default:
       return DEFAULT_OPENAI_TRANSCRIPTION_MODEL;
   }
@@ -396,6 +399,146 @@ async function transcribeWithQwen(
     text: resolvedText,
     language: language || detectedLanguage || undefined,
   };
+}
+
+// Attempts to use Expo Speech Recognition module (if installed) to
+// transcribe a local audio file on Android via the platform SpeechRecognizer.
+async function transcribeWithAndroidRecognizer(
+  payload: TranscriptionSegmentPayload,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<SegmentedTranscriptionResult> {
+  if (Platform.OS !== 'android') {
+    throw new Error('Android SpeechRecognizer engine is only available on Android');
+  }
+  ensureFileExists(payload.fileUri);
+  const info = await getInfoAsync(payload.fileUri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+
+  // Try to obtain the module if present (without requiring the package at build time)
+  const ExpoSpeechRecognitionModule: any =
+    (globalThis as any)?.ExpoSpeechRecognitionModule ||
+    (NativeModules as any)?.ExpoSpeechRecognitionModule ||
+    (NativeModules as any)?.ExpoSpeechRecognition ||
+    (NativeModules as any)?.AndroidSpeechRecognizer;
+
+  if (!ExpoSpeechRecognitionModule?.start || !ExpoSpeechRecognitionModule?.addListener) {
+    throw new Error(
+      'Android SpeechRecognizer requires expo-speech-recognition plugin. Install and configure it to enable on-device transcription.'
+    );
+  }
+
+  // Map language setting; if 'auto', omit and let recognizer detect.
+  const lang = settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto'
+    ? settings.transcriptionLanguage
+    : undefined;
+
+  // Request permissions if needed (safe even for file transcription)
+  try {
+    await (ExpoSpeechRecognitionModule.requestPermissionsAsync?.() ?? Promise.resolve());
+  } catch {
+    // Continue; some implementations may not expose permissions API
+  }
+
+  return await new Promise<SegmentedTranscriptionResult>((resolve, reject) => {
+    let resolved = false;
+    let finalText = '';
+
+    const cleanup = () => {
+      resultSub?.remove?.();
+      errorSub?.remove?.();
+      endSub?.remove?.();
+      if (signal) {
+        signal.removeEventListener?.('abort', onAbort as any);
+      }
+    };
+
+    const onAbort = () => {
+      try {
+        ExpoSpeechRecognitionModule.abort?.();
+      } catch {}
+      cleanup();
+      reject(resolveAbortError(signal));
+    };
+
+    if (signal) {
+      if ((signal as any).aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true } as any);
+    }
+
+    const endSub = ExpoSpeechRecognitionModule.addListener('end', () => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        resolve({ text: finalText.trim(), language: lang });
+      }
+    });
+
+    const errorSub = ExpoSpeechRecognitionModule.addListener('error', (event: any) => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        const message = event?.message || 'Android SpeechRecognizer error';
+        reject(new Error(message));
+      }
+    });
+
+    const resultSub = ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      // event: { results: [{ transcript, confidence }], isFinal: boolean }
+      const transcript: string = event?.results?.[0]?.transcript ?? '';
+      if (event?.isFinal) {
+        if (transcript) {
+          finalText = (finalText ? finalText + ' ' : '') + String(transcript).trim();
+        }
+        // For file transcription, recognizer will usually end automatically
+      }
+    });
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang,
+        interimResults: false,
+        continuous: false,
+        // Stream the saved recording file to Android SpeechRecognizer
+        audioSource: {
+          uri: payload.fileUri,
+          // Leave Android-specific fields undefined to let the module infer/convert
+          audioChannels: undefined,
+          audioEncoding: undefined,
+          sampleRate: undefined,
+        },
+      });
+    } catch (startErr: any) {
+      cleanup();
+      reject(new Error(startErr?.message || 'Failed to start Android SpeechRecognizer'));
+      return;
+    }
+
+    // Safety timeout: in case no 'end' arrives
+    const timeoutMs = Math.max(8000, Math.min(45000, payload.durationMs + 5000));
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        try {
+          ExpoSpeechRecognitionModule.stop?.();
+        } catch {}
+        cleanup();
+        resolve({ text: finalText.trim(), language: lang });
+      }
+    }, timeoutMs);
+
+    // Ensure timer is cleared when resolved via the 'end' event
+    const endOrig = endSub.remove;
+    endSub.remove = () => {
+      clearTimeout(timer);
+      return endOrig?.();
+    };
+  });
 }
 
 function resolveAbortError(signal?: AbortSignal): Error {
@@ -868,6 +1011,8 @@ export async function transcribeSegment(
       return transcribeWithQwen(payload, settings, signal);
     case 'soniox':
       return transcribeWithSoniox(payload, settings, signal);
+    case 'android':
+      return transcribeWithAndroidRecognizer(payload, settings, signal);
     default:
       throw new Error('Transcription engine ' + settings.transcriptionEngine + ' not implemented yet');
   }

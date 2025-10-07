@@ -1,4 +1,5 @@
 {
+  "lang_code": "zh-Hans",
   "navigation": {
     "tabs": {
       "transcription": "转写",
@@ -157,6 +158,16 @@
     "about": {
       "title": "关于",
       "icon_accessibility": "VoiceTT 应用图标",
+      "version_label": "版本",
+      "version_accessibility": "应用版本与更新",
+      "update": {
+        "checking": "检查中…",
+        "available": "有更新",
+        "failed": "检查更新失败",
+        "dialog_title": "{{version}} 更新内容",
+        "view_more": "查看详情",
+        "no_changelog": "暂无更新日志"
+      },
       "links": {
         "website": "软件网址",
         "repository": "软件仓库"
@@ -222,7 +233,8 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox"
+        "soniox": "Soniox",
+        "android": "Android 本地识别"
       }
     },
     "translation": {
