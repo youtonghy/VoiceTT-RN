@@ -17,8 +17,7 @@ import {
   useSettingsForm,
 } from './shared';
 
-const transcriptionEngines: TranscriptionEngine[] =
-  Platform.OS === 'android' ? ['android', 'openai', 'qwen3', 'soniox'] : ['openai', 'qwen3', 'soniox'];
+const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
 
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
@@ -95,3 +94,4 @@ export default function TranscriptionSettingsScreen() {
     </SafeAreaView>
   );
 }
+

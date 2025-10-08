@@ -1,10 +1,9 @@
-import { useMemo, useCallback, useEffect, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, Alert, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -109,92 +108,6 @@ export default function SettingsIndexScreen() {
     [handleOpenRepository, handleOpenWebsite, t]
   );
 
-  // Version + update check
-  type LatestInfo = {
-    version: string;
-    changelog?: { [lang: string]: string[] } | string[];
-    url?: string;
-  } | null;
-
-  const getCurrentVersion = useCallback(() => {
-    try {
-      // Prefer package.json version to match project package version
-      // Use require to avoid TypeScript JSON module config
-      // @ts-ignore
-      const pkg = require('../../../package.json');
-      const v = pkg?.version;
-      if (typeof v === 'string' && v.trim()) return v;
-    } catch {}
-    const expoVersion = (Constants as any)?.expoConfig?.version || (Constants as any)?.manifest2?.extra?.expoClient?.version;
-    return typeof expoVersion === 'string' && expoVersion.trim() ? expoVersion : '0.0.0';
-  }, []);
-
-  const [currentVersion] = useState<string>(() => getCurrentVersion());
-  const [latest, setLatest] = useState<LatestInfo>(null);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [checkError, setCheckError] = useState<string | null>(null);
-
-  const compareSemver = (a: string, b: string): number => {
-    const parse = (v: string) => v.split('.').map((p) => parseInt(p.replace(/[^0-9].*$/, ''), 10) || 0);
-    const [a1, a2, a3] = parse(a);
-    const [b1, b2, b3] = parse(b);
-    if (a1 !== b1) return a1 - b1;
-    if (a2 !== b2) return a2 - b2;
-    return a3 - b3;
-  };
-
-  useEffect(() => {
-    let alive = true;
-    const url = 'https://raw.githubusercontent.com/youtonghy/VoiceTT/refs/heads/dev/latest.json';
-    setChecking(true);
-    setCheckError(null);
-    fetch(url)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as LatestInfo;
-      })
-      .then((info) => {
-        if (!alive || !info || typeof info !== 'object') return;
-        setLatest(info);
-        if (typeof info.version === 'string' && info.version.trim()) {
-          setUpdateAvailable(compareSemver(info.version.trim(), currentVersion) > 0);
-        }
-      })
-      .catch((err) => {
-        if (!alive) return;
-        setCheckError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (alive) setChecking(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [currentVersion]);
-
-  const handleShowChangelog = useCallback(() => {
-    if (!latest) return;
-    const lang = (t('lang_code', { defaultValue: 'en' }) as string) || 'en';
-    let items: string[] | undefined;
-    if (Array.isArray(latest.changelog)) {
-      items = latest.changelog as string[];
-    } else if (latest.changelog && typeof latest.changelog === 'object') {
-      const byLang = latest.changelog as Record<string, string[]>;
-      items = byLang[lang] || byLang[lang.toLowerCase()] || byLang.en;
-    }
-    const message = items && items.length > 0 ? `• ${items.join('\n• ')}` : t('settings.about.update.no_changelog');
-    Alert.alert(
-      t('settings.about.update.dialog_title', { version: latest.version }),
-      message,
-      [
-        latest.url
-          ? { text: t('settings.about.update.view_more'), onPress: () => Linking.openURL(latest.url!) }
-          : { text: t('common.actions.ok') },
-      ]
-    );
-  }, [latest, t]);
-
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
@@ -291,38 +204,6 @@ export default function SettingsIndexScreen() {
               darkColor="#e2e8f0">
               {t('settings.about.title')}
             </ThemedText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('settings.about.version_accessibility')}
-              onPress={updateAvailable ? handleShowChangelog : undefined}
-              style={({ pressed }) => [styles.versionRowPressable, pressed && styles.versionRowPressed]}
-            >
-              <View style={styles.versionRow}>
-                <ThemedText
-                  style={styles.versionLabel}
-                  lightColor="#0f172a"
-                  darkColor="#e2e8f0"
-                >
-                  {t('settings.about.version_label')}
-                </ThemedText>
-                <View style={styles.versionRight}>
-                  <ThemedText style={styles.versionValue}>{currentVersion}</ThemedText>
-                  {checking && (
-                    <ThemedText style={styles.versionChecking}>{t('settings.about.update.checking')}</ThemedText>
-                  )}
-                  {!checking && updateAvailable && (
-                    <View style={styles.updateBadge}>
-                      <ThemedText style={styles.updateBadgeText}>{t('settings.about.update.available')}</ThemedText>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </Pressable>
-            {!checking && checkError && (
-              <ThemedText style={styles.versionError} lightColor="#b91c1c" darkColor="#fecaca">
-                {t('settings.about.update.failed')}
-              </ThemedText>
-            )}
             <View style={styles.aboutLinks}>
               {aboutLinks.map((link) => (
                 <Pressable
@@ -497,58 +378,6 @@ const styles = StyleSheet.create({
   aboutTitle: {
     fontSize: 24,
     fontWeight: '700',
-  },
-  versionRowPressable: {
-    width: '100%',
-    borderRadius: 18,
-  },
-  versionRowPressed: {
-    opacity: 0.85,
-  },
-  versionRow: {
-    width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  versionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  versionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  versionValue: {
-    fontSize: 14,
-  },
-  versionChecking: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
-  versionError: {
-    fontSize: 12,
-    alignSelf: 'flex-start',
-    marginTop: -6,
-    marginBottom: 6,
-  },
-  updateBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(22, 163, 74, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(22, 163, 74, 0.45)',
-  },
-  updateBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#16a34a',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   aboutLinks: {
     width: '100%',

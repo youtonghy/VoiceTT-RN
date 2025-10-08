@@ -1,5 +1,4 @@
 {
-  "lang_code": "en",
   "navigation": {
     "tabs": {
       "transcription": "Transcription",
@@ -158,16 +157,6 @@
     "about": {
       "title": "About",
       "icon_accessibility": "VoiceTT app icon",
-      "version_label": "Version",
-      "version_accessibility": "App version and updates",
-      "update": {
-        "checking": "Checking…",
-        "available": "New",
-        "failed": "Update check failed",
-        "dialog_title": "What's new in {{version}}",
-        "view_more": "View details",
-        "no_changelog": "Changelog unavailable"
-      },
       "links": {
         "website": "Website",
         "repository": "Repository"
@@ -233,8 +222,7 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox",
-        "android": "Android (on-device)"
+        "soniox": "Soniox"
       }
     },
     "translation": {

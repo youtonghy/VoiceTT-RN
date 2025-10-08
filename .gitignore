@@ -41,5 +41,5 @@ app-example
 # generated native folders
 /ios
 /android
-*.apk
-*.ipa
+.apk
+.ipa

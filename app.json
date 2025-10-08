@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "VoiceTT",
+    "name": "vtt",
     "slug": "vtt",
-    "version": "0.2.4",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "VoiceTT",
+    "scheme": "vtt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
