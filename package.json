@@ -5,8 +5,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "check:i18n": "node ./scripts/check-i18n.js"
@@ -29,7 +29,6 @@
     "expo-localization": "^17.0.7",
     "expo-router": "~6.0.8",
     "expo-secure-store": "^15.0.7",
-    "expo-speech-recognition": "^2.1.5",
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "expo-symbols": "~1.0.7",
