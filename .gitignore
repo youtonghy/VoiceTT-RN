@@ -43,3 +43,7 @@ app-example
 /android
 *.apk
 *.ipa
+
+# image file
+/*.png
+/*.jpg
