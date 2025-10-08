@@ -13,7 +13,9 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
-        ]
+        ],
+        "NSMicrophoneUsageDescription": "VoiceTT uses the microphone to capture your voice for transcription.",
+        "NSSpeechRecognitionUsageDescription": "VoiceTT uses on-device speech recognition to transcribe audio."
       }
     },
     "android": {
@@ -51,7 +53,8 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true,
