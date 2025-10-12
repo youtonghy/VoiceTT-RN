@@ -23,6 +23,7 @@ export const proVersionPromoCard: SettingsPromoCard = {
 export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox';
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
+export type VoiceInputEngine = TranscriptionEngine;
 
 export type TitleSummaryEngine = 'openai' | 'gemini';
 export type ConversationSummaryEngine = 'openai' | 'gemini';
@@ -85,6 +86,7 @@ export const DEFAULT_QA_PROMPT =
   'You are a helpful real-time call assistant. Given a transcript segment, extract up to three clear questions that are asked or implied. For each question, provide a comprehensive and accurate answer. You should reference the transcript context when it contains relevant information, but you are not limited to the context - use your knowledge to provide the most helpful and complete answer possible. Respond in JSON format with an `items` array containing objects with `question` and `answer` fields. Use the same language as the transcript. If there are no questions, return an empty array. IMPORTANT: Extract only the question text itself without additional commentary.';
 
 export interface AppSettings extends TranscriptionSettings {
+  voiceInputEngine: VoiceInputEngine;
   titleSummaryEngine: TitleSummaryEngine;
   titleSummaryPrompt: string;
   conversationSummaryEngine: ConversationSummaryEngine;
@@ -103,6 +105,7 @@ export const defaultSettings: AppSettings = {
   preRollDurationSec: 1.0,
   maxSegmentDurationSec: 300,
   transcriptionEngine: 'openai',
+  voiceInputEngine: 'openai',
   transcriptionLanguage: 'auto',
   translationEngine: 'openai',
   translationTargetLanguage: 'en',

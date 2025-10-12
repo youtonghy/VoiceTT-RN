@@ -62,6 +62,11 @@ export default function SettingsIndexScreen() {
         subtitle: t('settings.sections.recording.subtitle'),
       },
       {
+        route: '/explore/voice-input' as RouteHref,
+        title: t('settings.sections.voice_input.title'),
+        subtitle: t('settings.sections.voice_input.subtitle'),
+      },
+      {
         route: '/explore/transcription' as RouteHref,
         title: t('settings.sections.transcription.title'),
         subtitle: t('settings.sections.transcription.subtitle'),

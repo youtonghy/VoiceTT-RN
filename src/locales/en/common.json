@@ -133,6 +133,10 @@
         "title": "Recording detection",
         "subtitle": "Sensitivity and silence detection"
       },
+      "voice_input": {
+        "title": "Voice input",
+        "subtitle": "Keyboard microphone engine"
+      },
       "transcription": {
         "title": "Transcription",
         "subtitle": "Engine and source language"
@@ -218,6 +222,16 @@
       "labels": {
         "engine": "Transcription engine",
         "source_language": "Source language"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox"
+      }
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "Voice input engine"
       },
       "engines": {
         "openai": "OpenAI",

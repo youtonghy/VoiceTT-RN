@@ -12,6 +12,7 @@ export interface KeyboardStickyInputProps extends TextInputProps {
   inputContainerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
   accessory?: ReactNode;
+  toolbar?: ReactNode;
   children?: ReactNode;
   layoutBottomInset?: number;
 }

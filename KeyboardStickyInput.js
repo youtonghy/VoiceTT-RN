@@ -57,6 +57,7 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
     accessory,
     children,
     layoutBottomInset = 0,
+    toolbar,
     ...rest
   } = props;
 
@@ -153,6 +154,7 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
           { bottom: bottomOffset },
         ]}
       >
+        {toolbar ? <View style={styles.toolbarContainer}>{toolbar}</View> : null}
         <View style={[styles.inputWrapper, inputContainerStyle]}>
           <TextInput
             ref={ref}
@@ -214,6 +216,9 @@ const styles = StyleSheet.create({
   },
   multilineInput: {
     minHeight: 80,
+  },
+  toolbarContainer: {
+    marginBottom: 12,
   },
 });
 

@@ -25,6 +25,7 @@ import { MarkdownText } from "@/components/markdown-text";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
+import VoiceInputToolbar from "@/components/voice-input-toolbar";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import {
   generateConversationTitle,
@@ -239,6 +240,7 @@ export default function TranscriptionScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
+  const assistantInputRef = useRef<TextInput | null>(null);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -783,6 +785,24 @@ export default function TranscriptionScreen() {
     setAssistantDraft(text);
   }, []);
 
+  const handleVoiceInputInsert = useCallback(
+    (transcript: string) => {
+      const trimmed = transcript.trim();
+      if (!trimmed) {
+        return;
+      }
+      setAssistantDraft((prev) => {
+        if (!prev) {
+          return trimmed;
+        }
+        const needsSpace = !/\s$/.test(prev);
+        return needsSpace ? `${prev} ${trimmed}` : `${prev}${trimmed}`;
+      });
+      assistantInputRef.current?.focus();
+    },
+    [assistantInputRef]
+  );
+
   const handleAssistantSend = useCallback(async () => {
     if (assistantSending) {
       return;
@@ -1218,6 +1238,7 @@ export default function TranscriptionScreen() {
                 />
                 {showAssistantComposer ? (
                   <KeyboardStickyInput
+                    ref={assistantInputRef}
                     containerStyle={styles.assistantComposerContainer}
                     inputContainerStyle={[
                       styles.assistantComposer,
@@ -1229,6 +1250,7 @@ export default function TranscriptionScreen() {
                     inputStyle={[styles.assistantInput, { color: searchInputColor }]}
                     value={assistantDraft}
                     onChangeText={handleAssistantChange}
+                    toolbar={<VoiceInputToolbar onInsert={handleVoiceInputInsert} />}
                     autoCorrect={false}
                     autoCapitalize="none"
                     returnKeyType="done"
@@ -1701,4 +1723,3 @@ function formatRecordTime(timestamp: number, language: string) {
     return `${month}/${day} ${hours}:${minutes}`;
   }
 }
-

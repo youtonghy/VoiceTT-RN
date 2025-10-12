@@ -133,6 +133,10 @@
         "title": "录音检测",
         "subtitle": "灵敏度与静音判定"
       },
+      "voice_input": {
+        "title": "语音输入",
+        "subtitle": "键盘录音使用的引擎"
+      },
       "transcription": {
         "title": "转写设置",
         "subtitle": "引擎与源语言"
@@ -218,6 +222,16 @@
       "labels": {
         "engine": "转写引擎",
         "source_language": "源语言"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox"
+      }
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "语音输入引擎"
       },
       "engines": {
         "openai": "OpenAI",
