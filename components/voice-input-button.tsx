@@ -13,15 +13,13 @@ import {
   Alert,
   Pressable,
   StyleSheet,
-  View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const recordingOptions: RecordingOptions = {
   isMeteringEnabled: false,
@@ -48,27 +46,24 @@ const recordingOptions: RecordingOptions = {
   },
 };
 
-type VoiceInputToolbarProps = {
+type VoiceInputButtonProps = {
   onInsert: (text: string) => void;
+  style?: StyleProp<ViewStyle>;
 };
 
-type ToolbarStatus = 'idle' | 'recording' | 'processing';
+type ButtonStatus = 'idle' | 'recording' | 'processing';
 
-export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
+export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonProps) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const recorder = useAudioRecorder(recordingOptions);
-  const [status, setStatus] = useState<ToolbarStatus>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<ButtonStatus>('idle');
   const messageCounterRef = useRef(1);
 
-  const engineLabel = useMemo(() => {
-    return t(`settings.voice_input.engines.${settings.voiceInputEngine}`);
-  }, [settings.voiceInputEngine, t]);
-
-  const indicatorColor = isDark ? '#38bdf8' : '#0ea5e9';
+  const engineLabel = useMemo(
+    () => t(`settings.voice_input.engines.${settings.voiceInputEngine}`),
+    [settings.voiceInputEngine, t]
+  );
 
   const ensurePermissionAndMode = useCallback(async () => {
     try {
@@ -80,7 +75,6 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
             t('alerts.microphone_permission.title'),
             t('alerts.microphone_permission.message')
           );
-          setError(t('transcription.errors.permission_denied'));
           return false;
         }
       }
@@ -93,7 +87,8 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
       });
       return true;
     } catch (modeError) {
-      setError(
+      Alert.alert(
+        t('transcription.status.failed'),
         t('transcription.errors.unable_to_start', {
           message: (modeError as Error)?.message ?? 'unknown',
         })
@@ -103,19 +98,19 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
   }, [t]);
 
   const cleanupFile = useCallback(async (uri: string | null | undefined) => {
-    if (uri) {
-      try {
-        await deleteAsync(uri, { idempotent: true });
-      } catch (cleanupError) {
-        if (__DEV__) {
-          console.warn('[voice-input] Failed to delete recording file', cleanupError);
-        }
+    if (!uri) {
+      return;
+    }
+    try {
+      await deleteAsync(uri, { idempotent: true });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[voice-input] Failed to delete recording file', error);
       }
     }
   }, []);
 
   const startRecording = useCallback(async () => {
-    setError(null);
     const ready = await ensurePermissionAndMode();
     if (!ready) {
       return;
@@ -126,7 +121,8 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
       setStatus('recording');
     } catch (startError) {
       setStatus('idle');
-      setError(
+      Alert.alert(
+        t('transcription.status.failed'),
         t('transcription.errors.start_failed', {
           message: (startError as Error)?.message ?? 'unknown',
         })
@@ -136,7 +132,6 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
 
   const stopAndTranscribe = useCallback(async () => {
     setStatus('processing');
-    setError(null);
     try {
       await recorder.stop();
       const fileUri = recorder.uri;
@@ -146,7 +141,6 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
 
       const statusInfo = recorder.getStatus();
       const durationMs = statusInfo.durationMillis ?? 0;
-
       const payload: TranscriptionSegmentPayload = {
         fileUri,
         startOffsetMs: 0,
@@ -155,12 +149,12 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
         messageId: messageCounterRef.current++,
       };
 
-      const voiceSettings = {
+      const engineSettings = {
         ...settings,
         transcriptionEngine: settings.voiceInputEngine,
       };
 
-      const result = await transcribeSegment(payload, voiceSettings);
+      const result = await transcribeSegment(payload, engineSettings);
       const transcript = result.text?.trim();
 
       if (!transcript) {
@@ -168,8 +162,11 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
       }
 
       onInsert(transcript);
-    } catch (processError) {
-      setError((processError as Error)?.message ?? t('transcription.status.failed'));
+    } catch (error) {
+      Alert.alert(
+        t('transcription.status.failed'),
+        (error as Error)?.message ?? t('transcription.status.failed')
+      );
     } finally {
       const currentUri = recorder.uri;
       await cleanupFile(currentUri);
@@ -184,7 +181,7 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
     }
   }, [cleanupFile, onInsert, recorder, settings, t]);
 
-  const handleToggle = useCallback(() => {
+  const handlePress = useCallback(() => {
     if (status === 'processing') {
       return;
     }
@@ -195,126 +192,49 @@ export function VoiceInputToolbar({ onInsert }: VoiceInputToolbarProps) {
     }
   }, [startRecording, status, stopAndTranscribe]);
 
-  const buttonLabel =
-    status === 'recording'
-      ? t('transcription.accessibility.stop_recording')
-      : status === 'processing'
-        ? t('transcription.status.transcribing')
+  const accessibilityLabel = useMemo(() => {
+    const base =
+      status === 'recording'
+        ? t('transcription.accessibility.stop_recording')
         : t('transcription.accessibility.start_recording');
+    return `${base} (${engineLabel})`;
+  }, [engineLabel, status, t]);
 
-  const buttonIcon =
+  const backgroundColor =
     status === 'recording'
-      ? 'stop-circle'
+      ? '#dc2626'
       : status === 'processing'
-        ? 'refresh'
-        : 'mic-circle';
+        ? '#475569'
+        : '#2563eb';
+
+  const iconName = status === 'recording' ? 'stop' : 'mic';
 
   return (
-    <ThemedView
-      style={styles.container}
-      lightColor="rgba(15, 23, 42, 0.05)"
-      darkColor="rgba(148, 163, 184, 0.14)">
-      <View style={styles.metaRow}>
-        <ThemedText
-          style={styles.metaText}
-          lightColor="#0f172a"
-          darkColor="#e2e8f0">
-          {t('settings.voice_input.labels.engine')}: {engineLabel}
-        </ThemedText>
-        {status === 'processing' ? (
-          <ActivityIndicator size="small" color={indicatorColor} />
-        ) : status === 'recording' ? (
-          <ThemedText style={styles.statusText} lightColor="#ef4444" darkColor="#f87171">
-            {t('transcription.status.recording')}
-          </ThemedText>
-        ) : null}
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={buttonLabel}
-        onPress={handleToggle}
-        disabled={status === 'processing'}
-        style={({ pressed }) => [
-          styles.controlButton,
-          status === 'recording'
-            ? styles.controlButtonRecording
-            : styles.controlButtonIdle,
-          pressed && styles.controlButtonPressed,
-          status === 'processing' && styles.controlButtonDisabled,
-        ]}>
-        <Ionicons
-          name={buttonIcon as any}
-          size={22}
-          color="#ffffff"
-          style={styles.controlIcon}
-        />
-        <ThemedText style={styles.controlLabel} lightColor="#ffffff" darkColor="#ffffff">
-          {buttonLabel}
-        </ThemedText>
-      </Pressable>
-      {error ? (
-        <ThemedText
-          style={styles.errorText}
-          lightColor="#b91c1c"
-          darkColor="#fca5a5"
-        >
-          {error}
-        </ThemedText>
-      ) : null}
-    </ThemedView>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={handlePress}
+      disabled={status === 'processing'}
+      style={({ pressed }) => [
+        styles.button,
+        { backgroundColor, opacity: pressed && status !== 'processing' ? 0.85 : 1 },
+        style,
+      ]}>
+      {status === 'processing' ? (
+        <ActivityIndicator size="small" color="#ffffff" />
+      ) : (
+        <Ionicons name={iconName as any} size={18} color="#ffffff" />
+      )}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 18,
-    padding: 12,
-    gap: 12,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  controlButton: {
-    borderRadius: 999,
-    flexDirection: 'row',
+  button: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  controlButtonIdle: {
-    backgroundColor: '#2563eb',
-  },
-  controlButtonRecording: {
-    backgroundColor: '#dc2626',
-  },
-  controlButtonPressed: {
-    opacity: 0.9,
-  },
-  controlButtonDisabled: {
-    opacity: 0.6,
-  },
-  controlIcon: {
-    marginRight: 8,
-  },
-  controlLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 12,
-    lineHeight: 16,
   },
 });
-
-export default VoiceInputToolbar;

@@ -25,7 +25,7 @@ import { MarkdownText } from "@/components/markdown-text";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
-import VoiceInputToolbar from "@/components/voice-input-toolbar";
+import VoiceInputButton from "@/components/voice-input-button";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import {
   generateConversationTitle,
@@ -1250,7 +1250,6 @@ export default function TranscriptionScreen() {
                     inputStyle={[styles.assistantInput, { color: searchInputColor }]}
                     value={assistantDraft}
                     onChangeText={handleAssistantChange}
-                    toolbar={<VoiceInputToolbar onInsert={handleVoiceInputInsert} />}
                     autoCorrect={false}
                     autoCapitalize="none"
                     returnKeyType="done"
@@ -1264,6 +1263,7 @@ export default function TranscriptionScreen() {
                       }
                     }}
                   >
+                    <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
                     {assistantCanSend ? (
                       <Pressable
                         onPress={handleAssistantSend}
@@ -1433,6 +1433,10 @@ const styles = StyleSheet.create({
   assistantInput: {
     flex: 1,
     fontSize: 16,
+  },
+  assistantVoiceButton: {
+    width: 36,
+    height: 36,
   },
   assistantSendButton: {
     width: 40,
