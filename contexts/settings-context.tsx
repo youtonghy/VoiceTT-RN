@@ -21,6 +21,11 @@ import {
 } from '@/services/secure-storage';
 
 const SETTINGS_STORAGE_KEY = '@agents/app-settings';
+const VALID_TRANSCRIPTION_ENGINES = new Set<AppSettings['transcriptionEngine']>([
+  'openai',
+  'qwen3',
+  'soniox',
+]);
 
 interface SettingsContextValue {
   settings: AppSettings;
@@ -56,6 +61,12 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
         ...parsedCredentials,
       },
     };
+    if (!VALID_TRANSCRIPTION_ENGINES.has(merged.transcriptionEngine)) {
+      merged.transcriptionEngine = defaultSettings.transcriptionEngine;
+    }
+    if (!VALID_TRANSCRIPTION_ENGINES.has(merged.voiceInputEngine)) {
+      merged.voiceInputEngine = merged.transcriptionEngine;
+    }
     if (parsed.conversationSummaryEngine === undefined) {
       merged.conversationSummaryEngine = parsed.titleSummaryEngine ?? defaultSettings.titleSummaryEngine;
     }
