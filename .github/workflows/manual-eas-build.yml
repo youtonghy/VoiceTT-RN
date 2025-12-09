@@ -12,13 +12,14 @@ on:
         type: boolean
         default: true
 
-env:
-  EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
-
 jobs:
   android:
     if: inputs.build_android == true
     runs-on: ubuntu-latest
+    env:
+      EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+      EAS_NO_CREDENTIALS: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,12 +36,16 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Build Android (remote)
-        run: eas build --platform android --profile production --non-interactive
+      - name: Build Android locally
+        run: eas build --platform android --profile production --non-interactive --local
 
   ios:
     if: inputs.build_ios == true
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+    env:
+      EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+      EAS_NO_CREDENTIALS: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,5 +62,5 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Build iOS (remote)
-        run: eas build --platform ios --profile production --non-interactive
+      - name: Build iOS locally
+        run: eas build --platform ios --profile production --non-interactive --local

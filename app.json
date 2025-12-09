@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.unbaked0692.vtt",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [

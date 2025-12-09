@@ -43,3 +43,6 @@ app-example
 /android
 *.apk
 *.ipa
+
+# root-level screenshots or local captures
+/*.png
