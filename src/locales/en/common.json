@@ -184,13 +184,19 @@
         },
         "qwen": {
           "title": "Qwen3"
+        },
+        "doubao": {
+          "title": "Doubao"
         }
       },
       "labels": {
         "base_url": "Base URL",
         "api_key": "API key",
         "transcription_model": "Transcription model",
-        "translation_model": "Translation model"
+        "translation_model": "Translation model",
+        "doubao_app_id": "Doubao App ID",
+        "doubao_token": "Doubao Token",
+        "doubao_cluster": "Doubao Cluster"
       }
     },
     "recording": {
@@ -226,7 +232,8 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox"
+        "soniox": "Soniox",
+        "doubao": "Doubao"
       }
     },
     "voice_input": {
@@ -236,7 +243,8 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox"
+        "soniox": "Soniox",
+        "doubao": "Doubao"
       }
     },
     "translation": {

@@ -18,6 +18,7 @@ export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
+export const DEFAULT_DOUBAO_TRANSCRIPTION_MODEL = 'auc-file';
 export const DEFAULT_TITLE_RESPONSE_MAX_TOKENS = 96;
 export const DEFAULT_TITLE_RESPONSE_TEMPERATURE = 0.4;
 export const DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS = 512;
@@ -35,6 +36,10 @@ const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 const SONIOX_API_BASE_URL = 'https://api.soniox.com';
 const SONIOX_POLL_INTERVAL_MS = 1000;
+const DOUBAO_SUBMIT_URL = 'https://openspeech.bytedance.com/api/v1/auc/submit';
+const DOUBAO_QUERY_URL = 'https://openspeech.bytedance.com/api/v1/auc/query';
+const DOUBAO_POLL_INTERVAL_MS = 2000;
+const DOUBAO_MAX_POLL_ATTEMPTS = 90;
 
 function resolveOpenAIBaseUrl(settings: AppSettings) {
   return (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
@@ -50,6 +55,8 @@ export function resolveTranscriptionModel(settings: AppSettings): string {
       return settings.credentials.qwenTranscriptionModel?.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL;
     case 'soniox':
       return DEFAULT_SONIOX_TRANSCRIPTION_MODEL;
+    case 'doubao':
+      return DEFAULT_DOUBAO_TRANSCRIPTION_MODEL;
     default:
       return DEFAULT_OPENAI_TRANSCRIPTION_MODEL;
   }
@@ -109,6 +116,15 @@ function inferQwenAudioFormat(uri: string): string {
   if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'mp4';
   if (lower.endsWith('.ogg')) return 'ogg';
   if (lower.endsWith('.webm')) return 'webm';
+  if (lower.endsWith('.wav')) return 'wav';
+  return 'wav';
+}
+
+function inferDoubaoAudioFormat(uri: string): string {
+  const lower = uri.toLowerCase();
+  if (lower.endsWith('.ogg')) return 'ogg';
+  if (lower.endsWith('.mp3')) return 'mp3';
+  if (lower.endsWith('.mp4') || lower.endsWith('.m4a')) return 'mp4';
   if (lower.endsWith('.wav')) return 'wav';
   return 'wav';
 }
@@ -752,6 +768,142 @@ async function transcribeWithSoniox(
   }
 }
 
+async function transcribeWithDoubao(
+  payload: TranscriptionSegmentPayload,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<SegmentedTranscriptionResult> {
+  const appId = settings.credentials.doubaoAppId?.trim();
+  const token = settings.credentials.doubaoToken?.trim();
+  const cluster = settings.credentials.doubaoCluster?.trim();
+  if (!appId || !token || !cluster) {
+    throw new Error('Missing Doubao credentials (appid, token, or cluster)');
+  }
+  ensureFileExists(payload.fileUri);
+  const info = await getInfoAsync(payload.fileUri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+
+  const base64Audio = await readAsStringAsync(payload.fileUri, { encoding: EncodingType.Base64 });
+  if (!base64Audio) {
+    throw new Error('Failed to read audio file for Doubao transcription');
+  }
+  const audioUrl = createDataUri(inferMimeType(payload.fileUri), base64Audio);
+
+  const additions: Record<string, string> = {
+    use_itn: 'True',
+    use_punc: 'True',
+  };
+  if (settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto') {
+    additions.language = settings.transcriptionLanguage;
+  }
+
+  const submitPayload = {
+    app: {
+      appid: appId,
+      token,
+      cluster,
+    },
+    user: {
+      uid: 'voice-tt-client',
+    },
+    audio: {
+      format: inferDoubaoAudioFormat(payload.fileUri),
+      url: audioUrl,
+    },
+    additions,
+  };
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer; ' + token,
+  };
+
+  const submitResponse = await fetch(DOUBAO_SUBMIT_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(submitPayload),
+    signal,
+  });
+
+  if (!submitResponse.ok) {
+    const errorText = await submitResponse.text();
+    throw new Error('Doubao transcription submit failed: ' + (errorText || submitResponse.statusText));
+  }
+
+  let submitData: any;
+  try {
+    submitData = await submitResponse.json();
+  } catch (error) {
+    throw new Error('Doubao transcription submit failed: Invalid JSON response');
+  }
+  const submitResp = submitData?.resp || {};
+  const submitCode = Number(submitResp.code ?? submitResp.Code);
+  const taskId = typeof submitResp.id === 'string' ? submitResp.id : '';
+  if (submitCode !== 1000 || !taskId) {
+    const message = submitResp.message || submitResp.Message || 'Unknown submit error';
+    throw new Error(`Doubao transcription submit failed: ${submitCode || 'n/a'} ${message}`);
+  }
+
+  let attempts = 0;
+  while (attempts < DOUBAO_MAX_POLL_ATTEMPTS) {
+    throwIfAborted(signal);
+    if (attempts > 0) {
+      await sleep(DOUBAO_POLL_INTERVAL_MS, signal);
+    }
+    attempts += 1;
+    const queryPayload = {
+      appid: appId,
+      token,
+      cluster,
+      id: taskId,
+    };
+    const queryResponse = await fetch(DOUBAO_QUERY_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(queryPayload),
+      signal,
+    });
+    if (!queryResponse.ok) {
+      const errorText = await queryResponse.text();
+      throw new Error('Doubao transcription query failed: ' + (errorText || queryResponse.statusText));
+    }
+    let queryData: any;
+    try {
+      queryData = await queryResponse.json();
+    } catch (error) {
+      continue;
+    }
+    const resp = queryData?.resp || {};
+    const code = Number(resp.code ?? resp.Code);
+    if (code === 1000) {
+      let text = typeof resp.text === 'string' ? resp.text.trim() : '';
+      if (!text && Array.isArray(resp.utterances)) {
+        text = resp.utterances
+          .map((item: any) => (typeof item?.text === 'string' ? item.text.trim() : ''))
+          .filter(Boolean)
+          .join(' ');
+      }
+      if (!text) {
+        throw new Error('Doubao transcription returned empty result');
+      }
+      return {
+        text,
+        language: additions.language || undefined,
+      };
+    }
+    if (code >= 2000 && code < 3000) {
+      // task still pending
+      continue;
+    }
+    const message = resp.message || resp.Message || 'Unknown Doubao transcription error';
+    throw new Error(`Doubao transcription failed: ${code || 'n/a'} ${message}`);
+  }
+
+  throw new Error('Doubao transcription timed out waiting for result');
+}
+
 async function translateWithOpenAI(
   text: string,
   targetLanguage: string,
@@ -868,6 +1020,8 @@ export async function transcribeSegment(
       return transcribeWithQwen(payload, settings, signal);
     case 'soniox':
       return transcribeWithSoniox(payload, settings, signal);
+    case 'doubao':
+      return transcribeWithDoubao(payload, settings, signal);
     default:
       throw new Error('Transcription engine ' + settings.transcriptionEngine + ' not implemented yet');
   }

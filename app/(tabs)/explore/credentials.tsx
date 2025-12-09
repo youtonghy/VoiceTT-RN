@@ -283,6 +283,70 @@ export default function CredentialSettingsScreen() {
               />
             </View>
           </SettingsCard>
+
+          <SettingsCard variant="interaction">
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+              {t('settings.credentials.sections.doubao.title')}
+            </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText
+                style={credentialLabelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                {t('settings.credentials.labels.doubao_app_id')}
+              </ThemedText>
+              <TextInput
+                value={formState.doubaoAppId}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, doubaoAppId: text }))}
+                onBlur={() =>
+                  updateCredentials({ doubaoAppId: formState.doubaoAppId.trim() || undefined })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder="appid"
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText
+                style={credentialLabelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                {t('settings.credentials.labels.doubao_token')}
+              </ThemedText>
+              <TextInput
+                value={formState.doubaoToken}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, doubaoToken: text }))}
+                onBlur={() =>
+                  updateCredentials({ doubaoToken: formState.doubaoToken.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="token"
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText
+                style={credentialLabelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                {t('settings.credentials.labels.doubao_cluster')}
+              </ThemedText>
+              <TextInput
+                value={formState.doubaoCluster}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, doubaoCluster: text }))}
+                onBlur={() =>
+                  updateCredentials({ doubaoCluster: formState.doubaoCluster.trim() || undefined })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder="cluster id"
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </SettingsCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

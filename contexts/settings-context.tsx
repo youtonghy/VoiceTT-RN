@@ -25,6 +25,7 @@ const VALID_TRANSCRIPTION_ENGINES = new Set<AppSettings['transcriptionEngine']>(
   'openai',
   'qwen3',
   'soniox',
+  'doubao',
 ]);
 
 interface SettingsContextValue {

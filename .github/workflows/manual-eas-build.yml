@@ -1,0 +1,61 @@
+name: Manual Mobile Builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: 'Run Android build'
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Run iOS build'
+        type: boolean
+        default: true
+
+env:
+  EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+
+jobs:
+  android:
+    if: inputs.build_android == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build Android (remote)
+        run: eas build --platform android --profile production --non-interactive
+
+  ios:
+    if: inputs.build_ios == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build iOS (remote)
+        run: eas build --platform ios --profile production --non-interactive

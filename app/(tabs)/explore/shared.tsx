@@ -54,6 +54,9 @@ export interface FormState {
   sonioxApiKey: string;
   qwenApiKey: string;
   qwenTranscriptionModel: string;
+  doubaoAppId: string;
+  doubaoToken: string;
+  doubaoCluster: string;
 }
 
 export const initialFormState = (settings: AppSettings): FormState => ({
@@ -90,6 +93,9 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   qwenApiKey: settings.credentials.qwenApiKey ?? '',
   qwenTranscriptionModel:
     settings.credentials.qwenTranscriptionModel ?? DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+  doubaoAppId: settings.credentials.doubaoAppId ?? '',
+  doubaoToken: settings.credentials.doubaoToken ?? '',
+  doubaoCluster: settings.credentials.doubaoCluster ?? '',
 });
 
 export function useSettingsForm(settings: AppSettings) {

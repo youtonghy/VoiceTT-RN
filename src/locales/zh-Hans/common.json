@@ -184,13 +184,19 @@
         },
         "qwen": {
           "title": "Qwen3"
+        },
+        "doubao": {
+          "title": "豆包"
         }
       },
       "labels": {
         "base_url": "基础 URL",
         "api_key": "API 密钥",
         "transcription_model": "转写模型",
-        "translation_model": "翻译模型"
+        "translation_model": "翻译模型",
+        "doubao_app_id": "App ID",
+        "doubao_token": "Token",
+        "doubao_cluster": "Cluster"
       }
     },
     "recording": {
@@ -226,7 +232,8 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox"
+        "soniox": "Soniox",
+        "doubao": "豆包"
       }
     },
     "voice_input": {
@@ -236,7 +243,8 @@
       "engines": {
         "openai": "OpenAI",
         "qwen3": "Qwen3",
-        "soniox": "Soniox"
+        "soniox": "Soniox",
+        "doubao": "豆包"
       }
     },
     "translation": {

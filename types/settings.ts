@@ -20,7 +20,7 @@ export const proVersionPromoCard: SettingsPromoCard = {
   sheenColor: 'rgba(16, 185, 129, 0.5)',
 };
 
-export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox';
+export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox' | 'doubao';
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
 export type VoiceInputEngine = TranscriptionEngine;
@@ -45,6 +45,9 @@ export interface EngineCredentials {
   sonioxApiKey?: string;
   qwenApiKey?: string;
   qwenTranscriptionModel?: string;
+  doubaoAppId?: string;
+  doubaoToken?: string;
+  doubaoCluster?: string;
 }
 
 export interface TranscriptionSettings {
@@ -130,6 +133,9 @@ export const defaultSettings: AppSettings = {
     geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
     geminiQaModel: DEFAULT_GEMINI_QA_MODEL,
     qwenTranscriptionModel: 'Qwen3-ASR',
+    doubaoAppId: '',
+    doubaoToken: '',
+    doubaoCluster: '',
   },
   recordingPresets: [],
   activeRecordingPresetId: null,

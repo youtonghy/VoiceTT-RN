@@ -14,7 +14,7 @@ import {
   settingsStyles,
 } from './shared';
 
-const voiceInputEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
+const voiceInputEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox', 'doubao'];
 
 export default function VoiceInputSettingsScreen() {
   const { t } = useTranslation();

@@ -17,7 +17,7 @@ import {
   useSettingsForm,
 } from './shared';
 
-const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox'];
+const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox', 'doubao'];
 
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
@@ -94,4 +94,3 @@ export default function TranscriptionSettingsScreen() {
     </SafeAreaView>
   );
 }
-
