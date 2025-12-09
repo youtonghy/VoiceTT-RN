@@ -1,60 +1,55 @@
 # AGENTS Development Guidelines
 
-## Purpose
-- Define cross-team expectations for building the multimodal language transcription application with translation, summarization, and history playback capabilities.
-- Align Android and iOS efforts on UX, architecture, and operational standards.
+## Purpose & Scope
+- Align Android and iOS teams on UX, architecture, and operational standards for the multimodal transcription, translation, summarization, and history playback app.
+- Apply to client apps and any shared core modules; keep feature parity across platforms.
 
 ## Product Pillars
-- **Transcription First**: Real-time speech-to-text capture with accurate diarization where possible.
-- **Translation Ready**: Seamless translation pipeline for supported locales, triggered manually or automatically per user settings.
-- **Summarization Insight**: Multi-granularity summaries (session, highlight, action items) generated on demand.
-- **History Access**: Persistent, queryable call history with secure storage and fast retrieval.
+- **Transcription First**: Real-time capture with diarization when available.
+- **Translation Ready**: Manual or auto-triggered translation per locale settings.
+- **Summarization Insight**: On-demand summaries at session, highlight, and action-item levels.
+- **History Access**: Persistent, searchable call history with fast retrieval.
 
-## Platform Targets
-- Android (minimum API level TBD) and iOS (minimum iOS version TBD) ship in lockstep feature parity.
-- Background execution must comply with each platform's policies (Android foreground service + notification, iOS Background Modes entitlement and energy impact monitoring).
-- Shared business logic should live in a platform-agnostic core (e.g., Kotlin Multiplatform or Flutter/Dart) when feasible; platform-specific UI layers adapt native patterns.
+## Platform & Execution
+- Ship Android (API level TBD) and iOS (minimum version TBD) in lockstep.
+- Respect background policies: Android foreground service with notification; iOS Background Modes with energy impact monitoring.
+- Keep business logic in a platform-agnostic core (e.g., KMP or Flutter/Dart) where feasible; adapt UI per platform conventions.
 
-## Design System
-- Adopt Material Design 3 components and interaction patterns across platforms; ensure Android supports Monet dynamic color extraction from system palettes.
-- Provide a theming abstraction that maps Material tokens to iOS equivalents while respecting Human Interface Guidelines.
-- Use component-level style modules; avoid global overrides. Each component exposes tokens for typography, spacing, and shape to allow rearranging and future customization.
+## Design System & Layout
+- Use Material Design 3 components; Android must support Monet dynamic color extraction.
+- Provide a theming bridge that maps Material tokens to iOS equivalents while following HIG.
+- Favor component-level style modules over global overrides; expose tokens for typography, spacing, and shape.
+- Transcription surface uses swipeable cards: live capture first, history second, grouped by day with search/add controls and no inline preview panes.
+- Supply metadata to allow rearranging UI assemblies (atoms → molecules → organisms) and document extension points for third-party skins.
 
-## Architecture
-- Layered approach: data -> domain -> presentation. Keep clear separation between business rules and UI controllers.
-- Favor reactive data flows (e.g., coroutines/Flow, Combine) to coordinate transcription streams, translation outputs, and summaries.
-- Background workers encapsulate long-running tasks; expose APIs to pause/resume without losing context.
-- Persist transcripts, translations, and summaries in encrypted storage; synchronize to cloud services only with explicit consent.
-- Maintain per-conversation transcript stores so switching history entries swaps the active stream without leaking messages between sessions.
+## Architecture & Data Flow
+- Layered structure: data → domain → presentation; keep business rules out of UI controllers.
+- Prefer reactive pipelines (coroutines/Flow, Combine) to coordinate transcription, translation, and summaries.
+- Encapsulate long-running work in background workers with pause/resume APIs.
+- Persist transcripts, translations, and summaries in encrypted storage; sync to cloud only with explicit consent.
+- Keep per-conversation transcript stores to prevent cross-session leakage when switching history entries.
 
 ## Internationalization
-- All source code, identifiers, and comments use English only.
-- Deliver localization via resource bundles/language files; default to UTF-8 encoding throughout the project to avoid mojibake.
-- Provide tooling to validate missing translations and fallback logic.
+- All source code, identifiers, and comments remain in English.
+- Localize via resource bundles/language files; default to UTF-8 everywhere.
+- Maintain tooling for missing-translation detection and fallback verification.
 
-## Styling & Layout Modules
-- Compose the transcription surface as swipeable cards: live capture first card, history list second, grouped by day with search/add controls and no inline preview panes.
-- Build UI assemblies from atomic components (atoms, molecules, organisms) that can be reordered through configuration.
-- Encapsulate layout rules per module; do not hard-wire positions in shared code. Supply metadata that enables user-driven rearrangement.
-- Document extension points so third-party skins or corporate themes can plug into the style system safely.
+## Data, Privacy, & Security
+- Require explicit user permissions for microphone, background processing, and cloud sync.
+- Encrypt sensitive data in transit and at rest; publish retention and deletion controls.
+- Default to non-PII analytics; gate additional telemetry behind opt-in.
 
-## Data & Privacy
-- Obtain explicit user permissions for microphone access, background processing, and cloud sync.
-- Encrypt sensitive records in transit and at rest. Provide clear retention policies and user-controlled deletion.
-- Log only non-PII analytics by default; gate additional telemetry behind opt-in.
-
-## Quality Expectations
-- Automated regression tests for transcription accuracy, translation correctness (golden datasets), summarization quality, and history queries.
-- Cross-platform UI tests to ensure Material Design 3 compliance and Monet palette mapping.
-- Background execution scenarios covered in integration suites (e.g., incoming call, low battery, network loss).
+## Quality Bar
+- Automated regression suites for transcription accuracy, translation correctness (golden datasets), summarization quality, and history queries.
+- Cross-platform UI tests validate Material Design 3 usage and Monet palette mapping.
+- Integration coverage for background scenarios (e.g., incoming call, low battery, network loss).
 
 ## Delivery & Ops
-- Continuous integration verifies linting, formatting, tests, and localization completeness on every merge.
-- Release artifacts must document feature readiness, known issues, and localization coverage.
-- Monitor runtime performance (CPU, memory, battery) and transcription latency; set SLAs per platform.
+- CI must enforce linting, formatting, tests, and localization completeness on every merge.
+- Release artifacts document feature readiness, known issues, and localization coverage.
+- Track runtime performance (CPU, memory, battery) and transcription latency with platform SLAs.
 
-## Collaboration
-- Maintain a single roadmap with shared milestones for Android and iOS.
-- Capture architectural decisions in ADRs linked from this document.
-- Review product, design, and engineering updates weekly; surface risks early.
-
+## Collaboration & Governance
+- Maintain a single roadmap with shared Android/iOS milestones.
+- Record architectural decisions in ADRs linked from this document.
+- Review product, design, and engineering updates weekly; flag risks early.
