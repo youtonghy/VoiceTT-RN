@@ -10,6 +10,7 @@ import {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   DEFAULT_OPENAI_TRANSLATION_MODEL,
+  DEFAULT_GLM_TRANSCRIPTION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
 import {
@@ -54,6 +55,8 @@ export interface FormState {
   sonioxApiKey: string;
   qwenApiKey: string;
   qwenTranscriptionModel: string;
+  glmApiKey: string;
+  glmTranscriptionModel: string;
   doubaoAppId: string;
   doubaoToken: string;
   doubaoCluster: string;
@@ -93,6 +96,9 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   qwenApiKey: settings.credentials.qwenApiKey ?? '',
   qwenTranscriptionModel:
     settings.credentials.qwenTranscriptionModel ?? DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+  glmApiKey: settings.credentials.glmApiKey ?? '',
+  glmTranscriptionModel:
+    settings.credentials.glmTranscriptionModel ?? DEFAULT_GLM_TRANSCRIPTION_MODEL,
   doubaoAppId: settings.credentials.doubaoAppId ?? '',
   doubaoToken: settings.credentials.doubaoToken ?? '',
   doubaoCluster: settings.credentials.doubaoCluster ?? '',
@@ -258,6 +264,7 @@ export const SETTINGS_CARD_GRADIENTS = {
   gemini: ['#34d399', '#22d3ee', '#2563eb'],
   soniox: ['#f97316', '#fb7185', '#ec4899'],
   qwen: ['#a855f7', '#6366f1', '#14b8a6'],
+  glm: ['#0ea5e9', '#22c55e', '#6366f1'],
   interaction: ['#38bdf8', '#6366f1', '#c084fc'],
   prompt: ['#fb7185', '#f97316', '#a855f7'],
   system: ['#fbbf24', '#f97316', '#ef4444'],

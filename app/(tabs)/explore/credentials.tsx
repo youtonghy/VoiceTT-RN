@@ -18,6 +18,7 @@ import {
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   DEFAULT_OPENAI_TRANSLATION_MODEL,
+  DEFAULT_GLM_TRANSCRIPTION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
 
@@ -279,6 +280,56 @@ export default function CredentialSettingsScreen() {
                 autoCapitalize="none"
                 style={inputStyle}
                 placeholder={DEFAULT_QWEN_TRANSCRIPTION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+          </SettingsCard>
+
+          <SettingsCard variant="glm">
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+              {t('settings.credentials.sections.glm.title')}
+            </ThemedText>
+            <View style={styles.fieldGroup}>
+              <ThemedText
+                style={credentialLabelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                {t('settings.credentials.labels.api_key')}
+              </ThemedText>
+              <TextInput
+                value={formState.glmApiKey}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, glmApiKey: text }))}
+                onBlur={() =>
+                  updateCredentials({ glmApiKey: formState.glmApiKey.trim() || undefined })
+                }
+                autoCapitalize="none"
+                secureTextEntry
+                style={inputStyle}
+                placeholder="token"
+                placeholderTextColor={placeholderTextColor}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <ThemedText
+                style={credentialLabelStyle}
+                lightColor={CARD_SUBTLE_TEXT_COLOR}
+                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                {t('settings.credentials.labels.transcription_model')}
+              </ThemedText>
+              <TextInput
+                value={formState.glmTranscriptionModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, glmTranscriptionModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    glmTranscriptionModel:
+                      formState.glmTranscriptionModel.trim() || DEFAULT_GLM_TRANSCRIPTION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                style={inputStyle}
+                placeholder={DEFAULT_GLM_TRANSCRIPTION_MODEL}
                 placeholderTextColor={placeholderTextColor}
               />
             </View>

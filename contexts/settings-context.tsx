@@ -26,6 +26,7 @@ const VALID_TRANSCRIPTION_ENGINES = new Set<AppSettings['transcriptionEngine']>(
   'qwen3',
   'soniox',
   'doubao',
+  'glm',
 ]);
 
 interface SettingsContextValue {

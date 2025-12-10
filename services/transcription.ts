@@ -19,6 +19,7 @@ export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
 export const DEFAULT_DOUBAO_TRANSCRIPTION_MODEL = 'auc-file';
+export const DEFAULT_GLM_TRANSCRIPTION_MODEL = 'glm-asr-2512';
 export const DEFAULT_TITLE_RESPONSE_MAX_TOKENS = 96;
 export const DEFAULT_TITLE_RESPONSE_TEMPERATURE = 0.4;
 export const DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS = 512;
@@ -40,6 +41,7 @@ const DOUBAO_SUBMIT_URL = 'https://openspeech.bytedance.com/api/v1/auc/submit';
 const DOUBAO_QUERY_URL = 'https://openspeech.bytedance.com/api/v1/auc/query';
 const DOUBAO_POLL_INTERVAL_MS = 2000;
 const DOUBAO_MAX_POLL_ATTEMPTS = 90;
+const GLM_TRANSCRIPTION_URL = 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions';
 
 function resolveOpenAIBaseUrl(settings: AppSettings) {
   return (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
@@ -57,6 +59,8 @@ export function resolveTranscriptionModel(settings: AppSettings): string {
       return DEFAULT_SONIOX_TRANSCRIPTION_MODEL;
     case 'doubao':
       return DEFAULT_DOUBAO_TRANSCRIPTION_MODEL;
+    case 'glm':
+      return settings.credentials.glmTranscriptionModel?.trim() || DEFAULT_GLM_TRANSCRIPTION_MODEL;
     default:
       return DEFAULT_OPENAI_TRANSCRIPTION_MODEL;
   }
@@ -313,6 +317,70 @@ async function transcribeWithOpenAI(
   return {
     text: text.trim(),
     language: settings.transcriptionLanguage !== 'auto' ? settings.transcriptionLanguage : undefined,
+  };
+}
+
+async function transcribeWithGlm(
+  payload: TranscriptionSegmentPayload,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<SegmentedTranscriptionResult> {
+  const apiKey = settings.credentials.glmApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing GLM API key');
+  }
+  ensureFileExists(payload.fileUri);
+  const info = await getInfoAsync(payload.fileUri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+
+  const formData = new FormData();
+  formData.append('file', {
+    // @ts-ignore FormData typing does not include uri on web
+    uri: payload.fileUri,
+    name: inferFileName(payload.fileUri),
+    type: inferMimeType(payload.fileUri),
+  } as any);
+  formData.append('model', resolveTranscriptionModel(settings));
+  formData.append('stream', 'false');
+  formData.append('request_id', `segment-${payload.messageId}-${Date.now()}`);
+
+  const response = await fetch(GLM_TRANSCRIPTION_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      ...(Platform.OS === 'web' ? {} : { Accept: 'application/json' }),
+    },
+    body: formData as any,
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('GLM transcription failed: ' + (errorText || response.statusText));
+  }
+
+  let data: any;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error('GLM transcription failed: Invalid JSON response');
+  }
+
+  const text = typeof data?.text === 'string' ? data.text.trim() : '';
+  if (!text) {
+    throw new Error('GLM transcription returned empty result');
+  }
+
+  const language =
+    settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto'
+      ? settings.transcriptionLanguage
+      : undefined;
+
+  return {
+    text,
+    language,
   };
 }
 
@@ -1022,6 +1090,8 @@ export async function transcribeSegment(
       return transcribeWithSoniox(payload, settings, signal);
     case 'doubao':
       return transcribeWithDoubao(payload, settings, signal);
+    case 'glm':
+      return transcribeWithGlm(payload, settings, signal);
     default:
       throw new Error('Transcription engine ' + settings.transcriptionEngine + ' not implemented yet');
   }

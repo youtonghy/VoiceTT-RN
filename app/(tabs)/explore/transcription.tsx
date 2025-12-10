@@ -17,7 +17,7 @@ import {
   useSettingsForm,
 } from './shared';
 
-const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox', 'doubao'];
+const transcriptionEngines: TranscriptionEngine[] = ['openai', 'qwen3', 'soniox', 'doubao', 'glm'];
 
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();

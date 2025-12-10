@@ -185,6 +185,9 @@
         "qwen": {
           "title": "Qwen3"
         },
+        "glm": {
+          "title": "GLM"
+        },
         "doubao": {
           "title": "Doubao"
         }
@@ -233,7 +236,8 @@
         "openai": "OpenAI",
         "qwen3": "Qwen3",
         "soniox": "Soniox",
-        "doubao": "Doubao"
+        "doubao": "Doubao",
+        "glm": "GLM"
       }
     },
     "voice_input": {
@@ -244,7 +248,8 @@
         "openai": "OpenAI",
         "qwen3": "Qwen3",
         "soniox": "Soniox",
-        "doubao": "Doubao"
+        "doubao": "Doubao",
+        "glm": "GLM"
       }
     },
     "translation": {
