@@ -76,18 +76,40 @@ jobs:
       - name: Locate Android artifact
         id: find_android_artifact
         run: |
-          ARTIFACT=$(
-            python3 - <<'PY'
+          find_latest() {
+            python3 - "$@" <<'PY'
 import pathlib, sys
 
-paths = [p for ext in ('.apk', '.aab') for p in pathlib.Path('.').rglob(f'*{ext}')]
-if not paths:
-    sys.exit('No Android artifact found')
-
-latest = max(paths, key=lambda p: p.stat().st_mtime)
-print(latest)
+root = pathlib.Path(sys.argv[1])
+exts = sys.argv[2:]
+paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
+print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
 PY
-          )
+          }
+
+          mkdir -p artifacts
+
+          ARTIFACT=$(find_latest "." .apk .aab)
+
+          if [ -z "$ARTIFACT" ]; then
+            TAR=$(find_latest "." .tar.gz)
+            if [ -n "$TAR" ]; then
+              echo "Extracting $TAR to locate Android artifact"
+              TMPDIR=$(mktemp -d)
+              tar -xzf "$TAR" -C "$TMPDIR"
+              INNER=$(find_latest "$TMPDIR" .apk .aab)
+              if [ -n "$INNER" ]; then
+                DEST="artifacts/$(basename "$INNER")"
+                cp "$INNER" "$DEST"
+                ARTIFACT="$DEST"
+              fi
+            fi
+          fi
+
+          if [ -z "$ARTIFACT" ]; then
+            echo "No Android artifact found"
+            exit 1
+          fi
           echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
           ls -lh "$ARTIFACT"
 
@@ -127,18 +149,40 @@ PY
       - name: Locate iOS artifact
         id: find_ios_artifact
         run: |
-          ARTIFACT=$(
-            python3 - <<'PY'
+          find_latest() {
+            python3 - "$@" <<'PY'
 import pathlib, sys
 
-paths = [p for ext in ('.ipa',) for p in pathlib.Path('.').rglob(f'*{ext}')]
-if not paths:
-    sys.exit('No iOS artifact found')
-
-latest = max(paths, key=lambda p: p.stat().st_mtime)
-print(latest)
+root = pathlib.Path(sys.argv[1])
+exts = sys.argv[2:]
+paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
+print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
 PY
-          )
+          }
+
+          mkdir -p artifacts
+
+          ARTIFACT=$(find_latest "." .ipa)
+
+          if [ -z "$ARTIFACT" ]; then
+            TAR=$(find_latest "." .tar.gz)
+            if [ -n "$TAR" ]; then
+              echo "Extracting $TAR to locate iOS artifact"
+              TMPDIR=$(mktemp -d)
+              tar -xzf "$TAR" -C "$TMPDIR"
+              INNER=$(find_latest "$TMPDIR" .ipa)
+              if [ -n "$INNER" ]; then
+                DEST="artifacts/$(basename "$INNER")"
+                cp "$INNER" "$DEST"
+                ARTIFACT="$DEST"
+              fi
+            fi
+          fi
+
+          if [ -z "$ARTIFACT" ]; then
+            echo "No iOS artifact found"
+            exit 1
+          fi
           echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
           ls -lh "$ARTIFACT"
 
