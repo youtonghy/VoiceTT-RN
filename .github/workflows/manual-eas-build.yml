@@ -73,18 +73,7 @@ jobs:
       - name: Locate Android artifact
         id: find_android_artifact
         run: |
-          ARTIFACT=$(python3 - <<'PY'
-import pathlib
-paths = []
-for ext in (".apk", ".aab"):
-    for path in pathlib.Path(".").rglob(f"*{ext}"):
-        paths.append((path.stat().st_mtime, path))
-if not paths:
-    raise SystemExit("No Android artifact found")
-paths.sort(key=lambda item: item[0], reverse=True)
-print(paths[0][1])
-PY
-)
+          ARTIFACT=$(python3 -c "import pathlib, sys; paths=[p for ext in ('.apk','.aab') for p in pathlib.Path('.').rglob(f'*{ext}')]; sys.exit('No Android artifact found' if not paths else 0); latest=max(paths, key=lambda p: p.stat().st_mtime); print(latest)")
           echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
           ls -lh "$ARTIFACT"
 
@@ -124,18 +113,7 @@ PY
       - name: Locate iOS artifact
         id: find_ios_artifact
         run: |
-          ARTIFACT=$(python3 - <<'PY'
-import pathlib
-paths = []
-for ext in (".ipa",):
-    for path in pathlib.Path(".").rglob(f"*{ext}"):
-        paths.append((path.stat().st_mtime, path))
-if not paths:
-    raise SystemExit("No iOS artifact found")
-paths.sort(key=lambda item: item[0], reverse=True)
-print(paths[0][1])
-PY
-)
+          ARTIFACT=$(python3 -c "import pathlib, sys; paths=[p for ext in ('.ipa',) for p in pathlib.Path('.').rglob(f'*{ext}')]; sys.exit('No iOS artifact found' if not paths else 0); latest=max(paths, key=lambda p: p.stat().st_mtime); print(latest)")
           echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
           ls -lh "$ARTIFACT"
 
