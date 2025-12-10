@@ -64,59 +64,28 @@ jobs:
           node-version: 18
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install dependencies
         run: npm ci
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Build Android locally
-        run: eas build --platform android --profile production --non-interactive --local
+      - name: Build Android AAB locally
+        run: eas build --platform android --profile production --non-interactive --local --output=android-release.aab
 
-      - name: Locate Android artifact
-        id: find_android_artifact
-        run: |
-          find_latest() {
-            python3 - "$@" <<'PY'
-          import pathlib, sys
+      - name: Build Android APK locally
+        run: eas build --platform android --profile production_apk --non-interactive --local --output=android-release.apk
 
-          root = pathlib.Path(sys.argv[1])
-          exts = sys.argv[2:]
-          paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
-          print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
-          PY
-          }
-
-          mkdir -p artifacts
-
-          ARTIFACT=$(find_latest "." .apk .aab)
-
-          if [ -z "$ARTIFACT" ]; then
-            TAR=$(find_latest "." .tar.gz)
-            if [ -n "$TAR" ]; then
-              echo "Extracting $TAR to locate Android artifact"
-              TMPDIR=$(mktemp -d)
-              tar -xzf "$TAR" -C "$TMPDIR"
-              INNER=$(find_latest "$TMPDIR" .apk .aab)
-              if [ -n "$INNER" ]; then
-                DEST="artifacts/$(basename "$INNER")"
-                cp "$INNER" "$DEST"
-                ARTIFACT="$DEST"
-              fi
-            fi
-          fi
-
-          if [ -z "$ARTIFACT" ]; then
-            echo "No Android artifact found"
-            exit 1
-          fi
-          echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
-          ls -lh "$ARTIFACT"
-
-      - name: Upload Android artifact to draft release
+      - name: Upload Android artifacts to draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$RELEASE_TAG" "${{ steps.find_android_artifact.outputs.path }}" --clobber
+        run: gh release upload "$RELEASE_TAG" "android-release.aab" "android-release.apk" --clobber
 
   ios:
     needs: prepare_release
