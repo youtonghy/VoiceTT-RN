@@ -13,13 +13,44 @@ on:
         default: true
 
 jobs:
+  prepare_release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(node -e "const fs = require('fs'); const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo || {}; const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); console.log(app.version || pkg.version);")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure draft release exists
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, reusing it."
+          else
+            gh release create "$TAG" --draft --title "$TAG" --notes "Automated build for $TAG"
+          fi
+
   android:
+    needs: prepare_release
     if: inputs.build_android == true
     runs-on: ubuntu-latest
     env:
       EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
       EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
       EAS_NO_CREDENTIALS: 1
+      RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,13 +70,38 @@ jobs:
       - name: Build Android locally
         run: eas build --platform android --profile production --non-interactive --local
 
+      - name: Locate Android artifact
+        id: find_android_artifact
+        run: |
+          ARTIFACT=$(python3 - <<'PY'
+import pathlib
+paths = []
+for ext in (".apk", ".aab"):
+    for path in pathlib.Path(".").rglob(f"*{ext}"):
+        paths.append((path.stat().st_mtime, path))
+if not paths:
+    raise SystemExit("No Android artifact found")
+paths.sort(key=lambda item: item[0], reverse=True)
+print(paths[0][1])
+PY
+)
+          echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
+          ls -lh "$ARTIFACT"
+
+      - name: Upload Android artifact to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_TAG" "${{ steps.find_android_artifact.outputs.path }}" --clobber
+
   ios:
+    needs: prepare_release
     if: inputs.build_ios == true
     runs-on: macos-latest
     env:
       EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
       EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
       EAS_NO_CREDENTIALS: 1
+      RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,3 +120,26 @@ jobs:
 
       - name: Build iOS locally
         run: eas build --platform ios --profile production --non-interactive --local
+
+      - name: Locate iOS artifact
+        id: find_ios_artifact
+        run: |
+          ARTIFACT=$(python3 - <<'PY'
+import pathlib
+paths = []
+for ext in (".ipa",):
+    for path in pathlib.Path(".").rglob(f"*{ext}"):
+        paths.append((path.stat().st_mtime, path))
+if not paths:
+    raise SystemExit("No iOS artifact found")
+paths.sort(key=lambda item: item[0], reverse=True)
+print(paths[0][1])
+PY
+)
+          echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
+          ls -lh "$ARTIFACT"
+
+      - name: Upload iOS artifact to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$RELEASE_TAG" "${{ steps.find_ios_artifact.outputs.path }}" --clobber
