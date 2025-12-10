@@ -78,13 +78,13 @@ jobs:
         run: |
           find_latest() {
             python3 - "$@" <<'PY'
-import pathlib, sys
+          import pathlib, sys
 
-root = pathlib.Path(sys.argv[1])
-exts = sys.argv[2:]
-paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
-print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
-PY
+          root = pathlib.Path(sys.argv[1])
+          exts = sys.argv[2:]
+          paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
+          print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
+          PY
           }
 
           mkdir -p artifacts
@@ -151,13 +151,13 @@ PY
         run: |
           find_latest() {
             python3 - "$@" <<'PY'
-import pathlib, sys
+          import pathlib, sys
 
-root = pathlib.Path(sys.argv[1])
-exts = sys.argv[2:]
-paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
-print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
-PY
+          root = pathlib.Path(sys.argv[1])
+          exts = sys.argv[2:]
+          paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
+          print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
+          PY
           }
 
           mkdir -p artifacts
