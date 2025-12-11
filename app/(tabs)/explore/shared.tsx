@@ -154,17 +154,18 @@ export const settingsStyles = StyleSheet.create({
     flex: 1,
   },
   safeAreaLight: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#eef2f7',
   },
   safeAreaDark: {
-    backgroundColor: '#020617',
+    backgroundColor: '#0b1224',
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    gap: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 18,
   },
   sectionTitle: {
     fontSize: 20,
@@ -210,15 +211,16 @@ export const settingsStyles = StyleSheet.create({
     opacity: 0.8,
   },
   optionPill: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
   },
   optionPillActive: {
-    shadowColor: '#000',
+    backgroundColor: '#2563eb',
+    shadowColor: 'rgba(15, 23, 42, 0.18)',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
+    shadowOpacity: 1,
+    shadowRadius: 12,
     elevation: 4,
   },
   optionPillDisabled: {
@@ -306,22 +308,22 @@ export function SettingsCard({
 const cardStyles = StyleSheet.create({
   surface: {
     borderRadius: 28,
-    padding: 20,
+    padding: 18,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(148, 163, 184, 0.18)',
     shadowColor: 'rgba(15, 23, 42, 0.12)',
     shadowOpacity: 1,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
   },
   content: {
     borderRadius: 20,
-    gap: 16,
+    gap: 14,
   },
   contentLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#ffffff',
   },
   contentDark: {
     backgroundColor: 'rgba(10, 12, 24, 0.86)',
