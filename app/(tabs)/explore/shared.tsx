@@ -290,8 +290,8 @@ export function SettingsCard({
   void variant;
   return (
     <ThemedView
-      lightColor="#ffffff"
-      darkColor="rgba(15, 23, 42, 0.92)"
+      lightColor="#f8fafc"
+      darkColor="rgba(10, 12, 24, 0.95)"
       style={[cardStyles.surface, style]}>
       <ThemedView
         lightColor="transparent"
@@ -309,22 +309,22 @@ const cardStyles = StyleSheet.create({
     padding: 20,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.24)',
-    shadowColor: 'rgba(15, 23, 42, 0.06)',
+    borderColor: 'rgba(148, 163, 184, 0.18)',
+    shadowColor: 'rgba(15, 23, 42, 0.12)',
     shadowOpacity: 1,
-    shadowRadius: 18,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 12 },
-    elevation: 5,
+    elevation: 6,
   },
   content: {
     borderRadius: 20,
     gap: 16,
   },
   contentLight: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   contentDark: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(10, 12, 24, 0.86)',
   },
 });
 
