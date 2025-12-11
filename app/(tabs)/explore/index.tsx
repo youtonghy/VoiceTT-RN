@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -53,6 +54,20 @@ export default function SettingsIndexScreen() {
   const handleOpenRepository = useCallback(() => {
     openExternalLink(REPOSITORY_URL);
   }, [openExternalLink]);
+
+  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'dev';
+  const buildVersion =
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants.expoConfig?.android?.versionCode
+      ? String(Constants.expoConfig?.android?.versionCode)
+      : undefined);
+
+  const aboutMeta = useMemo(() => {
+    const versionText = t('settings.about.meta.version', { version: appVersion });
+    const buildText = buildVersion ? t('settings.about.meta.build', { build: buildVersion }) : null;
+    return [versionText, buildText].filter(Boolean) as string[];
+  }, [appVersion, buildVersion, t]);
 
   const entryItems: SettingsEntry[] = useMemo(
     () => [
@@ -209,6 +224,17 @@ export default function SettingsIndexScreen() {
               darkColor="#e2e8f0">
               {t('settings.about.title')}
             </ThemedText>
+            <View style={styles.aboutMeta}>
+              {aboutMeta.map((meta) => (
+                <ThemedText
+                  key={meta}
+                  style={styles.aboutMetaText}
+                  lightColor="rgba(15, 23, 42, 0.65)"
+                  darkColor="rgba(226, 232, 240, 0.7)">
+                  {meta}
+                </ThemedText>
+              ))}
+            </View>
             <View style={styles.aboutLinks}>
               {aboutLinks.map((link) => (
                 <Pressable
@@ -387,6 +413,13 @@ const styles = StyleSheet.create({
   aboutLinks: {
     width: '100%',
     gap: 12,
+  },
+  aboutMeta: {
+    gap: 2,
+    alignItems: 'center',
+  },
+  aboutMetaText: {
+    fontSize: 13,
   },
   aboutLinkPressable: {
     width: '100%',

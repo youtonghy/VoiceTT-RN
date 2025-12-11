@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Share,
 } from "react-native";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
@@ -952,6 +953,45 @@ export default function TranscriptionScreen() {
 
   const pageWidth = width;
 
+  const handleExportMarkdown = useCallback(async () => {
+    const exportableMessages = messages.filter(
+      (item) => (item.transcript && item.transcript.trim()) || (item.translation && item.translation.trim())
+    );
+    if (exportableMessages.length === 0) {
+      Alert.alert(t('transcription.export.empty_title'), t('transcription.export.empty_body'));
+      return;
+    }
+
+    const lines: string[] = [];
+    lines.push(`# ${t('transcription.export.share_title')}`);
+    lines.push('');
+    lines.push(t('transcription.export.generated_at', { time: formatRecordTime(Date.now(), i18n.language) }));
+    lines.push('');
+
+    exportableMessages.forEach((message, index) => {
+      const heading = message.title?.trim() || t('transcription.messages.default_title', { id: message.id });
+      lines.push(`## ${index + 1}. ${heading}`);
+      if (message.transcript && message.transcript.trim()) {
+        lines.push(`**${t('transcription.export.transcript')}**: ${message.transcript.trim()}`);
+      }
+      if (message.translation && message.translation.trim()) {
+        lines.push(`**${t('transcription.export.translation')}**: ${message.translation.trim()}`);
+      }
+      lines.push('');
+    });
+
+    const markdown = lines.join('\n');
+    try {
+      await Share.share({
+        message: markdown,
+        title: t('transcription.export.share_title'),
+      });
+    } catch (shareError) {
+      console.warn('[transcription] Failed to export markdown', shareError);
+      Alert.alert(t('transcription.export.error_title'), t('transcription.export.error_body'));
+    }
+  }, [messages, t, i18n.language]);
+
 
   useEffect(() => {
     if (initialCarouselPositionedRef.current) {
@@ -1013,7 +1053,21 @@ export default function TranscriptionScreen() {
                   <ThemedText type="subtitle" style={styles.sectionTitle}>
                     {t('transcription.sections.live_content')}
                   </ThemedText>
-                  <RecordingToggle />
+                  <View style={styles.headerActions}>
+                    <Pressable
+                      onPress={() => {
+                        void handleExportMarkdown();
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('transcription.export.accessibility')}
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+                      <Ionicons name="share-outline" size={18} color="#2563eb" />
+                      <ThemedText style={styles.iconButtonLabel} lightColor="#2563eb" darkColor="#cbd5e1">
+                        {t('transcription.export.button')}
+                      </ThemedText>
+                    </Pressable>
+                    <RecordingToggle />
+                  </View>
                 </View>
                 <View style={styles.dialogueContainer}>
                   <ScrollView
@@ -1462,6 +1516,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  iconButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "rgba(37, 99, 235, 0.08)",
+  },
+  iconButtonPressed: {
+    opacity: 0.85,
+  },
+  iconButtonLabel: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   sectionTitle: {
     fontSize: 24,

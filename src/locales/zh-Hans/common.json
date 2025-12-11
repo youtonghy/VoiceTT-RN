@@ -66,6 +66,18 @@
       "placeholder_search_empty": "暂无匹配的历史记录。",
       "new_conversation": "新对话 {{id}}"
     },
+    "export": {
+      "button": "导出",
+      "share_title": "对话导出",
+      "generated_at": "生成时间 {{time}}",
+      "transcript": "转写",
+      "translation": "翻译",
+      "empty_title": "暂无可导出的内容",
+      "empty_body": "请先开始录音，获取转写或翻译后再导出。",
+      "error_title": "导出失败",
+      "error_body": "暂时无法分享 Markdown，请稍后再试。",
+      "accessibility": "以 Markdown 导出对话"
+    },
     "accessibility": {
       "stop_recording": "停止录音",
       "start_recording": "开始录音"
@@ -164,6 +176,10 @@
       "links": {
         "website": "软件网址",
         "repository": "软件仓库"
+      },
+      "meta": {
+        "version": "版本 {{version}}",
+        "build": "构建 {{build}}"
       },
       "footer": {
         "copyright": "@2025 VoiceTT",

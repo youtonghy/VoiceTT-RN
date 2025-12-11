@@ -66,6 +66,18 @@
       "placeholder_search_empty": "No matching history.",
       "new_conversation": "New conversation {{id}}"
     },
+    "export": {
+      "button": "Export",
+      "share_title": "Conversation export",
+      "generated_at": "Generated at {{time}}",
+      "transcript": "Transcript",
+      "translation": "Translation",
+      "empty_title": "Nothing to export",
+      "empty_body": "Start a recording to collect transcript or translation first.",
+      "error_title": "Export failed",
+      "error_body": "Unable to share markdown right now. Please try again.",
+      "accessibility": "Export conversation as Markdown"
+    },
     "accessibility": {
       "stop_recording": "Stop recording",
       "start_recording": "Start recording"
@@ -164,6 +176,10 @@
       "links": {
         "website": "Website",
         "repository": "Repository"
+      },
+      "meta": {
+        "version": "Version {{version}}",
+        "build": "Build {{build}}"
       },
       "footer": {
         "copyright": "@2025 VoiceTT",
