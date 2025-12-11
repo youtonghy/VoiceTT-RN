@@ -5,6 +5,7 @@ import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -117,12 +118,14 @@ export default function SettingsIndexScreen() {
         label: t('settings.about.links.website'),
         url: WEBSITE_URL,
         onPress: handleOpenWebsite,
+        icon: 'globe-outline' as const,
       },
       {
         key: 'repository',
         label: t('settings.about.links.repository'),
         url: REPOSITORY_URL,
         onPress: handleOpenRepository,
+        icon: 'logo-github' as const,
       },
     ],
     [handleOpenRepository, handleOpenWebsite, t]
@@ -240,22 +243,14 @@ export default function SettingsIndexScreen() {
                 <Pressable
                   key={link.key}
                   accessibilityRole="link"
-                  accessibilityLabel={`${link.label} ${link.url}`}
+                  accessibilityLabel={link.label}
                   onPress={link.onPress}
                   style={({ pressed }) => [styles.aboutLinkPressable, pressed && styles.aboutLinkPressed]}>
                   <ThemedView
                     lightColor="rgba(248, 250, 252, 0.65)"
                     darkColor="rgba(15, 23, 42, 0.6)"
                     style={styles.aboutLinkCard}>
-                    <ThemedText
-                      style={styles.aboutLinkLabel}
-                      lightColor="#0f172a"
-                      darkColor="#e2e8f0">
-                      {link.label}
-                    </ThemedText>
-                    <ThemedText type="link" style={styles.aboutLinkUrl}>
-                      {link.url}
-                    </ThemedText>
+                    <Ionicons name={link.icon} size={22} color="#2563eb" />
                   </ThemedView>
                 </Pressable>
               ))}
@@ -413,6 +408,8 @@ const styles = StyleSheet.create({
   aboutLinks: {
     width: '100%',
     gap: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   aboutMeta: {
     gap: 2,
@@ -422,25 +419,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   aboutLinkPressable: {
-    width: '100%',
     borderRadius: 18,
   },
   aboutLinkPressed: {
     opacity: 0.85,
   },
   aboutLinkCard: {
-    width: '100%',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 18,
-    gap: 4,
-  },
-  aboutLinkLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  aboutLinkUrl: {
-    fontSize: 14,
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   aboutFooter: {
     alignItems: 'center',
