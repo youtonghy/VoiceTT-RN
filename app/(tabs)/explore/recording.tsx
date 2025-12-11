@@ -18,8 +18,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AppSettings, RecordingPreset } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_TEXT_COLOR,
-  CARD_TEXT_COLOR,
+  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
+  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
   NumericSettingKey,
   OptionPill,
   SettingsCard,
@@ -188,8 +188,8 @@ export default function RecordingSettingsScreen() {
     <View style={settingsStyles.fieldRow}>
       <ThemedText
         style={labelStyle}
-        lightColor={CARD_SUBTLE_TEXT_COLOR}
-        darkColor={CARD_SUBTLE_TEXT_COLOR}>
+        lightColor={CARD_SUBTLE_LIGHT}
+        darkColor={CARD_SUBTLE_DARK}>
         {t(labelKey)}
       </ThemedText>
       <TextInput
@@ -217,15 +217,15 @@ export default function RecordingSettingsScreen() {
             <View style={recordingStyles.presetCardHeader}>
               <ThemedText
                 type="subtitle"
-                lightColor={CARD_TEXT_COLOR}
-                darkColor={CARD_TEXT_COLOR}>
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
                 {t('settings.recording.presets.save_title')}
               </ThemedText>
             </View>
             <ThemedText
               style={recordingStyles.saveCardDescription}
-              lightColor={CARD_SUBTLE_TEXT_COLOR}
-              darkColor={CARD_SUBTLE_TEXT_COLOR}>
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
               {t('settings.recording.presets.save_description')}
             </ThemedText>
             <TextInput
@@ -249,8 +249,8 @@ export default function RecordingSettingsScreen() {
             <SettingsCard variant="system">
               <ThemedText
                 style={recordingStyles.emptyStateText}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.recording.presets.empty')}
               </ThemedText>
             </SettingsCard>
@@ -263,8 +263,8 @@ export default function RecordingSettingsScreen() {
                   <View style={recordingStyles.presetCardHeader}>
                     <ThemedText
                       type="subtitle"
-                      lightColor={CARD_TEXT_COLOR}
-                      darkColor={CARD_TEXT_COLOR}>
+                      lightColor={CARD_TEXT_LIGHT}
+                      darkColor={CARD_TEXT_DARK}>
                       {preset.name}
                     </ThemedText>
                     {isActive ? (
@@ -309,14 +309,14 @@ export default function RecordingSettingsScreen() {
                       <View key={item.key} style={recordingStyles.presetMetaItem}>
                         <ThemedText
                           style={recordingStyles.presetMetaLabel}
-                          lightColor={CARD_SUBTLE_TEXT_COLOR}
-                          darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                          lightColor={CARD_SUBTLE_LIGHT}
+                          darkColor={CARD_SUBTLE_DARK}>
                           {item.label}
                         </ThemedText>
                         <ThemedText
                           style={recordingStyles.presetMetaValue}
-                          lightColor={CARD_TEXT_COLOR}
-                          darkColor={CARD_TEXT_COLOR}>
+                          lightColor={CARD_TEXT_LIGHT}
+                          darkColor={CARD_TEXT_DARK}>
                           {item.value}
                         </ThemedText>
                       </View>

@@ -102,6 +102,11 @@ export default function SettingsIndexScreen() {
         subtitle: t('settings.sections.qa.subtitle'),
       },
       {
+        route: '/explore/appearance' as RouteHref,
+        title: t('settings.sections.appearance.title'),
+        subtitle: t('settings.sections.appearance.subtitle'),
+      },
+      {
         route: '/explore/credentials' as RouteHref,
         title: t('settings.sections.credentials.title'),
         subtitle: t('settings.sections.credentials.subtitle'),
@@ -148,7 +153,7 @@ export default function SettingsIndexScreen() {
           style={styles.entryScroll}>
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={proVersionPromoCard.title}
+            accessibilityLabel={t('settings.pro.title')}
             onPress={handleOpenProCard}
             style={({ pressed }) => [styles.proCardPressable, pressed && styles.proCardPressed]}>
             <ThemedView
@@ -161,20 +166,20 @@ export default function SettingsIndexScreen() {
                   style={styles.proCardTitle}
                   lightColor="#0f172a"
                   darkColor="#e2e8f0">
-                  {proVersionPromoCard.title}
+                  {t('settings.pro.title')}
                 </ThemedText>
                 <ThemedText
                   style={styles.proCardSubtitle}
                   lightColor="#475569"
                   darkColor="#cbd5e1">
-                  {proVersionPromoCard.description}
+                  {t('settings.pro.description')}
                 </ThemedText>
                 <View style={styles.proCardCta}>
                   <ThemedText
                     style={styles.proCardCtaText}
                     lightColor="#2563eb"
                     darkColor="#93c5fd">
-                    {proVersionPromoCard.ctaLabel}
+                    {t('settings.pro.cta')}
                   </ThemedText>
                 </View>
               </View>

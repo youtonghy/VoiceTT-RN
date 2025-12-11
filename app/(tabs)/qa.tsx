@@ -486,7 +486,7 @@ export default function QaScreen() {
         <View style={styles.toggleContainer}>
           <View style={styles.toggleRow}>
             <View style={styles.togglePrimary}>
-              <RecordingToggle qaAutoEnabled />
+              <RecordingToggle qaAutoEnabled variant="full" />
             </View>
             <View style={styles.manualButtonGroup}>
               <Pressable

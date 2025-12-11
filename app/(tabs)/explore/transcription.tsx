@@ -9,8 +9,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_TEXT_COLOR,
-  CARD_TEXT_COLOR,
+  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
+  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
   OptionPill,
   SettingsCard,
   settingsStyles,
@@ -52,8 +52,8 @@ export default function TranscriptionSettingsScreen() {
           <SettingsCard variant="interaction">
             <ThemedText
               style={groupLabelStyle}
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.transcription.labels.engine')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -70,8 +70,8 @@ export default function TranscriptionSettingsScreen() {
             <View style={settingsStyles.fieldRow}>
               <ThemedText
                 style={labelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.transcription.labels.source_language')}
               </ThemedText>
               <TextInput

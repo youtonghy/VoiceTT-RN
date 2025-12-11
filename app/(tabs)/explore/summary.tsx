@@ -25,8 +25,8 @@ import {
 } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_TEXT_COLOR,
-  CARD_TEXT_COLOR,
+  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
+  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
   OptionPill,
   SettingsCard,
   settingsStyles,
@@ -74,8 +74,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="interaction">
             <ThemedText
               type="subtitle"
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.summary.title_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -93,8 +93,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="openai">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_TEXT_COLOR}
-              darkColor={CARD_SUBTLE_TEXT_COLOR}>
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
               {t('settings.summary.title_engine.openai_label')}
             </ThemedText>
             <TextInput
@@ -117,8 +117,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="gemini">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_TEXT_COLOR}
-              darkColor={CARD_SUBTLE_TEXT_COLOR}>
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
               {t('settings.summary.title_engine.gemini_label')}
             </ThemedText>
             <TextInput
@@ -141,8 +141,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="prompt">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.summary.title_engine.prompt_label')}
             </ThemedText>
             <TextInput
@@ -165,8 +165,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="interaction">
             <ThemedText
               type="subtitle"
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.summary.conversation_engine.title')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
@@ -184,8 +184,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="openai">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_TEXT_COLOR}
-              darkColor={CARD_SUBTLE_TEXT_COLOR}>
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
               {t('settings.summary.conversation_engine.openai_label')}
             </ThemedText>
             <TextInput
@@ -210,8 +210,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="gemini">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_TEXT_COLOR}
-              darkColor={CARD_SUBTLE_TEXT_COLOR}>
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
               {t('settings.summary.conversation_engine.gemini_label')}
             </ThemedText>
             <TextInput
@@ -236,8 +236,8 @@ export default function SummarySettingsScreen() {
           <SettingsCard variant="prompt">
             <ThemedText
               style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.summary.conversation_engine.prompt_label')}
             </ThemedText>
             <TextInput

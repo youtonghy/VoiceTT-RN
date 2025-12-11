@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   Pressable,
@@ -1061,12 +1060,9 @@ export default function TranscriptionScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={t('transcription.export.accessibility')}
                       style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
-                      <Ionicons name="share-outline" size={18} color="#2563eb" />
-                      <ThemedText style={styles.iconButtonLabel} lightColor="#2563eb" darkColor="#cbd5e1">
-                        {t('transcription.export.button')}
-                      </ThemedText>
+                      <Ionicons name="share-outline" size={20} color="#2563eb" />
                     </Pressable>
-                    <RecordingToggle />
+                    <RecordingToggle variant="icon" />
                   </View>
                 </View>
                 <View style={styles.dialogueContainer}>
@@ -1198,25 +1194,24 @@ export default function TranscriptionScreen() {
                     style={styles.assistantConversationScroll}
                     contentContainerStyle={styles.assistantConversationContent}
                     showsVerticalScrollIndicator={false}>
-                    <LinearGradient
-                      colors={["#38bdf8", "#6366f1", "#ec4899"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
+                    <ThemedView
+                      lightColor="#eff6ff"
+                      darkColor="rgba(30, 41, 59, 0.6)"
                       style={styles.assistantSummaryCard}>
                       <ThemedText
                         style={styles.assistantSummaryLabel}
-                        lightColor="#f8fafc"
-                        darkColor="#e2e8f0">
+                        lightColor="#2563eb"
+                        darkColor="#60a5fa">
                         {t('assistant.section.summary_title')}
                       </ThemedText>
                       <MarkdownText
                         style={styles.assistantSummaryText}
-                        lightColor="#f8fafc"
-                        darkColor="#f8fafc"
+                        lightColor="#1e293b"
+                        darkColor="#e2e8f0"
                       >
                         {assistantSummary || assistantSummaryPlaceholder}
                       </MarkdownText>
-                    </LinearGradient>
+                    </ThemedView>
                     {assistantMessages.length === 0 ? (
                       <ThemedText
                         style={styles.assistantEmptyText}
@@ -1532,12 +1527,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconButton: {
-    flexDirection: "row",
+    width: 44,
+    height: 44,
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    justifyContent: "center",
+    borderRadius: 22,
     backgroundColor: "rgba(37, 99, 235, 0.08)",
   },
   iconButtonPressed: {

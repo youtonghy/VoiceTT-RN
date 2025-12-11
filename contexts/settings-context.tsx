@@ -37,7 +37,7 @@ interface SettingsContextValue {
   resetSettings: () => void;
 }
 
-const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
+export const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
 
 async function loadPersistedSettings(): Promise<AppSettings | null> {
   try {

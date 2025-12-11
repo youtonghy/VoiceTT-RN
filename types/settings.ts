@@ -1,8 +1,5 @@
 export interface SettingsPromoCard {
   id: string;
-  title: string;
-  description: string;
-  ctaLabel: string;
   href: string;
   gradient: string[];
   glowColor: string;
@@ -11,9 +8,6 @@ export interface SettingsPromoCard {
 
 export const proVersionPromoCard: SettingsPromoCard = {
   id: 'pro-version',
-  title: 'Pro 版本',
-  description: '解锁更快的语音处理、AI 翻译与会议精华能力，轻松驾驭每一次对话。',
-  ctaLabel: '立即升级',
   href: 'https://vtt.tokisantike.net/pro.html',
   gradient: ['#052e16', '#047857', '#22c55e', '#bbf7d0'],
   glowColor: 'rgba(74, 222, 128, 0.35)',
@@ -28,6 +22,8 @@ export type VoiceInputEngine = TranscriptionEngine;
 export type TitleSummaryEngine = 'openai' | 'gemini';
 export type ConversationSummaryEngine = 'openai' | 'gemini';
 export type QaEngine = 'openai' | 'gemini';
+
+export type ThemeMode = 'automatic' | 'light' | 'dark';
 
 export interface EngineCredentials {
   openaiApiKey?: string;
@@ -98,6 +94,7 @@ export interface AppSettings extends TranscriptionSettings {
   conversationSummaryPrompt: string;
   qaEngine: QaEngine;
   qaPrompt: string;
+  themeMode: ThemeMode;
   credentials: EngineCredentials;
   recordingPresets: RecordingPreset[];
   activeRecordingPresetId: string | null;
@@ -123,6 +120,7 @@ export const defaultSettings: AppSettings = {
   conversationSummaryPrompt: DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   qaEngine: 'openai',
   qaPrompt: DEFAULT_QA_PROMPT,
+  themeMode: 'automatic',
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',

@@ -1,35 +1,34 @@
-
-import { KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { TranslationEngine } from '@/types/settings';
+import type { ThemeMode } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
+  CARD_TEXT_LIGHT,
+  CARD_TEXT_DARK,
   OptionPill,
   SettingsCard,
   settingsStyles,
 } from './shared';
 
-const translationEngines: TranslationEngine[] = ['openai', 'gemini', 'none'];
+const themeModes: ThemeMode[] = ['automatic', 'light', 'dark'];
 
-export default function TranslationSettingsScreen() {
+export default function AppearanceSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
   const safeAreaStyle = [
     settingsStyles.safeArea,
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
+  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -45,33 +44,19 @@ export default function TranslationSettingsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
           <SettingsCard variant="interaction">
-            <View style={settingsStyles.rowBetween}>
-              <ThemedText
-                type="subtitle"
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.translation.labels.enable_translation')}
-              </ThemedText>
-              <Switch
-                value={settings.enableTranslation}
-                onValueChange={(next) => updateSettings({ enableTranslation: next })}
-              />
-            </View>
-
             <ThemedText
               style={groupLabelStyle}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.translation.labels.engine')}
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
+              {t('settings.appearance.labels.mode')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
-              {translationEngines.map((engine) => (
+              {themeModes.map((mode) => (
                 <OptionPill
-                  key={engine}
-                  label={t(`settings.translation.engines.${engine}`)}
-                  active={settings.translationEngine === engine}
-                  onPress={() => updateSettings({ translationEngine: engine })}
-                  disabled={!settings.enableTranslation}
+                  key={mode}
+                  label={t(`settings.appearance.modes.${mode}`)}
+                  active={settings.themeMode === mode}
+                  onPress={() => updateSettings({ themeMode: mode })}
                 />
               ))}
             </View>
@@ -81,4 +66,3 @@ export default function TranslationSettingsScreen() {
     </SafeAreaView>
   );
 }
-

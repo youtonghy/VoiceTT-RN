@@ -23,8 +23,10 @@ import {
 } from '@/services/transcription';
 
 import {
-  CARD_SUBTLE_TEXT_COLOR,
-  CARD_TEXT_COLOR,
+  CARD_SUBTLE_DARK,
+  CARD_SUBTLE_LIGHT,
+  CARD_TEXT_DARK,
+  CARD_TEXT_LIGHT,
   SettingsCard,
   settingsStyles,
   useSettingsForm,
@@ -65,14 +67,14 @@ export default function CredentialSettingsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
           <SettingsCard variant="openai">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.openai.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.base_url')}
               </ThemedText>
               <TextInput
@@ -92,8 +94,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
@@ -112,8 +114,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.transcription_model')}
               </ThemedText>
               <TextInput
@@ -136,8 +138,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.translation_model')}
               </ThemedText>
               <TextInput
@@ -160,14 +162,14 @@ export default function CredentialSettingsScreen() {
           </SettingsCard>
 
           <SettingsCard variant="gemini">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.gemini.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
@@ -186,8 +188,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.translation_model')}
               </ThemedText>
               <TextInput
@@ -210,14 +212,14 @@ export default function CredentialSettingsScreen() {
           </SettingsCard>
 
           <SettingsCard variant="soniox">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.soniox.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
@@ -236,14 +238,14 @@ export default function CredentialSettingsScreen() {
           </SettingsCard>
 
           <SettingsCard variant="qwen">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.qwen.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
@@ -262,8 +264,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.transcription_model')}
               </ThemedText>
               <TextInput
@@ -286,14 +288,14 @@ export default function CredentialSettingsScreen() {
           </SettingsCard>
 
           <SettingsCard variant="glm">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.glm.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.api_key')}
               </ThemedText>
               <TextInput
@@ -312,8 +314,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.transcription_model')}
               </ThemedText>
               <TextInput
@@ -336,14 +338,14 @@ export default function CredentialSettingsScreen() {
           </SettingsCard>
 
           <SettingsCard variant="interaction">
-            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_COLOR} darkColor={CARD_TEXT_COLOR}>
+            <ThemedText style={sectionTitleStyle} lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
               {t('settings.credentials.sections.doubao.title')}
             </ThemedText>
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.doubao_app_id')}
               </ThemedText>
               <TextInput
@@ -361,8 +363,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.doubao_token')}
               </ThemedText>
               <TextInput
@@ -381,8 +383,8 @@ export default function CredentialSettingsScreen() {
             <View style={styles.fieldGroup}>
               <ThemedText
                 style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_TEXT_COLOR}
-                darkColor={CARD_SUBTLE_TEXT_COLOR}>
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
                 {t('settings.credentials.labels.doubao_cluster')}
               </ThemedText>
               <TextInput

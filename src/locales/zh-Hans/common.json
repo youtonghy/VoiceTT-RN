@@ -165,6 +165,10 @@
         "title": "实时问答",
         "subtitle": "问题抽取模型与提示词"
       },
+      "appearance": {
+        "title": "外观",
+        "subtitle": "深色与浅色模式"
+      },
       "credentials": {
         "title": "凭据",
         "subtitle": "管理模型密钥"
@@ -312,6 +316,21 @@
       "openai_label": "OpenAI 问答模型",
       "gemini_label": "Gemini 问答模型",
       "prompt_label": "抽取提示词"
+    },
+    "appearance": {
+      "labels": {
+        "mode": "主题模式"
+      },
+      "modes": {
+        "automatic": "跟随系统",
+        "light": "浅色",
+        "dark": "深色"
+      }
+    },
+    "pro": {
+      "title": "Pro 版本",
+      "description": "解锁更快的语音处理、AI 翻译与会议精华能力，轻松驾驭每一次对话。",
+      "cta": "立即升级"
     }
   }
 }

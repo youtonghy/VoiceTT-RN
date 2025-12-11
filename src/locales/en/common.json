@@ -165,6 +165,10 @@
         "title": "Live Q&A",
         "subtitle": "Question extraction model and prompt"
       },
+      "appearance": {
+        "title": "Appearance",
+        "subtitle": "Theme mode"
+      },
       "credentials": {
         "title": "Credentials",
         "subtitle": "Manage API keys"
@@ -312,6 +316,21 @@
       "openai_label": "OpenAI Q&A model",
       "gemini_label": "Gemini Q&A model",
       "prompt_label": "Extraction prompt"
+    },
+    "appearance": {
+      "labels": {
+        "mode": "Theme mode"
+      },
+      "modes": {
+        "automatic": "Automatic",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "pro": {
+      "title": "Pro Version",
+      "description": "Unlock faster voice processing, AI translation, and meeting summaries to master every conversation.",
+      "cta": "Upgrade Now"
     }
   }
 }

@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   Animated,
   Easing,
@@ -17,15 +18,16 @@ const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 type RecordingToggleProps = {
   qaAutoEnabled?: boolean;
+  variant?: 'icon' | 'full';
 };
 
-export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps = {}) {
+export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
   const { isSessionActive, toggleSession, isRecording } = useTranscription();
   const { t } = useTranslation();
   const shimmerProgress = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
 
-  console.log('[RecordingToggle] Render - isSessionActive:', isSessionActive, 'isRecording:', isRecording);
+  console.log('[RecordingToggle] Render - isSessionActive:', isSessionActive, 'variant:', variant);
 
   useEffect(() => {
     return () => {
@@ -55,7 +57,7 @@ export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps 
 
   const shimmerTranslate = shimmerProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [-120, 120],
+    outputRange: [-120, 300], // Increased range for full width
   });
 
   const colors: readonly [ColorValue, ColorValue] = isSessionActive
@@ -77,6 +79,8 @@ export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps 
       : t('transcription.status.processing')
     : t('transcription.controls.start');
 
+  const isFull = variant === 'full';
+
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
@@ -84,19 +88,34 @@ export function RecordingToggle({ qaAutoEnabled = false }: RecordingToggleProps 
         console.log('[RecordingToggle] Button pressed');
         void toggleSession({ qaAutoEnabled });
       }}
-      style={styles.recordButtonWrapper}>
-      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.recordButton}>
-        <View style={styles.recordButtonContent}>
-          <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
-            {label}
-          </ThemedText>
+      style={[styles.recordButtonWrapper, isFull && styles.recordButtonWrapperFull]}>
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.recordButton, isFull && styles.recordButtonFull]}>
+        <View style={[styles.recordButtonContent, isFull && styles.recordButtonContentFull]}>
+          <Ionicons
+            name={isSessionActive ? "stop" : "mic"}
+            size={24}
+            color="#fff"
+          />
+          {isFull ? (
+            <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
+              {label}
+            </ThemedText>
+          ) : null}
         </View>
         {isSessionActive ? (
           <AnimatedLinearGradient
             colors={shimmerColors}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
-            style={[styles.recordButtonShimmer, { transform: [{ translateX: shimmerTranslate }] }]}
+            style={[
+              styles.recordButtonShimmer,
+              isFull ? styles.recordButtonShimmerFull : styles.recordButtonShimmerIcon,
+              { transform: [{ translateX: shimmerTranslate }] }
+            ]}
           />
         ) : null}
       </LinearGradient>
@@ -114,16 +133,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 12,
   },
+  recordButtonWrapperFull: {
+    width: '100%',
+  },
   recordButton: {
+    width: 60,
+    height: 60,
     borderRadius: 30,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  recordButtonFull: {
+    width: '100%',
+    height: 56,
+    flexDirection: 'row',
+    paddingHorizontal: 24,
   },
   recordButtonContent: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  recordButtonContentFull: {
+    flexDirection: 'row',
+    gap: 12,
   },
   recordButtonLabel: {
     fontSize: 18,
@@ -133,7 +165,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 90,
     opacity: 0.85,
+  },
+  recordButtonShimmerIcon: {
+    width: 60,
+  },
+  recordButtonShimmerFull: {
+    width: '100%',
   },
 });

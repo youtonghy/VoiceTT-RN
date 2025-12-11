@@ -134,14 +134,17 @@ export function OptionPill({
       onPress={onPress}
       style={({ pressed }) => [settingsStyles.optionPressable, pressed && !disabled && settingsStyles.optionPressed]}>
       <ThemedView
-        lightColor={active ? '#0ea5e9' : 'rgba(148, 163, 184, 0.16)'}
-        darkColor={active ? '#0284c7' : 'rgba(148, 163, 184, 0.18)'}
+        lightColor={active ? '#2563eb' : '#e2e8f0'}
+        darkColor={active ? '#3b82f6' : '#334155'}
         style={[
           settingsStyles.optionPill,
           active && settingsStyles.optionPillActive,
           disabled && settingsStyles.optionPillDisabled,
         ]}>
-        <ThemedText style={settingsStyles.optionPillText} lightColor="#fff" darkColor="#fff">
+        <ThemedText
+          style={settingsStyles.optionPillText}
+          lightColor={active ? '#ffffff' : '#1e293b'}
+          darkColor={active ? '#ffffff' : '#e2e8f0'}>
           {label}
         </ThemedText>
       </ThemedView>
@@ -216,7 +219,6 @@ export const settingsStyles = StyleSheet.create({
     borderRadius: 999,
   },
   optionPillActive: {
-    backgroundColor: '#2563eb',
     shadowColor: 'rgba(15, 23, 42, 0.18)',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
@@ -273,8 +275,14 @@ export const SETTINGS_CARD_GRADIENTS = {
 
 export type SettingsCardVariant = keyof typeof SETTINGS_CARD_GRADIENTS;
 
-export const CARD_TEXT_COLOR = '#f8fafc';
-export const CARD_SUBTLE_TEXT_COLOR = '#e2e8f0';
+export const CARD_BG_LIGHT = '#F3F4F6';
+export const CARD_BG_DARK = '#1E293B';
+
+export const CARD_TEXT_LIGHT = '#111827';
+export const CARD_TEXT_DARK = '#F8FAFC';
+
+export const CARD_SUBTLE_LIGHT = '#4B5563';
+export const CARD_SUBTLE_DARK = '#94A3B8';
 
 export function SettingsCard({
   variant = 'interaction',
@@ -292,13 +300,13 @@ export function SettingsCard({
   void variant;
   return (
     <ThemedView
-      lightColor="#f8fafc"
-      darkColor="rgba(10, 12, 24, 0.95)"
+      lightColor={CARD_BG_LIGHT}
+      darkColor={CARD_BG_DARK}
       style={[cardStyles.surface, style]}>
       <ThemedView
         lightColor="transparent"
         darkColor="transparent"
-        style={[cardStyles.content, isDark ? cardStyles.contentDark : cardStyles.contentLight, contentStyle]}>
+        style={[cardStyles.content, contentStyle]}>
         {children}
       </ThemedView>
     </ThemedView>
@@ -321,12 +329,6 @@ const cardStyles = StyleSheet.create({
   content: {
     borderRadius: 20,
     gap: 14,
-  },
-  contentLight: {
-    backgroundColor: '#ffffff',
-  },
-  contentDark: {
-    backgroundColor: 'rgba(10, 12, 24, 0.86)',
   },
 });
 

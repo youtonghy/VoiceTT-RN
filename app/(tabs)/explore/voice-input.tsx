@@ -8,7 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
 
 import {
-  CARD_TEXT_COLOR,
+  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
   OptionPill,
   SettingsCard,
   settingsStyles,
@@ -45,8 +45,8 @@ export default function VoiceInputSettingsScreen() {
           <SettingsCard variant="interaction">
             <ThemedText
               style={groupLabelStyle}
-              lightColor={CARD_TEXT_COLOR}
-              darkColor={CARD_TEXT_COLOR}>
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
               {t('settings.voice_input.labels.engine')}
             </ThemedText>
             <View style={settingsStyles.optionsRow}>
