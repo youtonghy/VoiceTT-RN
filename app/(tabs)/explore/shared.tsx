@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -288,49 +287,44 @@ export function SettingsCard({
 }) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const gradientColors = SETTINGS_CARD_GRADIENTS[variant] ?? SETTINGS_CARD_GRADIENTS.interaction;
-
+  void variant;
   return (
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[cardStyles.surface, cardStyles.shadow, style]}>
+    <ThemedView
+      lightColor="#ffffff"
+      darkColor="rgba(15, 23, 42, 0.92)"
+      style={[cardStyles.surface, style]}>
       <ThemedView
         lightColor="transparent"
         darkColor="transparent"
         style={[cardStyles.content, isDark ? cardStyles.contentDark : cardStyles.contentLight, contentStyle]}>
         {children}
       </ThemedView>
-    </LinearGradient>
+    </ThemedView>
   );
 }
 
 const cardStyles = StyleSheet.create({
   surface: {
     borderRadius: 28,
-    padding: 2,
+    padding: 20,
     overflow: 'hidden',
-  },
-  shadow: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.24)',
+    shadowColor: 'rgba(15, 23, 42, 0.06)',
+    shadowOpacity: 1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    elevation: 5,
   },
   content: {
-    borderRadius: 26,
-    padding: 20,
+    borderRadius: 20,
     gap: 16,
   },
   contentLight: {
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    backgroundColor: 'transparent',
   },
   contentDark: {
-    backgroundColor: 'rgba(2, 6, 23, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
+    backgroundColor: 'transparent',
   },
 });
 

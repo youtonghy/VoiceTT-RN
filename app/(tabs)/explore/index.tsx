@@ -3,7 +3,6 @@ import { Pressable, ScrollView, StyleSheet, View, Alert, Linking, Image } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -152,37 +151,34 @@ export default function SettingsIndexScreen() {
             accessibilityLabel={proVersionPromoCard.title}
             onPress={handleOpenProCard}
             style={({ pressed }) => [styles.proCardPressable, pressed && styles.proCardPressed]}>
-            <LinearGradient
-              colors={proVersionPromoCard.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.proCardGradient}>
-              <View style={styles.proCardGlowPrimary} pointerEvents="none" />
-              <View style={styles.proCardGlowSecondary} pointerEvents="none" />
+            <ThemedView
+              lightColor="#ffffff"
+              darkColor="rgba(15, 23, 42, 0.92)"
+              style={styles.proCard}>
               <View style={styles.proCardContent}>
                 <ThemedText
                   type="title"
                   style={styles.proCardTitle}
-                  lightColor="#f8fafc"
-                  darkColor="#f8fafc">
+                  lightColor="#0f172a"
+                  darkColor="#e2e8f0">
                   {proVersionPromoCard.title}
                 </ThemedText>
                 <ThemedText
                   style={styles.proCardSubtitle}
-                  lightColor="#ecfdf5"
-                  darkColor="#dcfce7">
+                  lightColor="#475569"
+                  darkColor="#cbd5e1">
                   {proVersionPromoCard.description}
                 </ThemedText>
                 <View style={styles.proCardCta}>
                   <ThemedText
                     style={styles.proCardCtaText}
-                    lightColor="#ffffff"
-                    darkColor="#ffffff">
+                    lightColor="#2563eb"
+                    darkColor="#93c5fd">
                     {proVersionPromoCard.ctaLabel}
                   </ThemedText>
                 </View>
               </View>
-            </LinearGradient>
+            </ThemedView>
           </Pressable>
           {entryItems.map((entry) => (
             <Pressable
@@ -285,47 +281,29 @@ export default function SettingsIndexScreen() {
 const styles = StyleSheet.create({
   proCardPressable: {
     borderRadius: 28,
-    shadowColor: '#16a34a',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.35,
-    shadowRadius: 28,
-    elevation: 12,
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.9,
+    shadowRadius: 24,
+    elevation: 6,
   },
   proCardPressed: {
-    opacity: 0.92,
+    opacity: 0.94,
+    transform: [{ translateY: 1 }],
   },
-  proCardGradient: {
+  proCard: {
     borderRadius: 28,
     padding: 24,
-    overflow: 'hidden',
-  },
-  proCardGlowPrimary: {
-    position: 'absolute',
-    top: -60,
-    right: -46,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: proVersionPromoCard.glowColor,
-    opacity: 0.95,
-  },
-  proCardGlowSecondary: {
-    position: 'absolute',
-    bottom: -72,
-    left: -58,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: proVersionPromoCard.sheenColor,
-    opacity: 0.8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
   },
   proCardContent: {
     gap: 14,
   },
   proCardTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
   proCardSubtitle: {
     fontSize: 15,
@@ -333,23 +311,19 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   proCardCta: {
-    marginTop: 6,
+    marginTop: 8,
     alignSelf: 'flex-start',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15, 23, 42, 0.32)',
-    borderWidth: 1,
-    borderColor: 'rgba(248, 250, 252, 0.45)',
-    shadowColor: '#03160b',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   proCardCtaText: {
     fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   container: {
@@ -380,6 +354,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 24,
     gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    shadowColor: 'rgba(15, 23, 42, 0.06)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   entryTitle: {
     fontSize: 22,
@@ -395,6 +376,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     gap: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    shadowColor: 'rgba(15, 23, 42, 0.06)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 4,
   },
   aboutIcon: {
     width: 72,
@@ -430,6 +418,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    shadowColor: 'rgba(15, 23, 42, 0.04)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 2,
   },
   aboutFooter: {
     alignItems: 'center',
