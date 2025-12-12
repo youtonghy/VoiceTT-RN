@@ -25,6 +25,8 @@ export type QaEngine = 'openai' | 'gemini';
 
 export type ThemeMode = 'automatic' | 'light' | 'dark';
 
+export type AppLanguageMode = 'system' | 'en' | 'zh-Hans';
+
 export interface EngineCredentials {
   openaiApiKey?: string;
   openaiBaseUrl?: string;
@@ -95,6 +97,7 @@ export interface AppSettings extends TranscriptionSettings {
   qaEngine: QaEngine;
   qaPrompt: string;
   themeMode: ThemeMode;
+  languageMode: AppLanguageMode;
   credentials: EngineCredentials;
   recordingPresets: RecordingPreset[];
   activeRecordingPresetId: string | null;
@@ -121,6 +124,7 @@ export const defaultSettings: AppSettings = {
   qaEngine: 'openai',
   qaPrompt: DEFAULT_QA_PROMPT,
   themeMode: 'automatic',
+  languageMode: 'system',
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',

@@ -97,9 +97,9 @@ function parseQaResponseText(text: string): TranscriptQaItem[] {
     // JSON-like format with single quotes
     /'question'\s*[:：]\s*'([^']+)'\s*[,，]?\s*'answer'\s*[:：]\s*'([^']+)'/g,
     // Plain text Q&A format (more lenient)
-    /(?:question|问题)\s*[:：]\s*([^\n]+?)\s*(?:answer|答案)\s*[:：]\s*([^\n]+?)(?=(?:question|问题)|$)/gis,
+    /(?:question|\u95ee\u9898)\s*[:：]\s*([^\n]+?)\s*(?:answer|\u7b54\u6848)\s*[:：]\s*([^\n]+?)(?=(?:question|\u95ee\u9898)|$)/gis,
     // Markdown-style Q&A
-    /(?:^|\n)(?:Q|问题|Question)[:：]?\s*([^\n]+)\s*(?:A|答案|Answer)[:：]?\s*([^\n]+)/gi,
+    /(?:^|\n)(?:Q|\u95ee\u9898|Question)[:：]?\s*([^\n]+)\s*(?:A|\u7b54\u6848|Answer)[:：]?\s*([^\n]+)/gi,
     // Numbered Q&A with answers
     /(?:^|\n)\d+\.\s*([^\n?]+\?)\s*([^\n]+?)(?=\n\d+\.|\n*$)/g,
   ];

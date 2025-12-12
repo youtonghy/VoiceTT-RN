@@ -8,18 +8,29 @@ export interface MarkdownTextProps {
   style?: any;
   lightColor?: string;
   darkColor?: string;
+  /**
+   * Hard guardrail against rendering extremely large Markdown strings.
+   * This mitigates accidental or malicious resource exhaustion in Markdown parsing.
+   */
+  maxChars?: number;
 }
 
 export function MarkdownText({
   children,
   style,
   lightColor,
-  darkColor
+  darkColor,
+  maxChars = 200000,
 }: MarkdownTextProps) {
   const textColor = useThemeColor(
     { light: lightColor || '#0f172a', dark: darkColor || '#e2e8f0' },
     'text'
   );
+
+  const safeMarkdown =
+    typeof children === 'string' && children.length > maxChars
+      ? children.slice(0, maxChars) + '\n\n...\n'
+      : children;
 
   const markdownStyles = {
     body: {
@@ -127,7 +138,7 @@ export function MarkdownText({
   return (
     <View style={[styles.container, style]}>
       <MarkdownDisplay style={markdownStyles}>
-        {children}
+        {safeMarkdown}
       </MarkdownDisplay>
     </View>
   );

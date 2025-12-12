@@ -96,21 +96,17 @@ function meteringToRms(value: number | undefined): number {
 function buildRecordingOptions(): RecordingOptions {
   return {
     isMeteringEnabled: true,
+    extension: '.m4a',
+    sampleRate: 44100,
+    numberOfChannels: 1,
+    bitRate: 128000,
     android: {
-      extension: '.m4a',
       outputFormat: 'mpeg4',
       audioEncoder: 'aac',
-      sampleRate: 44100,
-      numberOfChannels: 1,
-      bitRate: 128000,
       audioSource: 'voice_recognition',
     },
     ios: {
-      extension: '.m4a',
       audioQuality: 96, // HIGH
-      sampleRate: 44100,
-      numberOfChannels: 1,
-      bitRate: 128000,
       outputFormat: 'aac',
     },
     web: {

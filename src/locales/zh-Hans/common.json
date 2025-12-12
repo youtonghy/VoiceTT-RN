@@ -319,7 +319,13 @@
     },
     "appearance": {
       "labels": {
-        "mode": "主题模式"
+        "mode": "主题模式",
+        "language": "语言"
+      },
+      "languages": {
+        "system": "跟随系统",
+        "en": "English",
+        "zh-Hans": "简体中文"
       },
       "modes": {
         "automatic": "跟随系统",

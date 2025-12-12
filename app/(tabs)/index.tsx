@@ -23,6 +23,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { MarkdownText } from "@/components/markdown-text";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { useIsTablet } from "@/hooks/use-is-tablet";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import VoiceInputButton from "@/components/voice-input-button";
@@ -233,7 +234,25 @@ export default function TranscriptionScreen() {
     { light: "rgba(148, 163, 184, 0.7)", dark: "rgba(148, 163, 184, 0.5)" },
     "text"
   );
+  const tabletTabsBg = useThemeColor(
+    { light: "rgba(148, 163, 184, 0.12)", dark: "rgba(15, 23, 42, 0.55)" },
+    "background"
+  );
+  const tabletTabsBorder = useThemeColor(
+    { light: "rgba(148, 163, 184, 0.25)", dark: "rgba(148, 163, 184, 0.22)" },
+    "background"
+  );
+  const tabletTabsActiveBg = useThemeColor(
+    { light: "rgba(37, 99, 235, 0.18)", dark: "rgba(37, 99, 235, 0.28)" },
+    "background"
+  );
+  const tabletTabsActiveText = useThemeColor({ light: "#2563eb", dark: "#93c5fd" }, "text");
+  const tabletTabsText = useThemeColor(
+    { light: "rgba(15, 23, 42, 0.7)", dark: "rgba(226, 232, 240, 0.75)" },
+    "text"
+  );
   const { width } = useWindowDimensions();
+  const isTablet = useIsTablet();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
   const carouselRef = useRef<ScrollView | null>(null);
@@ -248,6 +267,7 @@ export default function TranscriptionScreen() {
   const [assistantDraft, setAssistantDraft] = useState("");
   const [assistantSending, setAssistantSending] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(1);
+  const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
   const initialCarouselPositionedRef = useRef(false);
@@ -951,6 +971,18 @@ export default function TranscriptionScreen() {
   const assistantSummaryPlaceholder = t('assistant.placeholders.summary');
 
   const pageWidth = width;
+  const tabletHistoryWidth = useMemo(() => {
+    if (!isTablet) {
+      return 0;
+    }
+    return Math.min(420, Math.max(280, Math.round(width * 0.32)));
+  }, [isTablet, width]);
+
+  useEffect(() => {
+    if (!isTablet) {
+      setTabletDetail("live");
+    }
+  }, [isTablet]);
 
   const handleExportMarkdown = useCallback(async () => {
     const exportableMessages = messages.filter(
@@ -996,6 +1028,9 @@ export default function TranscriptionScreen() {
     if (initialCarouselPositionedRef.current) {
       return;
     }
+    if (isTablet) {
+      return;
+    }
     if (pageWidth <= 0) {
       return;
     }
@@ -1013,7 +1048,7 @@ export default function TranscriptionScreen() {
     } else {
       setTimeout(scrollToHistory, 0);
     }
-  }, [pageWidth]);
+  }, [isTablet, pageWidth]);
 
   const handleCarouselMomentumEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -1026,312 +1061,379 @@ export default function TranscriptionScreen() {
     [pageWidth]
   );
 
-  const showAssistantComposer = activeCarouselIndex === 2;
+  const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeCarouselIndex === 2;
+  const topBarTitle = t('transcription.sections.live_title');
+
+  const TabletDetailTabs = (
+    <View style={[styles.tabletTabs, { backgroundColor: tabletTabsBg, borderColor: tabletTabsBorder }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: tabletDetail === "live" }}
+        accessibilityLabel={t('transcription.sections.live_content')}
+        onPress={() => setTabletDetail("live")}
+        style={({ pressed }) => [
+          styles.tabletTab,
+          tabletDetail === "live" && { backgroundColor: tabletTabsActiveBg, borderColor: tabletTabsBorder },
+          pressed && styles.tabletTabPressed,
+        ]}>
+        <ThemedText style={[styles.tabletTabText, { color: tabletDetail === "live" ? tabletTabsActiveText : tabletTabsText }]}>
+          {t('transcription.sections.live_content')}
+        </ThemedText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: tabletDetail === "assistant" }}
+        accessibilityLabel={t('assistant.section.title')}
+        onPress={() => setTabletDetail("assistant")}
+        style={({ pressed }) => [
+          styles.tabletTab,
+          tabletDetail === "assistant" && { backgroundColor: tabletTabsActiveBg, borderColor: tabletTabsBorder },
+          pressed && styles.tabletTabPressed,
+        ]}>
+        <ThemedText
+          style={[
+            styles.tabletTabText,
+            { color: tabletDetail === "assistant" ? tabletTabsActiveText : tabletTabsText },
+          ]}>
+          {t('assistant.section.title')}
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
+
+  const LiveCard = ({ style, showTabs }: { style?: any; showTabs?: boolean }) => (
+    <ThemedView style={[styles.card, style]} lightColor={cardLight} darkColor={cardDark}>
+      {showTabs ? TabletDetailTabs : null}
+      <View style={styles.headerRow}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          {t('transcription.sections.live_content')}
+        </ThemedText>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => {
+              void handleExportMarkdown();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('transcription.export.accessibility')}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+            <Ionicons name="share-outline" size={20} color="#2563eb" />
+          </Pressable>
+          <RecordingToggle variant="icon" />
+        </View>
+      </View>
+      <View style={styles.dialogueContainer}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.dialogueScroll}
+          contentContainerStyle={messages.length === 0 ? styles.emptyDialogue : styles.dialogueContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled>
+          {messages.length === 0 ? (
+            <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
+              {t('transcription.history.placeholder_empty')}
+            </ThemedText>
+          ) : (
+            messages.map((item) => <MessageBubble key={item.id} message={item} />)
+          )}
+        </ScrollView>
+      </View>
+    </ThemedView>
+  );
+
+  const HistoryCard = ({ style }: { style?: any }) => (
+    <ThemedView style={[styles.card, styles.historyCard, style]} lightColor={cardLight} darkColor={cardDark}>
+      <View style={styles.historyHeader}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          {t('transcription.sections.history_title')}
+        </ThemedText>
+        <View style={styles.historyActions}>
+          <Pressable
+            onPress={() => {
+              void handleAddConversation();
+            }}
+            style={styles.historyIconButton}
+            accessibilityLabel={t('transcription.history.accessibility.add')}>
+            <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
+              +
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
+      <View style={styles.historySearchContainer}>
+        <TextInput
+          value={searchTerm}
+          onChangeText={handleSearchChange}
+          placeholder={t('transcription.history.search_placeholder')}
+          placeholderTextColor="rgba(148,163,184,0.7)"
+          style={[styles.historySearchInput, { color: searchInputColor }]}
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          selectionColor="#2563eb"
+        />
+      </View>
+      <View style={styles.historyListContainer}>
+        <ScrollView
+          ref={historyScrollRef}
+          style={styles.historyScroll}
+          contentContainerStyle={
+            historyGroups.length === 0 ? styles.historyEmptyContainer : styles.historyScrollContent
+          }
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled">
+          {historyGroups.length === 0 ? (
+            <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
+              {t('transcription.history.placeholder_search_empty')}
+            </ThemedText>
+          ) : (
+            historyGroups.map((group) => (
+              <View key={group.key} style={styles.historyGroup}>
+                <View style={styles.historyDateRow}>
+                  <View style={styles.historyDateLine} />
+                  <ThemedText style={styles.historyDateLabel} lightColor="#1f2937" darkColor="#e2e8f0">
+                    {group.label}
+                  </ThemedText>
+                  <View style={styles.historyDateLine} />
+                </View>
+                {group.items.map((item) => {
+                  const isActive = item.id === activeConversationId;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => {
+                        void handleSelectConversation(item.id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
+                      style={({ pressed }) => [
+                        styles.historyItem,
+                        isActive && styles.historyItemActive,
+                        pressed && styles.historyItemPressed,
+                      ]}>
+                      <View style={styles.historyItemHeader}>
+                        <ThemedText
+                          numberOfLines={1}
+                          style={styles.historyItemTitle}
+                          lightColor="#1f2937"
+                          darkColor="#f1f5f9">
+                          {item.title}
+                        </ThemedText>
+                        <ThemedText
+                          style={styles.historyItemTime}
+                          lightColor="#64748b"
+                          darkColor="#94a3b8">
+                          {formatRecordTime(item.createdAt, i18n.language)}
+                        </ThemedText>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </ThemedView>
+  );
+
+  const AssistantCard = ({ style, showTabs }: { style?: any; showTabs?: boolean }) => (
+    <ThemedView
+      style={[styles.card, styles.assistantCard, style]}
+      lightColor={cardLight}
+      darkColor={cardDark}
+    >
+      {showTabs ? TabletDetailTabs : null}
+      <ThemedText type="subtitle" style={styles.sectionTitle}>
+        {t('assistant.section.title')}
+      </ThemedText>
+      <View style={styles.assistantConversation}>
+        <ScrollView
+          ref={assistantScrollRef}
+          style={styles.assistantConversationScroll}
+          contentContainerStyle={styles.assistantConversationContent}
+          showsVerticalScrollIndicator={false}>
+          <ThemedView
+            lightColor="#eff6ff"
+            darkColor="rgba(30, 41, 59, 0.6)"
+            style={styles.assistantSummaryCard}>
+            <ThemedText
+              style={styles.assistantSummaryLabel}
+              lightColor="#2563eb"
+              darkColor="#60a5fa">
+              {t('assistant.section.summary_title')}
+            </ThemedText>
+            <MarkdownText
+              style={styles.assistantSummaryText}
+              lightColor="#1e293b"
+              darkColor="#e2e8f0"
+            >
+              {assistantSummary || assistantSummaryPlaceholder}
+            </MarkdownText>
+          </ThemedView>
+          {assistantMessages.length === 0 ? (
+            <ThemedText
+              style={styles.assistantEmptyText}
+              lightColor="#94a3b8"
+              darkColor="#94a3b8">
+              {t('assistant.placeholders.no_messages')}
+            </ThemedText>
+          ) : (
+            assistantMessages.map((message) => {
+              const isUser = message.role === 'user';
+              const statusText =
+                message.status === 'pending'
+                  ? t('assistant.status.waiting_reply')
+                  : message.status === 'failed'
+                  ? message.error?.trim() || t('assistant.errors.send_failed')
+                  : null;
+              return (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.assistantMessageRow,
+                    isUser
+                      ? styles.assistantMessageRowUser
+                      : styles.assistantMessageRowAssistant,
+                  ]}>
+                  <View
+                    style={[
+                      styles.assistantMessageBubble,
+                      isUser
+                        ? styles.assistantMessageBubbleUser
+                        : styles.assistantMessageBubbleAssistant,
+                      !isUser && { backgroundColor: assistantAssistantBubbleColor },
+                    ]}>
+                    {isUser ? (
+                      <ThemedText
+                        style={[
+                          styles.assistantMessageText,
+                          styles.assistantMessageTextUser,
+                        ]}>
+                        {message.content}
+                      </ThemedText>
+                    ) : (
+                      <MarkdownText
+                        style={styles.assistantMessageText}
+                        lightColor="#0f172a"
+                        darkColor="#e2e8f0"
+                      >
+                        {message.content}
+                      </MarkdownText>
+                    )}
+                    {statusText ? (
+                      <ThemedText
+                        style={[
+                          styles.assistantMessageStatus,
+                          { color: assistantMetaColor },
+                          message.status === 'failed' && styles.assistantMessageStatusError,
+                        ]}>
+                        {statusText}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+      <View
+        style={[
+          styles.assistantComposerPlaceholder,
+          !showAssistantComposer && styles.assistantComposerPlaceholderCollapsed,
+        ]}
+      />
+      {showAssistantComposer ? (
+        <KeyboardStickyInput
+          ref={assistantInputRef}
+          containerStyle={styles.assistantComposerContainer}
+          inputContainerStyle={[
+            styles.assistantComposer,
+            {
+              backgroundColor: assistantComposerBackground,
+              borderColor: assistantComposerBorder,
+            },
+          ]}
+          inputStyle={[styles.assistantInput, { color: searchInputColor }]}
+          value={assistantDraft}
+          onChangeText={handleAssistantChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="done"
+          selectionColor="#2563eb"
+          placeholder={t('assistant.placeholders.input')}
+          placeholderTextColor={assistantPlaceholderColor}
+          layoutBottomInset={CARD_BOTTOM_MARGIN}
+          onSubmitEditing={() => {
+            if (assistantCanSend) {
+              handleAssistantSend();
+            }
+          }}
+        >
+          <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
+          {assistantCanSend ? (
+            <Pressable
+              onPress={handleAssistantSend}
+              accessibilityRole="button"
+              accessibilityLabel={t('assistant.accessibility.send_input')}
+              disabled={assistantSending}
+              style={({ pressed }) => [
+                styles.assistantSendButton,
+                pressed && styles.assistantSendButtonPressed,
+                assistantSending && styles.assistantSendButtonDisabled,
+              ]}>
+              <Ionicons name="paper-plane" size={18} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </KeyboardStickyInput>
+      ) : null}
+    </ThemedView>
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={["top"]}>
       <ThemedView style={styles.container}>
         <View style={styles.topBar}>
           <ThemedText type="title" style={styles.topBarTitle}>
-            {t('transcription.sections.live_title')}
+            {topBarTitle}
           </ThemedText>
         </View>
         <View style={styles.content}>
-          <ScrollView
-            ref={carouselRef}
-            horizontal
-            pagingEnabled
-            bounces={false}
-            showsHorizontalScrollIndicator={false}
-            style={styles.carousel}
-            contentContainerStyle={styles.carouselContent}
-            onMomentumScrollEnd={handleCarouselMomentumEnd}>
-            <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={styles.card} lightColor={cardLight} darkColor={cardDark}>
-                <View style={styles.headerRow}>
-                  <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    {t('transcription.sections.live_content')}
-                  </ThemedText>
-                  <View style={styles.headerActions}>
-                    <Pressable
-                      onPress={() => {
-                        void handleExportMarkdown();
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('transcription.export.accessibility')}
-                      style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
-                      <Ionicons name="share-outline" size={20} color="#2563eb" />
-                    </Pressable>
-                    <RecordingToggle variant="icon" />
-                  </View>
-                </View>
-                <View style={styles.dialogueContainer}>
-                  <ScrollView
-                    ref={scrollRef}
-                    style={styles.dialogueScroll}
-                    contentContainerStyle={messages.length === 0 ? styles.emptyDialogue : styles.dialogueContent}
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled>
-                    {messages.length === 0 ? (
-                      <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
-                        {t('transcription.history.placeholder_empty')}
-                      </ThemedText>
-                    ) : (
-                      messages.map((item) => <MessageBubble key={item.id} message={item} />)
-                    )}
-                  </ScrollView>
-                </View>
-              </ThemedView>
+          {isTablet ? (
+            <View style={styles.tabletSplit}>
+              <View style={[styles.tabletHistoryColumn, { width: tabletHistoryWidth }]}>
+                <HistoryCard style={styles.tabletCard} />
+              </View>
+              <View style={styles.tabletDetailColumn}>
+                {tabletDetail === "assistant" ? (
+                  <AssistantCard style={styles.tabletCard} showTabs />
+                ) : (
+                  <LiveCard style={styles.tabletCard} showTabs />
+                )}
+              </View>
             </View>
-            <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView style={[styles.card, styles.historyCard]} lightColor={cardLight} darkColor={cardDark}>
-                <View style={styles.historyHeader}>
-                  <ThemedText type="subtitle" style={styles.sectionTitle}>
-                    {t('transcription.sections.history_title')}
-                  </ThemedText>
-                  <View style={styles.historyActions}>
-                    <Pressable
-                      onPress={() => {
-                        void handleAddConversation();
-                      }}
-                      style={styles.historyIconButton}
-                      accessibilityLabel={t('transcription.history.accessibility.add')}>
-                      <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
-                        +
-                      </ThemedText>
-                    </Pressable>
-                  </View>
-                </View>
-                <View style={styles.historySearchContainer}>
-                  <TextInput
-                    value={searchTerm}
-                    onChangeText={handleSearchChange}
-                    placeholder={t('transcription.history.search_placeholder')}
-                    placeholderTextColor="rgba(148,163,184,0.7)"
-                    style={[styles.historySearchInput, { color: searchInputColor }]}
-                    autoCorrect={false}
-                    returnKeyType="search"
-                    clearButtonMode="while-editing"
-                    selectionColor="#2563eb"
-                  />
-                </View>
-                <View style={styles.historyListContainer}>
-                  <ScrollView
-                    ref={historyScrollRef}
-                    style={styles.historyScroll}
-                    contentContainerStyle={
-                      historyGroups.length === 0 ? styles.historyEmptyContainer : styles.historyScrollContent
-                    }
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled
-                    keyboardShouldPersistTaps="handled">
-                    {historyGroups.length === 0 ? (
-                      <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
-                        {t('transcription.history.placeholder_search_empty')}
-                      </ThemedText>
-                    ) : (
-                      historyGroups.map((group) => (
-                        <View key={group.key} style={styles.historyGroup}>
-                          <View style={styles.historyDateRow}>
-                            <View style={styles.historyDateLine} />
-                            <ThemedText style={styles.historyDateLabel} lightColor="#1f2937" darkColor="#e2e8f0">
-                              {group.label}
-                            </ThemedText>
-                            <View style={styles.historyDateLine} />
-                          </View>
-                          {group.items.map((item) => {
-                            const isActive = item.id === activeConversationId;
-                            return (
-                              <Pressable
-                                key={item.id}
-                                onPress={() => {
-                                  void handleSelectConversation(item.id);
-                                }}
-                                accessibilityRole="button"
-                                accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
-                                style={({ pressed }) => [
-                                  styles.historyItem,
-                                  isActive && styles.historyItemActive,
-                                  pressed && styles.historyItemPressed,
-                                ]}>
-                                <View style={styles.historyItemHeader}>
-                                  <ThemedText
-                                    numberOfLines={1}
-                                    style={styles.historyItemTitle}
-                                    lightColor="#1f2937"
-                                    darkColor="#f1f5f9">
-                                    {item.title}
-                                  </ThemedText>
-                                  <ThemedText
-                                    style={styles.historyItemTime}
-                                    lightColor="#64748b"
-                                    darkColor="#94a3b8">
-                                    {formatRecordTime(item.createdAt, i18n.language)}
-                                  </ThemedText>
-                                </View>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      ))
-                    )}
-                  </ScrollView>
-                </View>
-              </ThemedView>
-            </View>
-            <View style={[styles.cardPage, { width: pageWidth }]}>
-              <ThemedView
-                style={[styles.card, styles.assistantCard]}
-                lightColor={cardLight}
-                darkColor={cardDark}
-              >
-                <ThemedText type="subtitle" style={styles.sectionTitle}>
-                  {t('assistant.section.title')}
-                </ThemedText>
-                <View style={styles.assistantConversation}>
-                  <ScrollView
-                    ref={assistantScrollRef}
-                    style={styles.assistantConversationScroll}
-                    contentContainerStyle={styles.assistantConversationContent}
-                    showsVerticalScrollIndicator={false}>
-                    <ThemedView
-                      lightColor="#eff6ff"
-                      darkColor="rgba(30, 41, 59, 0.6)"
-                      style={styles.assistantSummaryCard}>
-                      <ThemedText
-                        style={styles.assistantSummaryLabel}
-                        lightColor="#2563eb"
-                        darkColor="#60a5fa">
-                        {t('assistant.section.summary_title')}
-                      </ThemedText>
-                      <MarkdownText
-                        style={styles.assistantSummaryText}
-                        lightColor="#1e293b"
-                        darkColor="#e2e8f0"
-                      >
-                        {assistantSummary || assistantSummaryPlaceholder}
-                      </MarkdownText>
-                    </ThemedView>
-                    {assistantMessages.length === 0 ? (
-                      <ThemedText
-                        style={styles.assistantEmptyText}
-                        lightColor="#94a3b8"
-                        darkColor="#94a3b8">
-                        {t('assistant.placeholders.no_messages')}
-                      </ThemedText>
-                    ) : (
-                      assistantMessages.map((message) => {
-                        const isUser = message.role === 'user';
-                        const statusText =
-                          message.status === 'pending'
-                            ? t('assistant.status.waiting_reply')
-                            : message.status === 'failed'
-                            ? message.error?.trim() || t('assistant.errors.send_failed')
-                            : null;
-                        return (
-                          <View
-                            key={message.id}
-                            style={[
-                              styles.assistantMessageRow,
-                              isUser
-                                ? styles.assistantMessageRowUser
-                                : styles.assistantMessageRowAssistant,
-                            ]}>
-                            <View
-                              style={[
-                                styles.assistantMessageBubble,
-                                isUser
-                                  ? styles.assistantMessageBubbleUser
-                                  : styles.assistantMessageBubbleAssistant,
-                                !isUser && { backgroundColor: assistantAssistantBubbleColor },
-                              ]}>
-                              {isUser ? (
-                                <ThemedText
-                                  style={[
-                                    styles.assistantMessageText,
-                                    styles.assistantMessageTextUser,
-                                  ]}>
-                                  {message.content}
-                                </ThemedText>
-                              ) : (
-                                <MarkdownText
-                                  style={styles.assistantMessageText}
-                                  lightColor="#0f172a"
-                                  darkColor="#e2e8f0"
-                                >
-                                  {message.content}
-                                </MarkdownText>
-                              )}
-                              {statusText ? (
-                                <ThemedText
-                                  style={[
-                                    styles.assistantMessageStatus,
-                                    { color: assistantMetaColor },
-                                    message.status === 'failed' && styles.assistantMessageStatusError,
-                                  ]}>
-                                  {statusText}
-                                </ThemedText>
-                              ) : null}
-                            </View>
-                          </View>
-                        );
-                      })
-                    )}
-                  </ScrollView>
-                </View>
-                <View
-                  style={[
-                    styles.assistantComposerPlaceholder,
-                    !showAssistantComposer && styles.assistantComposerPlaceholderCollapsed,
-                  ]}
-                />
-                {showAssistantComposer ? (
-                  <KeyboardStickyInput
-                    ref={assistantInputRef}
-                    containerStyle={styles.assistantComposerContainer}
-                    inputContainerStyle={[
-                      styles.assistantComposer,
-                      {
-                        backgroundColor: assistantComposerBackground,
-                        borderColor: assistantComposerBorder,
-                      },
-                    ]}
-                    inputStyle={[styles.assistantInput, { color: searchInputColor }]}
-                    value={assistantDraft}
-                    onChangeText={handleAssistantChange}
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    selectionColor="#2563eb"
-                    placeholder={t('assistant.placeholders.input')}
-                    placeholderTextColor={assistantPlaceholderColor}
-                    layoutBottomInset={CARD_BOTTOM_MARGIN}
-                    onSubmitEditing={() => {
-                      if (assistantCanSend) {
-                        handleAssistantSend();
-                      }
-                    }}
-                  >
-                    <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
-                    {assistantCanSend ? (
-                      <Pressable
-                        onPress={handleAssistantSend}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('assistant.accessibility.send_input')}
-                        disabled={assistantSending}
-                        style={({ pressed }) => [
-                          styles.assistantSendButton,
-                          pressed && styles.assistantSendButtonPressed,
-                          assistantSending && styles.assistantSendButtonDisabled,
-                        ]}>
-                        <Ionicons name="paper-plane" size={18} color="#ffffff" />
-                      </Pressable>
-                    ) : null}
-                  </KeyboardStickyInput>
-                ) : null}
-              </ThemedView>
-            </View>
-          </ScrollView>
+          ) : (
+            <ScrollView
+              ref={carouselRef}
+              horizontal
+              pagingEnabled
+              bounces={false}
+              showsHorizontalScrollIndicator={false}
+              style={styles.carousel}
+              contentContainerStyle={styles.carouselContent}
+              onMomentumScrollEnd={handleCarouselMomentumEnd}>
+              <View style={[styles.cardPage, { width: pageWidth }]}>
+                <LiveCard />
+              </View>
+              <View style={[styles.cardPage, { width: pageWidth }]}>
+                <HistoryCard />
+              </View>
+              <View style={[styles.cardPage, { width: pageWidth }]}>
+                <AssistantCard />
+              </View>
+            </ScrollView>
+          )}
         </View>
       </ThemedView>
     </SafeAreaView>
@@ -1362,6 +1464,50 @@ const styles = StyleSheet.create({
   },
   carouselContent: {
     flexGrow: 1,
+  },
+  tabletSplit: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: CARD_BOTTOM_MARGIN,
+  },
+  tabletHistoryColumn: {
+    flexShrink: 0,
+  },
+  tabletDetailColumn: {
+    flex: 1,
+  },
+  tabletCard: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  tabletTabs: {
+    width: "100%",
+    flexDirection: "row",
+    padding: 4,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: -2,
+    marginBottom: 10,
+    gap: 4,
+  },
+  tabletTab: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "transparent",
+  },
+  tabletTabPressed: {
+    opacity: 0.9,
+  },
+  tabletTabText: {
+    fontSize: 13,
+    fontWeight: "800",
   },
   cardPage: {
     height: "100%",

@@ -15,7 +15,7 @@ const resources = {
 
 const fallbackLng: SupportedLanguage = 'en';
 
-const resolveLanguage = (): SupportedLanguage => {
+export const resolveDeviceLanguage = (): SupportedLanguage => {
   try {
     const locales = Localization.getLocales();
     const primary = locales?.[0]?.languageTag ?? fallbackLng;
@@ -36,7 +36,7 @@ if (!i18next.isInitialized) {
     .use(initReactI18next)
     .init({
       resources,
-      lng: resolveLanguage(),
+      lng: resolveDeviceLanguage(),
       fallbackLng,
       ns: ['common'],
       defaultNS: 'common',

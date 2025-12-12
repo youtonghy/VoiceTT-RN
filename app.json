@@ -3,7 +3,7 @@
     "name": "VoiceTT",
     "slug": "vtt",
     "version": "0.3.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "vtt",
     "userInterfaceStyle": "automatic",

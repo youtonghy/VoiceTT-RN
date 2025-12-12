@@ -23,21 +23,17 @@ import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/
 
 const recordingOptions: RecordingOptions = {
   isMeteringEnabled: false,
+  extension: '.m4a',
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 128000,
   android: {
-    extension: '.m4a',
     outputFormat: 'mpeg4',
     audioEncoder: 'aac',
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 128000,
     audioSource: 'voice_recognition',
   },
   ios: {
-    extension: '.m4a',
     audioQuality: 96,
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 128000,
     outputFormat: 'aac',
   },
   web: {
@@ -170,13 +166,6 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
     } finally {
       const currentUri = recorder.uri;
       await cleanupFile(currentUri);
-      try {
-        await recorder.reset();
-      } catch (resetError) {
-        if (__DEV__) {
-          console.warn('[voice-input] Failed to reset recorder', resetError);
-        }
-      }
       setStatus('idle');
     }
   }, [cleanupFile, onInsert, recorder, settings, t]);

@@ -20,7 +20,6 @@ import {
   DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
 } from '@/types/settings';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export type NumericSettingKey =
   | 'activationThreshold'
@@ -295,8 +294,6 @@ export function SettingsCard({
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   void variant;
   return (
     <ThemedView

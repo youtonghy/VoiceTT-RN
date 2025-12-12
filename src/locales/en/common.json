@@ -319,7 +319,13 @@
     },
     "appearance": {
       "labels": {
-        "mode": "Theme mode"
+        "mode": "Theme mode",
+        "language": "Language"
+      },
+      "languages": {
+        "system": "System",
+        "en": "English",
+        "zh-Hans": "Simplified Chinese"
       },
       "modes": {
         "automatic": "Automatic",

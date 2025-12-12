@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, Alert, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
@@ -9,6 +9,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useIsTablet } from '@/hooks/use-is-tablet';
 import { proVersionPromoCard } from '@/types/settings';
 
 import { settingsStyles } from './shared';
@@ -31,10 +32,17 @@ export default function SettingsIndexScreen() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const isTablet = useIsTablet();
   const safeAreaStyle = [
     settingsStyles.safeArea,
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
+
+  useEffect(() => {
+    if (isTablet) {
+      router.replace('/explore/recording');
+    }
+  }, [isTablet, router]);
 
   const openExternalLink = useCallback((url: string) => {
     Linking.openURL(url).catch((error) => {
@@ -134,6 +142,10 @@ export default function SettingsIndexScreen() {
     ],
     [handleOpenRepository, handleOpenWebsite, t]
   );
+
+  if (isTablet) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>

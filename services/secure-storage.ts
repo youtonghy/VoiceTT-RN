@@ -8,6 +8,8 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+import type { EngineCredentials } from '@/types/settings';
+
 const STORAGE_PREFIX = 'agents_secure_';
 const USE_SECURE_STORE = Platform.OS !== 'web';
 
@@ -81,7 +83,7 @@ export async function secureRemoveItem(key: string): Promise<void> {
 /**
  * Store credentials securely as a JSON object.
  */
-export async function secureSetCredentials(credentials: Record<string, string | undefined>): Promise<void> {
+export async function secureSetCredentials(credentials: EngineCredentials): Promise<void> {
   const sanitized = Object.fromEntries(
     Object.entries(credentials).filter(([_, value]) => value !== undefined && value !== '')
   );
@@ -97,7 +99,7 @@ export async function secureSetCredentials(credentials: Record<string, string | 
 /**
  * Retrieve credentials from secure storage.
  */
-export async function secureGetCredentials(): Promise<Record<string, string> | null> {
+export async function secureGetCredentials(): Promise<EngineCredentials | null> {
   try {
     const json = await secureGetItem('credentials');
     if (!json) {
@@ -109,7 +111,7 @@ export async function secureGetCredentials(): Promise<Record<string, string> | n
       return null;
     }
 
-    return parsed as Record<string, string>;
+    return parsed as EngineCredentials;
   } catch (error) {
     if (__DEV__) {
       console.warn('[SecureStorage] Failed to parse stored credentials:', error);
