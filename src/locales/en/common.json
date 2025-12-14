@@ -254,6 +254,7 @@
       },
       "engines": {
         "openai": "OpenAI",
+        "gemini": "Gemini",
         "qwen3": "Qwen3",
         "soniox": "Soniox",
         "doubao": "Doubao",
@@ -266,6 +267,7 @@
       },
       "engines": {
         "openai": "OpenAI",
+        "gemini": "Gemini",
         "qwen3": "Qwen3",
         "soniox": "Soniox",
         "doubao": "Doubao",

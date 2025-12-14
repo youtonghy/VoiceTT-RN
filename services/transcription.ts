@@ -15,6 +15,7 @@ import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcr
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
+export const DEFAULT_GEMINI_TRANSCRIPTION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
 export const DEFAULT_SONIOX_TRANSCRIPTION_MODEL = 'stt-async-preview';
@@ -53,6 +54,10 @@ export function resolveTranscriptionModel(settings: AppSettings): string {
       return (
         settings.credentials.openaiTranscriptionModel?.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL
       );
+    case 'gemini':
+      return (
+        settings.credentials.geminiTranscriptionModel?.trim() || DEFAULT_GEMINI_TRANSCRIPTION_MODEL
+      );
     case 'qwen3':
       return settings.credentials.qwenTranscriptionModel?.trim() || DEFAULT_QWEN_TRANSCRIPTION_MODEL;
     case 'soniox':
@@ -77,6 +82,37 @@ export function resolveTranslationModel(settings: AppSettings): string {
     default:
       return DEFAULT_OPENAI_TRANSLATION_MODEL;
   }
+}
+
+function collectGeminiText(data: any): string {
+  if (!data) {
+    return '';
+  }
+  const candidates = data?.candidates;
+  if (Array.isArray(candidates)) {
+    for (const candidate of candidates) {
+      const parts = candidate?.content?.parts ?? candidate?.parts;
+      if (Array.isArray(parts)) {
+        const combined = parts
+          .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+          .filter(Boolean)
+          .join('\n');
+        if (combined.trim()) {
+          return combined.trim();
+        }
+      }
+      if (typeof candidate?.text === 'string' && candidate.text.trim()) {
+        return candidate.text.trim();
+      }
+    }
+  }
+  if (typeof data?.text === 'string' && data.text.trim()) {
+    return data.text.trim();
+  }
+  if (typeof data?.output_text === 'string' && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+  return '';
 }
 
 export interface TranscriptionSegmentPayload {
@@ -317,6 +353,99 @@ async function transcribeWithOpenAI(
   return {
     text: text.trim(),
     language: settings.transcriptionLanguage !== 'auto' ? settings.transcriptionLanguage : undefined,
+  };
+}
+
+async function transcribeWithGemini(
+  payload: TranscriptionSegmentPayload,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<SegmentedTranscriptionResult> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key');
+  }
+
+  ensureFileExists(payload.fileUri);
+  const info = await getInfoAsync(payload.fileUri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+
+  const base64Audio = await readAsStringAsync(payload.fileUri, {
+    encoding: EncodingType.Base64,
+  });
+
+  if (!base64Audio) {
+    throw new Error('Failed to read audio file for Gemini transcription');
+  }
+
+  const model = resolveTranscriptionModel(settings);
+  const audioMime = inferMimeType(payload.fileUri);
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const languageHint =
+    settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto'
+      ? settings.transcriptionLanguage
+      : undefined;
+
+  const instructionParts = [
+    'Transcribe the provided audio accurately.',
+    'Return only the transcript text without timestamps or speaker labels.',
+  ];
+  if (languageHint) {
+    instructionParts.push(`The spoken language is: ${languageHint}.`);
+  }
+  const instruction = instructionParts.join(' ');
+
+  const payloadJson = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: instruction },
+          {
+            inlineData: {
+              mimeType: audioMime,
+              data: base64Audio,
+            },
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 2048,
+      topP: 0.9,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payloadJson),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini transcription failed: ' + (safeError || response.statusText));
+  }
+
+  const data = await response.json();
+  const text = collectGeminiText(data);
+  if (!text) {
+    throw new Error('Gemini transcription returned empty result');
+  }
+
+  return {
+    text,
+    language: languageHint,
   };
 }
 
@@ -1076,6 +1205,69 @@ async function translateWithOpenAI(
   };
 }
 
+async function translateWithGemini(
+  text: string,
+  targetLanguage: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<TranslationResult> {
+  const apiKey = settings.credentials.geminiApiKey?.trim();
+  if (!apiKey) {
+    throw new Error('Missing Gemini API key for translation');
+  }
+
+  const model = resolveTranslationModel(settings);
+  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const prompt =
+    'You are a translation engine. Translate the user input into ' +
+    targetLanguage +
+    '. Respond with translation only.';
+
+  const payloadJson = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `${prompt}\n\n${text}`,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      topP: 0.9,
+      topK: 40,
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payloadJson),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    throw new Error('Gemini translation failed: ' + (safeError || response.statusText));
+  }
+
+  const data = await response.json();
+  const translated = collectGeminiText(data).trim();
+  if (!translated) {
+    throw new Error('Gemini translation returned empty response');
+  }
+
+  return { text: translated };
+}
+
 export async function transcribeSegment(
   payload: TranscriptionSegmentPayload,
   settings: AppSettings,
@@ -1084,6 +1276,8 @@ export async function transcribeSegment(
   switch (settings.transcriptionEngine) {
     case 'openai':
       return transcribeWithOpenAI(payload, settings, signal);
+    case 'gemini':
+      return transcribeWithGemini(payload, settings, signal);
     case 'qwen3':
       return transcribeWithQwen(payload, settings, signal);
     case 'soniox':
@@ -1108,6 +1302,8 @@ export async function translateText(
   switch (settings.translationEngine) {
     case 'openai':
       return translateWithOpenAI(text, settings.translationTargetLanguage, settings, signal);
+    case 'gemini':
+      return translateWithGemini(text, settings.translationTargetLanguage, settings, signal);
     case 'none':
       return { text };
     default:
@@ -1488,7 +1684,7 @@ async function generateConversationSummaryWithGemini(
   }
 
   const data = await response.json();
-  const text = collectOpenAIText(data).trim();
+  const text = collectGeminiText(data).trim();
   if (!text) {
     throw new Error('Gemini conversation summarization returned empty response');
   }
@@ -1726,7 +1922,7 @@ async function generateAssistantReplyWithGemini({
   }
 
   const data = await response.json();
-  const text = collectOpenAIText(data).trim();
+  const text = collectGeminiText(data).trim();
   if (!text) {
     throw new Error('Gemini conversation assistant returned empty response');
   }

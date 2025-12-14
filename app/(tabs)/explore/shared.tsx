@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-nat
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_BASE_URL,
   DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
@@ -46,6 +47,7 @@ export interface FormState {
   openaiConversationModel: string;
   openaiQaModel: string;
   geminiApiKey: string;
+  geminiTranscriptionModel: string;
   geminiTranslationModel: string;
   geminiTitleModel: string;
   geminiConversationModel: string;
@@ -83,6 +85,8 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
   openaiQaModel: settings.credentials.openaiQaModel ?? settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
   geminiApiKey: settings.credentials.geminiApiKey ?? '',
+  geminiTranscriptionModel:
+    settings.credentials.geminiTranscriptionModel ?? DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   geminiTranslationModel:
     settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
   geminiTitleModel:

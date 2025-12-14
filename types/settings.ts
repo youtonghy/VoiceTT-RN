@@ -14,7 +14,7 @@ export const proVersionPromoCard: SettingsPromoCard = {
   sheenColor: 'rgba(16, 185, 129, 0.5)',
 };
 
-export type TranscriptionEngine = 'openai' | 'qwen3' | 'soniox' | 'doubao' | 'glm';
+export type TranscriptionEngine = 'openai' | 'gemini' | 'qwen3' | 'soniox' | 'doubao' | 'glm';
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
 export type VoiceInputEngine = TranscriptionEngine;
@@ -36,6 +36,7 @@ export interface EngineCredentials {
   openaiConversationModel?: string;
   openaiQaModel?: string;
   geminiApiKey?: string;
+  geminiTranscriptionModel?: string;
   geminiTranslationModel?: string;
   geminiTitleModel?: string;
   geminiConversationModel?: string;
@@ -132,6 +133,7 @@ export const defaultSettings: AppSettings = {
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,
     openaiConversationModel: DEFAULT_OPENAI_CONVERSATION_MODEL,
     openaiQaModel: DEFAULT_OPENAI_QA_MODEL,
+    geminiTranscriptionModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiTranslationModel: 'gemini-2.5-flash',
     geminiTitleModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
