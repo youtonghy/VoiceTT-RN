@@ -1,37 +1,99 @@
-# VoiceTT (Expo)
+# VoiceTT
 
-VoiceTT is a multimodal transcription-first client built with Expo Router. It captures voice, runs translation and summarization pipelines, and keeps a searchable history so users can review, ask questions, and sync insights later.
+[中文](#中文) | [English](#english)
 
-## Get started
+## 中文
 
-1. Install dependencies
+### 软件介绍
 
-   ```bash
-   npm install
-   ```
+VoiceTT 是一个「转写优先」的跨平台语音助手应用（Expo / React Native）。它支持实时录音与转写，并可按需对内容进行翻译、摘要与问答提取，同时提供可检索的历史会话，方便回放与整理要点。
 
-2. Start the app
+适用场景包括会议/访谈/课堂记录等。使用前请确保已获得相关人员的录音与处理许可，并遵守当地法律法规与第三方服务条款。
 
-   ```bash
-   npx expo start
-   ```
+### 功能介绍
 
-The output includes options for a development build, Android emulator, iOS simulator, or Expo Go. You can start developing by editing files inside the `app` directory (file-based routing is enabled).
+- 实时录音与分段转写，支持多种转写引擎（可在设置中切换）
+- 可选翻译（按目标语言配置），支持多种翻译引擎
+- 会话级标题/摘要生成，辅助快速回顾要点
+- QA（问答/要点提取）能力：对已完成的转写片段进行自动或手动分析
+- 历史会话：按日期分组、搜索、切换会话与继续记录
+- 凭证管理：API Key/Base URL/模型名等以加密存储（Web 端会降级为非加密存储）
+- 国际化（i18n）：基于 `i18next`，本地化资源位于 `src/locales`
 
-## Page structure
+### 软件架构
 
-- **Tab layout** (`app/(tabs)`): bottom navigation with Transcription, QA, and Settings.
-- **Transcription** (`app/(tabs)/index.tsx`):
-  - Live capture card: recording toggle plus streaming transcript bubbles, with translations when available.
-  - History card: day-grouped conversation list with search, add-new, and active conversation switching.
-  - Assistant card: shows the active conversation summary and a chat composer with voice insert, send, cancel, and retry actions.
-- **QA** (`app/(tabs)/qa.tsx`): runs automatic or manual QA extraction for completed transcript segments; shows per-segment Q&A, analysis status, and errors.
-- **Settings** (`app/(tabs)/explore`):
-  - Landing: Pro promo card, about links, and entry points for recording, voice input, transcription, translation, summary, QA, and credentials.
-  - Recording: acoustic thresholds/durations plus custom preset save, apply, and delete.
-  - Voice Input: choose the voice input engine.
-  - Transcription: choose transcription engine and source language.
-  - Translation: toggle translation and choose translation engine.
-  - Summary: configure title and conversation summary engines, models, and prompts.
-  - QA: configure QA engine, models, and prompts.
-  - Credentials: manage API keys, base URLs, and model names for OpenAI, Gemini, Qwen, Doubao, and GLM.
+- **UI / 路由层**：`app/` 使用 Expo Router（文件路由）；页面主要集中在 `app/(tabs)`（转写、QA、设置）
+- **状态与交互层**：`contexts/` 通过 React Context 管理应用设置、会话与转写状态；`hooks/` 提供设备与主题相关能力
+- **领域与服务层**：`services/` 封装转写、翻译、摘要、QA、速率限制、错误处理与输入校验等业务逻辑
+- **数据与存储层**
+  - 设置与历史会话：主要使用 `AsyncStorage`（例如 `@agents/history-conversations`；默认不加密）
+  - 凭证：`services/secure-storage.ts`（移动端 `expo-secure-store`，Web 端回退到 `AsyncStorage`，不加密）
+- **典型数据流**
+  1. `expo-audio` 采集音频 → 生成音频片段
+  2. `services/transcription.ts` 负责调用所选引擎完成转写
+  3.（可选）翻译 →（可选）摘要/QA → 写入会话历史并在 UI 展示
+
+### 快速开始
+
+```bash
+npm install
+npx expo start
+```
+
+在应用内进入 Settings → Credentials 配置各类引擎所需的 API Key / Base URL / 模型名。
+
+### 免责声明
+
+- 本项目按“现状”提供，不对适用性、稳定性、准确性或特定用途作任何保证；使用风险由使用者自行承担。
+- 转写/翻译/摘要/问答可能存在错误或遗漏；请勿将输出用于医疗、法律、金融等高风险决策场景的唯一依据。
+- 录音与内容处理可能会调用第三方服务（取决于你选择的引擎与配置），并产生费用、配额消耗或数据出境等风险；请在使用前阅读并遵守相关服务条款与隐私政策。
+- 设置与历史会话默认存储在本地设备（`AsyncStorage`），可能不加密；请妥善保护设备与系统备份，避免敏感信息泄露。
+- 你必须在合法合规且取得授权的前提下录音与处理内容；因违规使用导致的任何后果由使用者自行承担。
+
+## English
+
+### Introduction
+
+VoiceTT is a transcription-first, cross-platform voice companion app built with Expo / React Native. It records audio, produces live transcripts, and can optionally run translation, summarization, and Q&A extraction. It also keeps a searchable conversation history for review and playback.
+
+Before using it, make sure you have consent to record/process audio and comply with local laws and any third-party service terms.
+
+### Features
+
+- Live recording and segmented transcription with switchable engines (configured in Settings)
+- Optional translation with configurable target language and engines
+- Conversation-level title/summary generation for fast review
+- QA extraction: automatic or manual analysis for completed transcript segments
+- History browsing: day grouping, search, conversation switching, and continuing sessions
+- Credentials management: API keys/base URLs/model names stored securely (falls back to unencrypted storage on web)
+- Internationalization (i18n) via `i18next`, locale resources in `src/locales`
+
+### Architecture
+
+- **UI / Routing**: `app/` uses Expo Router (file-based routing); primary screens live under `app/(tabs)` (Transcription, QA, Settings)
+- **State & Interaction**: `contexts/` manages settings, conversations, and transcription state via React Context; `hooks/` provides device/theme helpers
+- **Domain & Services**: `services/` encapsulates transcription/translation/summary/QA logic plus rate limiting, error handling, and input validation
+- **Data & Storage**
+  - Settings & conversation history: primarily stored in `AsyncStorage` (for example `@agents/history-conversations`; unencrypted by default)
+  - Credentials: `services/secure-storage.ts` (`expo-secure-store` on mobile, `AsyncStorage` fallback on web, unencrypted)
+- **Typical flow**
+  1. Capture audio via `expo-audio` → create audio segments
+  2. Run transcription through the selected engine (`services/transcription.ts`)
+  3. (Optional) translation → (optional) summary/QA → persist into history and render in UI
+
+### Getting Started
+
+```bash
+npm install
+npx expo start
+```
+
+Configure engine API keys / base URLs / model names in Settings → Credentials.
+
+### Disclaimer
+
+- This project is provided “as is” without warranties of any kind. You assume all risks when using it.
+- Transcription/translation/summaries/Q&A may be inaccurate or incomplete. Do not rely on outputs as the sole basis for medical, legal, financial, or other high-stakes decisions.
+- Depending on selected engines and configuration, audio/text processing may call third-party services and may incur costs, quota usage, or data transfer risks. Review and comply with the applicable terms and privacy policies.
+- Settings and conversation history may be stored locally on the device (via `AsyncStorage`) and may not be encrypted. Protect your device and backups accordingly.
+- You are responsible for obtaining consent and using the app in compliance with laws and regulations. The maintainers are not liable for misuse.
