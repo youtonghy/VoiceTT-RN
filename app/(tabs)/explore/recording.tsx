@@ -1,5 +1,5 @@
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -11,6 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import {
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  type RecordingOptions,
+} from 'expo-audio';
+import { deleteAsync } from 'expo-file-system/legacy';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -28,6 +36,27 @@ import {
   useSettingsForm,
 } from './shared';
 
+const METERING_RECORDING_OPTIONS: RecordingOptions = {
+  isMeteringEnabled: true,
+  extension: '.m4a',
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 128000,
+  android: {
+    outputFormat: 'mpeg4',
+    audioEncoder: 'aac',
+    audioSource: 'voice_recognition',
+  },
+  ios: {
+    audioQuality: 96,
+    outputFormat: 'aac',
+  },
+  web: {
+    mimeType: 'audio/webm',
+    bitsPerSecond: 128000,
+  },
+};
+
 const createPresetId = () => `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 type PresetNumericValues = Omit<RecordingPreset, 'id' | 'name'>;
 
@@ -39,6 +68,10 @@ export default function RecordingSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const [presetName, setPresetName] = useState('');
+  const recorder = useAudioRecorder(METERING_RECORDING_OPTIONS);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [meteringDb, setMeteringDb] = useState<number | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
   const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
@@ -51,6 +84,184 @@ export default function RecordingSettingsScreen() {
     () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
     [insets.bottom]
   );
+  const monitoringButtonLabel = useMemo(
+    () =>
+      isMonitoring
+        ? t('settings.recording.metering.action_stop')
+        : t('settings.recording.metering.action_start'),
+    [isMonitoring, t]
+  );
+  const thresholdDb = useMemo(() => {
+    const value = settings.activationThreshold;
+    if (!Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+    return Math.round(20 * Math.log10(value) * 10) / 10;
+  }, [settings.activationThreshold]);
+  const meteringLabel = useMemo(() => {
+    if (!isMonitoring || meteringDb == null) {
+      return t('settings.recording.metering.idle');
+    }
+    return `${meteringDb.toFixed(1)} dB`;
+  }, [isMonitoring, meteringDb, t]);
+  const thresholdLabel = useMemo(() => {
+    if (thresholdDb == null) {
+      return t('settings.recording.metering.not_available');
+    }
+    return `${thresholdDb.toFixed(1)} dB`;
+  }, [thresholdDb, t]);
+  const recognitionStatus = useMemo(() => {
+    if (!isMonitoring) {
+      return t('settings.recording.metering.status_off');
+    }
+    if (meteringDb == null) {
+      return t('settings.recording.metering.status_no_signal');
+    }
+    if (thresholdDb == null) {
+      return t('settings.recording.metering.status_unknown');
+    }
+    return meteringDb >= thresholdDb
+      ? t('settings.recording.metering.status_above_threshold')
+      : t('settings.recording.metering.status_below_threshold');
+  }, [isMonitoring, meteringDb, thresholdDb, t]);
+  const snapshotItems = useMemo(() => ([
+    {
+      key: 'meteringDb',
+      label: t('settings.recording.metering.current_db'),
+      value: meteringLabel,
+    },
+    {
+      key: 'activationThresholdDb',
+      label: t('settings.recording.metering.threshold_db'),
+      value: thresholdLabel,
+    },
+    {
+      key: 'recognitionStatus',
+      label: t('settings.recording.metering.status_label'),
+      value: recognitionStatus,
+    },
+  ]), [
+    meteringLabel,
+    thresholdLabel,
+    recognitionStatus,
+    t,
+  ]);
+
+  const clearStatusInterval = useCallback(() => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+  }, []);
+
+  const cleanupRecordingFile = useCallback(async (uri?: string | null) => {
+    if (!uri) {
+      return;
+    }
+    try {
+      await deleteAsync(uri, { idempotent: true });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[recording-settings] Failed to delete metering file', error);
+      }
+    }
+  }, []);
+
+  const stopMonitoringSilently = useCallback(async () => {
+    clearStatusInterval();
+    if (recorder.isRecording) {
+      try {
+        await recorder.stop();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to stop metering recorder', error);
+        }
+      }
+    }
+    const currentUri = recorder.uri;
+    await cleanupRecordingFile(currentUri);
+  }, [cleanupRecordingFile, clearStatusInterval, recorder]);
+
+  useEffect(() => () => {
+    void stopMonitoringSilently();
+  }, [stopMonitoringSilently]);
+
+  const startMonitoring = useCallback(async () => {
+    if (recorder.isRecording) {
+      return;
+    }
+    try {
+      let permission = await getRecordingPermissionsAsync();
+      if (!permission.granted) {
+        permission = await requestRecordingPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert(
+            t('alerts.microphone_permission.title'),
+            t('alerts.microphone_permission.message')
+          );
+          return;
+        }
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
+        interruptionModeAndroid: 'duckOthers',
+      });
+
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setIsMonitoring(true);
+      setMeteringDb(null);
+
+      clearStatusInterval();
+      statusIntervalRef.current = setInterval(() => {
+        const status = recorder.getStatus();
+        const normalized =
+          typeof status.metering === 'number' && Number.isFinite(status.metering)
+            ? status.metering
+            : null;
+        const rounded =
+          typeof normalized === 'number' ? Math.round(normalized * 10) / 10 : null;
+        setMeteringDb((prev) => (prev === rounded ? prev : rounded));
+      }, 100);
+    } catch (error) {
+      Alert.alert(
+        t('transcription.status.failed'),
+        t('transcription.errors.unable_to_start', {
+          message: (error as Error)?.message ?? 'unknown',
+        })
+      );
+      setIsMonitoring(false);
+      setMeteringDb(null);
+    }
+  }, [clearStatusInterval, recorder, t]);
+
+  const stopMonitoring = useCallback(async () => {
+    clearStatusInterval();
+    if (recorder.isRecording) {
+      try {
+        await recorder.stop();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to stop metering recorder', error);
+        }
+      }
+    }
+    const currentUri = recorder.uri;
+    await cleanupRecordingFile(currentUri);
+    setIsMonitoring(false);
+    setMeteringDb(null);
+  }, [cleanupRecordingFile, clearStatusInterval, recorder]);
+
+  const handleToggleMonitoring = useCallback(() => {
+    if (isMonitoring) {
+      void stopMonitoring();
+    } else {
+      void startMonitoring();
+    }
+  }, [isMonitoring, startMonitoring, stopMonitoring]);
 
   const numericFormValues = useMemo<PresetNumericValues | null>(() => {
     const activationThreshold = parseFloat(formState.activationThreshold);
@@ -213,6 +424,39 @@ export default function RecordingSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
+          <SettingsCard variant="system">
+            <View style={settingsStyles.rowBetween}>
+              <ThemedText
+                type="subtitle"
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.recording.metering.title')}
+              </ThemedText>
+              <OptionPill
+                label={monitoringButtonLabel}
+                active={isMonitoring}
+                onPress={handleToggleMonitoring}
+              />
+            </View>
+            <View style={recordingStyles.presetMetaRow}>
+              {snapshotItems.map((item) => (
+                <View key={item.key} style={recordingStyles.presetMetaItem}>
+                  <ThemedText
+                    style={recordingStyles.presetMetaLabel}
+                    lightColor={CARD_SUBTLE_LIGHT}
+                    darkColor={CARD_SUBTLE_DARK}>
+                    {item.label}
+                  </ThemedText>
+                  <ThemedText
+                    style={recordingStyles.presetMetaValue}
+                    lightColor={CARD_TEXT_LIGHT}
+                    darkColor={CARD_TEXT_DARK}>
+                    {item.value}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          </SettingsCard>
           <SettingsCard variant="interaction">
             <View style={recordingStyles.presetCardHeader}>
               <ThemedText

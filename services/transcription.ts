@@ -8,9 +8,12 @@ import {
   DEFAULT_GEMINI_TITLE_MODEL,
   DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
+  DEFAULT_TRANSLATION_PROMPT_PREFIX,
+  resolveTranslationTargetLanguageEnglishName,
   DEFAULT_TITLE_SUMMARY_PROMPT,
 } from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
+import { validatePrompt } from '@/services/input-validation';
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
@@ -330,6 +333,15 @@ async function transcribeWithOpenAI(
   } as any);
   formData.append('model', resolveTranscriptionModel(settings));
   formData.append('response_format', 'text');
+  if (settings.openaiTranscriptionPrompt?.trim()) {
+    const promptValidation = validatePrompt(settings.openaiTranscriptionPrompt);
+    if (!promptValidation.valid) {
+      throw new Error(`OpenAI prompt validation failed: ${promptValidation.error}`);
+    }
+    if (promptValidation.sanitized) {
+      formData.append('prompt', promptValidation.sanitized);
+    }
+  }
   if (settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto') {
     formData.append('language', settings.transcriptionLanguage);
   }
@@ -394,6 +406,16 @@ async function transcribeWithGemini(
     'Transcribe the provided audio accurately.',
     'Return only the transcript text without timestamps or speaker labels.',
   ];
+  const promptInput = settings.geminiTranscriptionPrompt?.trim();
+  if (promptInput) {
+    const promptValidation = validatePrompt(promptInput);
+    if (!promptValidation.valid) {
+      throw new Error(`Gemini prompt validation failed: ${promptValidation.error}`);
+    }
+    if (promptValidation.sanitized) {
+      instructionParts.push(`Additional context: ${promptValidation.sanitized}`);
+    }
+  }
   if (languageHint) {
     instructionParts.push(`The spoken language is: ${languageHint}.`);
   }
@@ -1113,10 +1135,20 @@ async function translateWithOpenAI(
   }
   const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
 
-  const prompt =
-    'You are a translation engine. Translate the user input into ' +
-    targetLanguage +
-    '. Respond with translation only.';
+  const userPromptRaw = settings.openaiTranslationPrompt?.trim();
+  let userPrompt = userPromptRaw;
+  if (userPromptRaw) {
+    const promptValidation = validatePrompt(userPromptRaw);
+    if (!promptValidation.valid) {
+      throw new Error(`OpenAI translation prompt validation failed: ${promptValidation.error}`);
+    }
+    userPrompt = promptValidation.sanitized || '';
+  }
+  const targetLanguageName = resolveTranslationTargetLanguageEnglishName(targetLanguage);
+  const promptSuffix = `Translate the user input into ${targetLanguageName}. Respond with translation only.`;
+  const prompt = userPrompt
+    ? `${userPrompt}\n\n${promptSuffix}`
+    : `${DEFAULT_TRANSLATION_PROMPT_PREFIX} ${promptSuffix}`;
 
   const payload = {
     model: resolveTranslationModel(settings),
@@ -1220,10 +1252,20 @@ async function translateWithGemini(
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const prompt =
-    'You are a translation engine. Translate the user input into ' +
-    targetLanguage +
-    '. Respond with translation only.';
+  const userPromptRaw = settings.geminiTranslationPrompt?.trim();
+  let userPrompt = userPromptRaw;
+  if (userPromptRaw) {
+    const promptValidation = validatePrompt(userPromptRaw);
+    if (!promptValidation.valid) {
+      throw new Error(`Gemini translation prompt validation failed: ${promptValidation.error}`);
+    }
+    userPrompt = promptValidation.sanitized || '';
+  }
+  const targetLanguageName = resolveTranslationTargetLanguageEnglishName(targetLanguage);
+  const promptSuffix = `Translate the user input into ${targetLanguageName}. Respond with translation only.`;
+  const prompt = userPrompt
+    ? `${userPrompt}\n\n${promptSuffix}`
+    : `${DEFAULT_TRANSLATION_PROMPT_PREFIX} ${promptSuffix}`;
 
   const payloadJson = {
     contents: [

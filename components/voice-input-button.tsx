@@ -4,7 +4,6 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
-  type RecordingOptions,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -20,27 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';
-
-const recordingOptions: RecordingOptions = {
-  isMeteringEnabled: false,
-  extension: '.m4a',
-  sampleRate: 44100,
-  numberOfChannels: 1,
-  bitRate: 128000,
-  android: {
-    outputFormat: 'mpeg4',
-    audioEncoder: 'aac',
-    audioSource: 'voice_recognition',
-  },
-  ios: {
-    audioQuality: 96,
-    outputFormat: 'aac',
-  },
-  web: {
-    mimeType: 'audio/webm',
-    bitsPerSecond: 128000,
-  },
-};
+import { VOICE_INPUT_RECORDING_OPTIONS } from '@/constants/voice-input';
 
 type VoiceInputButtonProps = {
   onInsert: (text: string) => void;
@@ -52,7 +31,7 @@ type ButtonStatus = 'idle' | 'recording' | 'processing';
 export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonProps) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const recorder = useAudioRecorder(recordingOptions);
+  const recorder = useAudioRecorder(VOICE_INPUT_RECORDING_OPTIONS);
   const [status, setStatus] = useState<ButtonStatus>('idle');
   const messageCounterRef = useRef(1);
 

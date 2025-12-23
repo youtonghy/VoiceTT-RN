@@ -209,7 +209,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const qaAutoModeRef = useLatestRef(qaAutoMode);
 
   const [error, setError] = useState<string | null>(null);
-
   const recorder = useAudioRecorder(buildRecordingOptions());
   const recorderState = useAudioRecorderState(recorder);
   const isRecording = recorderState.isRecording;

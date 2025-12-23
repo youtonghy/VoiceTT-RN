@@ -18,8 +18,12 @@ import {
   DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   DEFAULT_GEMINI_CONVERSATION_MODEL,
   DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_GEMINI_TTS_MODEL,
   DEFAULT_OPENAI_CONVERSATION_MODEL,
   DEFAULT_OPENAI_TITLE_MODEL,
+  DEFAULT_OPENAI_TTS_MODEL,
+  DEFAULT_OPENAI_TTS_VOICE,
+  DEFAULT_TRANSLATION_PROMPT_PREFIX,
 } from '@/types/settings';
 
 export type NumericSettingKey =
@@ -36,19 +40,27 @@ export interface FormState {
   preRollDurationSec: string;
   maxSegmentDurationSec: string;
   transcriptionLanguage: string;
+  openaiTranscriptionPrompt: string;
+  geminiTranscriptionPrompt: string;
+  openaiTranslationPrompt: string;
+  geminiTranslationPrompt: string;
   titleSummaryPrompt: string;
   conversationSummaryPrompt: string;
   qaPrompt: string;
+  ttsPrompt: string;
+  ttsVoice: string;
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiTranscriptionModel: string;
   openaiTranslationModel: string;
+  openaiTtsModel: string;
   openaiTitleModel: string;
   openaiConversationModel: string;
   openaiQaModel: string;
   geminiApiKey: string;
   geminiTranscriptionModel: string;
   geminiTranslationModel: string;
+  geminiTtsModel: string;
   geminiTitleModel: string;
   geminiConversationModel: string;
   geminiQaModel: string;
@@ -69,16 +81,27 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   preRollDurationSec: String(settings.preRollDurationSec),
   maxSegmentDurationSec: String(settings.maxSegmentDurationSec),
   transcriptionLanguage: settings.transcriptionLanguage,
+  openaiTranscriptionPrompt: settings.openaiTranscriptionPrompt ?? '',
+  geminiTranscriptionPrompt: settings.geminiTranscriptionPrompt ?? '',
+  openaiTranslationPrompt: settings.openaiTranslationPrompt?.trim()
+    ? settings.openaiTranslationPrompt
+    : DEFAULT_TRANSLATION_PROMPT_PREFIX,
+  geminiTranslationPrompt: settings.geminiTranslationPrompt?.trim()
+    ? settings.geminiTranslationPrompt
+    : DEFAULT_TRANSLATION_PROMPT_PREFIX,
   titleSummaryPrompt: settings.titleSummaryPrompt,
   conversationSummaryPrompt:
     settings.conversationSummaryPrompt || DEFAULT_CONVERSATION_SUMMARY_PROMPT,
   qaPrompt: settings.qaPrompt,
+  ttsPrompt: settings.ttsPrompt ?? '',
+  ttsVoice: settings.ttsVoice ?? DEFAULT_OPENAI_TTS_VOICE,
   openaiApiKey: settings.credentials.openaiApiKey ?? '',
   openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
   openaiTranscriptionModel:
     settings.credentials.openaiTranscriptionModel ?? DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   openaiTranslationModel:
     settings.credentials.openaiTranslationModel ?? DEFAULT_OPENAI_TRANSLATION_MODEL,
+  openaiTtsModel: settings.credentials.openaiTtsModel ?? DEFAULT_OPENAI_TTS_MODEL,
   openaiTitleModel:
     settings.credentials.openaiTitleModel ?? DEFAULT_OPENAI_TITLE_MODEL,
   openaiConversationModel:
@@ -89,6 +112,7 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.geminiTranscriptionModel ?? DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   geminiTranslationModel:
     settings.credentials.geminiTranslationModel ?? DEFAULT_GEMINI_TRANSLATION_MODEL,
+  geminiTtsModel: settings.credentials.geminiTtsModel ?? DEFAULT_GEMINI_TTS_MODEL,
   geminiTitleModel:
     settings.credentials.geminiTitleModel ?? DEFAULT_GEMINI_TITLE_MODEL,
   geminiConversationModel:

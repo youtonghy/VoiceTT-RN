@@ -3,12 +3,14 @@
     "tabs": {
       "transcription": "转写",
       "qa": "问答",
+      "reading": "朗读",
       "settings": "设置"
     }
   },
   "common": {
     "actions": {
-      "ok": "确定"
+      "ok": "确定",
+      "cancel": "取消"
     }
   },
   "alerts": {
@@ -30,6 +32,13 @@
     }
   },
   "transcription": {
+    "actions": {
+      "title": "消息操作",
+      "copy_transcript": "复制原文",
+      "copy_translation": "复制译文",
+      "read_transcript": "朗读原文",
+      "read_translation": "朗读译文"
+    },
     "controls": {
       "start": "开始录音"
     },
@@ -64,7 +73,7 @@
       },
       "search_placeholder": "搜索对话转写或翻译内容",
       "placeholder_search_empty": "暂无匹配的历史记录。",
-      "new_conversation": "新对话 {{id}}"
+      "new_conversation": "新对话{{id}}"
     },
     "export": {
       "button": "导出",
@@ -138,6 +147,26 @@
       "send_input": "发送输入"
     }
   },
+  "reading": {
+    "title": "朗读",
+    "subtitle": "发送文本即可生成语音，随时重复朗读。",
+    "empty": {
+      "title": "还没有朗读内容",
+      "body": "发送一条消息即可生成并朗读。"
+    },
+    "input": {
+      "placeholder": "输入要朗读的内容"
+    },
+    "status": {
+      "generating": "正在生成语音…",
+      "ready": "点击重新朗读",
+      "failed": "朗读生成失败"
+    },
+    "errors": {
+      "synthesis_failed": "生成语音失败：{{message}}",
+      "playback_failed": "无法播放音频：{{message}}"
+    }
+  },
   "settings": {
     "page_title": "设置",
     "sections": {
@@ -156,6 +185,10 @@
       "translation": {
         "title": "翻译设置",
         "subtitle": "译文开关与管线"
+      },
+      "tts": {
+        "title": "文字转语音",
+        "subtitle": "语音模型与风格"
       },
       "summary": {
         "title": "总结设置",
@@ -217,6 +250,7 @@
         "api_key": "API 密钥",
         "transcription_model": "转写模型",
         "translation_model": "翻译模型",
+        "tts_model": "TTS 模型",
         "doubao_app_id": "App ID",
         "doubao_token": "Token",
         "doubao_cluster": "Cluster"
@@ -229,6 +263,21 @@
         "silence_duration": "静音判定 (秒)",
         "pre_roll": "前滚时长 (秒)",
         "max_segment": "最大片段 (秒)"
+      },
+      "metering": {
+        "title": "当前输入",
+        "current_db": "输入电平（dB）",
+        "idle": "未启用检测",
+        "threshold_db": "激活阈值（dB）",
+        "status_label": "识别状态",
+        "status_off": "未启用检测",
+        "status_no_signal": "无信号",
+        "status_above_threshold": "高于阈值",
+        "status_below_threshold": "低于阈值",
+        "status_unknown": "未知",
+        "not_available": "不可用",
+        "action_start": "开始检测",
+        "action_stop": "停止检测"
       },
       "presets": {
         "save_title": "保存当前配置",
@@ -250,7 +299,12 @@
     "transcription": {
       "labels": {
         "engine": "转写引擎",
-        "source_language": "源语言"
+        "source_language": "源语言",
+        "openai_model": "OpenAI 转写模型",
+        "gemini_model": "Gemini 转写模型",
+        "prompt": "Prompting（可选）",
+        "prompt_placeholder": "例如：会议纪要包含产品名。",
+        "prompt_hint": "留空将不会使用提示。"
       },
       "engines": {
         "openai": "OpenAI",
@@ -259,7 +313,11 @@
         "soniox": "Soniox",
         "doubao": "豆包",
         "glm": "GLM"
-      }
+      },
+      "help_label_openai": "OpenAI 语音转写文档",
+      "help_label_gemini": "Gemini 音频文档",
+      "help_error_title": "无法打开链接",
+      "help_error_body": "请稍后再试。"
     },
     "voice_input": {
       "labels": {
@@ -277,13 +335,62 @@
     "translation": {
       "labels": {
         "enable_translation": "启用翻译",
-        "engine": "翻译引擎"
+        "engine": "翻译引擎",
+        "target_language": "目标语言",
+        "select_language": "选择目标语言",
+        "openai_model": "OpenAI 翻译模型",
+        "gemini_model": "Gemini 翻译模型",
+        "prompt": "Prompting（可选）",
+        "prompt_placeholder": "例如：正式语气并保留行业术语。",
+        "prompt_hint": "会自动附加下方“仅输出译文”的翻译指令。",
+        "appended_instruction": "将用户输入翻译为{{language}}，并且仅输出译文。"
       },
       "engines": {
         "openai": "OpenAI",
         "gemini": "Gemini",
         "none": "关闭"
+      },
+      "languages": {
+        "en": "英语",
+        "zh-Hans": "简体中文",
+        "zh-Hant": "繁体中文",
+        "ja": "日语",
+        "ko": "韩语",
+        "es": "西班牙语",
+        "fr": "法语",
+        "de": "德语",
+        "pt": "葡萄牙语",
+        "ru": "俄语",
+        "ar": "阿拉伯语",
+        "hi": "印地语"
       }
+    },
+    "tts": {
+      "engine": {
+        "title": "文字转语音引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "OpenAI 语音模型",
+        "voice_label": "OpenAI 语音",
+        "prompt_label": "语音提示词（可选）",
+        "prompt_placeholder": "例如：温暖、平静、语速适中。",
+        "prompt_hint": "留空将不会使用提示词。"
+      },
+      "gemini": {
+        "model_label": "Gemini 语音模型",
+        "voice_label": "Gemini 语音",
+        "prompt_label": "语音提示词（可选）",
+        "prompt_placeholder": "例如：亲切、有活力、语速清晰。",
+        "prompt_hint": "留空将不会使用提示词。"
+      },
+      "help_label_openai": "OpenAI 语音文档",
+      "help_label_gemini": "Gemini 语音文档",
+      "help_error_title": "无法打开链接",
+      "help_error_body": "请稍后再试。"
     },
     "summary": {
       "title_engine": {

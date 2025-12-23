@@ -10,6 +10,7 @@ import React, {
 
 import {
   AppSettings,
+  DEFAULT_TRANSLATION_PROMPT_PREFIX,
   EngineCredentials,
   RecordingPreset,
   defaultSettings,
@@ -63,6 +64,21 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
         ...parsedCredentials,
       },
     };
+    const legacyPrompt = (parsed as { transcriptionPrompt?: unknown }).transcriptionPrompt;
+    if (typeof legacyPrompt === 'string' && legacyPrompt.trim()) {
+      if (!merged.openaiTranscriptionPrompt?.trim()) {
+        merged.openaiTranscriptionPrompt = legacyPrompt;
+      }
+      if (!merged.geminiTranscriptionPrompt?.trim()) {
+        merged.geminiTranscriptionPrompt = legacyPrompt;
+      }
+    }
+    if (!merged.openaiTranslationPrompt?.trim()) {
+      merged.openaiTranslationPrompt = DEFAULT_TRANSLATION_PROMPT_PREFIX;
+    }
+    if (!merged.geminiTranslationPrompt?.trim()) {
+      merged.geminiTranslationPrompt = DEFAULT_TRANSLATION_PROMPT_PREFIX;
+    }
     if (!VALID_TRANSCRIPTION_ENGINES.has(merged.transcriptionEngine)) {
       merged.transcriptionEngine = defaultSettings.transcriptionEngine;
     }

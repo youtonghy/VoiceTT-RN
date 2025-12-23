@@ -14,11 +14,7 @@ import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-  DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_BASE_URL,
-  DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-  DEFAULT_OPENAI_TRANSLATION_MODEL,
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
@@ -112,54 +108,6 @@ export default function CredentialSettingsScreen() {
                 placeholderTextColor={placeholderTextColor}
               />
             </View>
-            <View style={styles.fieldGroup}>
-              <ThemedText
-                style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.credentials.labels.transcription_model')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiTranscriptionModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    openaiTranscriptionModel:
-                      formState.openaiTranscriptionModel.trim() || DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                style={inputStyle}
-                placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
-            <View style={styles.fieldGroup}>
-              <ThemedText
-                style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.credentials.labels.translation_model')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiTranslationModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    openaiTranslationModel:
-                      formState.openaiTranslationModel.trim() || DEFAULT_OPENAI_TRANSLATION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                style={inputStyle}
-                placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
           </SettingsCard>
 
           <SettingsCard variant="gemini">
@@ -183,54 +131,6 @@ export default function CredentialSettingsScreen() {
                 secureTextEntry
                 style={inputStyle}
                 placeholder="AIza..."
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
-            <View style={styles.fieldGroup}>
-              <ThemedText
-                style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.credentials.labels.transcription_model')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiTranscriptionModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, geminiTranscriptionModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    geminiTranscriptionModel:
-                      formState.geminiTranscriptionModel.trim() || DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                style={inputStyle}
-                placeholder={DEFAULT_GEMINI_TRANSCRIPTION_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </View>
-            <View style={styles.fieldGroup}>
-              <ThemedText
-                style={credentialLabelStyle}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.credentials.labels.translation_model')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiTranslationModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    geminiTranslationModel:
-                      formState.geminiTranslationModel.trim() || DEFAULT_GEMINI_TRANSLATION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                style={inputStyle}
-                placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
                 placeholderTextColor={placeholderTextColor}
               />
             </View>

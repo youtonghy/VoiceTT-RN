@@ -18,6 +18,7 @@ export default function TabLayout() {
   const tabs = {
     transcription: t('navigation.tabs.transcription'),
     qa: t('navigation.tabs.qa'),
+    reading: t('navigation.tabs.reading'),
     settings: t('navigation.tabs.settings'),
   };
 
@@ -29,6 +30,7 @@ export default function TabLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="qa" />
+            <Stack.Screen name="reading" />
             <Stack.Screen name="explore" />
           </Stack>
         </View>
@@ -55,6 +57,13 @@ export default function TabLayout() {
         options={{
           title: tabs.qa,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="reading"
+        options={{
+          title: tabs.reading,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="speaker.wave.2.fill" color={color} />,
         }}
       />
       <Tabs.Screen

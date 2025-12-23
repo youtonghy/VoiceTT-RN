@@ -1,11 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { createAudioPlayer } from "expo-audio";
+import * as Clipboard from "expo-clipboard";
 import {
   Pressable,
   ScrollView,
   StyleSheet,
   View,
   Alert,
+  Modal,
   TextInput,
   useWindowDimensions,
   NativeSyntheticEvent,
@@ -28,6 +31,8 @@ import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import VoiceInputButton from "@/components/voice-input-button";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
+import type { TtsMessage } from "@/types/tts";
+import { synthesizeSpeech } from "@/services/tts";
 import {
   generateConversationTitle,
   generateConversationSummary,
@@ -36,6 +41,8 @@ import {
 } from "@/services/transcription";
 
 const CARD_BOTTOM_MARGIN = 24;
+const MESSAGE_TTS_FORMAT = "mp3";
+const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 type AssistantMessageStatus = "pending" | "succeeded" | "failed";
 
@@ -48,6 +55,12 @@ type AssistantMessage = {
   error?: string;
 };
 
+type MessageAction = {
+  label: string;
+  onPress?: () => void;
+  variant?: "cancel";
+};
+
 type HistoryConversation = {
   id: string;
   title: string;
@@ -57,6 +70,7 @@ type HistoryConversation = {
   createdAt: number;
   messages: TranscriptionMessage[];
   assistantMessages: AssistantMessage[];
+  ttsMessages: TtsMessage[];
 };
 
 function createHistorySeed(): HistoryConversation[] {
@@ -68,6 +82,35 @@ const HISTORY_SEED = createHistorySeed();
 
 const HISTORY_STORAGE_KEY = "@agents/history-conversations";
 const HISTORY_STORAGE_VERSION = 2;
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let result = "";
+  let index = 0;
+
+  for (; index + 2 < bytes.length; index += 3) {
+    result += BASE64_ALPHABET[bytes[index] >> 2];
+    result += BASE64_ALPHABET[((bytes[index] & 0x03) << 4) | (bytes[index + 1] >> 4)];
+    result += BASE64_ALPHABET[((bytes[index + 1] & 0x0f) << 2) | (bytes[index + 2] >> 6)];
+    result += BASE64_ALPHABET[bytes[index + 2] & 0x3f];
+  }
+
+  if (index < bytes.length) {
+    const byte1 = bytes[index];
+    result += BASE64_ALPHABET[byte1 >> 2];
+    if (index + 1 < bytes.length) {
+      const byte2 = bytes[index + 1];
+      result += BASE64_ALPHABET[((byte1 & 0x03) << 4) | (byte2 >> 4)];
+      result += BASE64_ALPHABET[(byte2 & 0x0f) << 2];
+      result += "=";
+    } else {
+      result += BASE64_ALPHABET[(byte1 & 0x03) << 4];
+      result += "==";
+    }
+  }
+
+  return result;
+}
 
 type StoredHistoryPayload = {
   version?: number;
@@ -149,7 +192,15 @@ function isConversationEmpty(conversation: HistoryConversation): boolean {
     typeof conversation.summary === "string" && conversation.summary.trim().length > 0;
   const hasMessages = conversation.messages.length > 0;
   const hasAssistantMessages = conversation.assistantMessages.length > 0;
-  return !(hasTranscript || hasTranslation || hasSummary || hasMessages || hasAssistantMessages);
+  const hasTtsMessages = conversation.ttsMessages.length > 0;
+  return !(
+    hasTranscript ||
+    hasTranslation ||
+    hasSummary ||
+    hasMessages ||
+    hasAssistantMessages ||
+    hasTtsMessages
+  );
 }
 
 function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
@@ -185,6 +236,11 @@ function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
             .map((message) => ({ ...message }))
         : [],
       assistantMessages: sanitizeAssistantMessages(candidate.assistantMessages),
+      ttsMessages: Array.isArray(candidate.ttsMessages)
+        ? candidate.ttsMessages
+            .filter((message): message is TtsMessage => !!message && typeof message === "object")
+            .map((message) => ({ ...message }))
+        : [],
     });
   });
   return sanitized;
@@ -260,6 +316,7 @@ export default function TranscriptionScreen() {
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
   const assistantInputRef = useRef<TextInput | null>(null);
+  const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -268,6 +325,10 @@ export default function TranscriptionScreen() {
   const [assistantSending, setAssistantSending] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(1);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
+  const [messageActionSheet, setMessageActionSheet] = useState<{
+    title: string;
+    actions: MessageAction[];
+  } | null>(null);
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
   const initialCarouselPositionedRef = useRef(false);
@@ -348,6 +409,14 @@ export default function TranscriptionScreen() {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      ttsPlayerRef.current?.pause();
+      ttsPlayerRef.current?.remove();
+      ttsPlayerRef.current = null;
     };
   }, []);
 
@@ -717,6 +786,7 @@ export default function TranscriptionScreen() {
         createdAt: now,
         messages: [],
         assistantMessages: [],
+        ttsMessages: [],
       };
 
       setHistoryItems((prev) => [nextConversation, ...prev]);
@@ -950,6 +1020,106 @@ export default function TranscriptionScreen() {
     }
   }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, t]);
 
+  const playTtsAudio = useCallback(
+    async (audioUri: string) => {
+      try {
+        ttsPlayerRef.current?.pause();
+        ttsPlayerRef.current?.remove();
+        const player = createAudioPlayer({ uri: audioUri });
+        ttsPlayerRef.current = player;
+        player.play();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        Alert.alert(t('reading.errors.playback_failed', { message }));
+      }
+    },
+    [t]
+  );
+
+  const handleSpeakText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      try {
+        const result = await synthesizeSpeech({
+          text: trimmed,
+          settings,
+          format: MESSAGE_TTS_FORMAT,
+          voice: settings.ttsVoice?.trim() || undefined,
+          prompt: settings.ttsPrompt?.trim() || undefined,
+        });
+        const base64 = arrayBufferToBase64(result.audio);
+        const audioUri = `data:${result.mimeType};base64,${base64}`;
+        await playTtsAudio(audioUri);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        Alert.alert(t('reading.errors.synthesis_failed', { message }));
+      }
+    },
+    [playTtsAudio, settings, t]
+  );
+
+  const handleMessageLongPress = useCallback(
+    (message: TranscriptionMessage) => {
+      const transcript =
+        typeof message.transcript === "string" ? message.transcript.trim() : "";
+      const translation =
+        typeof message.translation === "string" ? message.translation.trim() : "";
+      const actions: MessageAction[] = [];
+
+      if (transcript) {
+        actions.push({
+          label: t("transcription.actions.copy_transcript"),
+          onPress: () => {
+            void Clipboard.setStringAsync(transcript);
+          },
+        });
+        actions.push({
+          label: t("transcription.actions.read_transcript"),
+          onPress: () => {
+            void handleSpeakText(transcript);
+          },
+        });
+      }
+
+      if (settings.enableTranslation && translation) {
+        actions.push({
+          label: t("transcription.actions.copy_translation"),
+          onPress: () => {
+            void Clipboard.setStringAsync(translation);
+          },
+        });
+        actions.push({
+          label: t("transcription.actions.read_translation"),
+          onPress: () => {
+            void handleSpeakText(translation);
+          },
+        });
+      }
+
+      if (actions.length === 0) {
+        return;
+      }
+
+      actions.push({
+        label: t("common.actions.cancel"),
+        variant: "cancel",
+      });
+
+      setMessageActionSheet({
+        title: t("transcription.actions.title"),
+        actions,
+      });
+    },
+    [handleSpeakText, settings.enableTranslation, t]
+  );
+
+  const handleDismissActionSheet = useCallback(() => {
+    setMessageActionSheet(null);
+  }, []);
+
   const assistantMessages = activeConversation?.assistantMessages ?? [];
 
   useEffect(() => {
@@ -1133,7 +1303,9 @@ export default function TranscriptionScreen() {
               {t('transcription.history.placeholder_empty')}
             </ThemedText>
           ) : (
-            messages.map((item) => <MessageBubble key={item.id} message={item} />)
+            messages.map((item) => (
+              <MessageBubble key={item.id} message={item} onLongPress={handleMessageLongPress} />
+            ))
           )}
         </ScrollView>
       </View>
@@ -1436,6 +1608,59 @@ export default function TranscriptionScreen() {
           )}
         </View>
       </ThemedView>
+      {messageActionSheet ? (
+        <Modal
+          transparent
+          animationType="fade"
+          visible
+          onRequestClose={handleDismissActionSheet}
+        >
+          <Pressable style={styles.actionSheetBackdrop} onPress={handleDismissActionSheet}>
+            <Pressable style={styles.actionSheetCardPressable} onPress={() => {}}>
+              <ThemedView
+                lightColor="#ffffff"
+                darkColor="#0f172a"
+                style={styles.actionSheetCard}
+              >
+                <ThemedText
+                  type="subtitle"
+                  style={styles.actionSheetTitle}
+                  lightColor="#0f172a"
+                  darkColor="#e2e8f0"
+                >
+                  {messageActionSheet.title}
+                </ThemedText>
+                <View style={styles.actionSheetList}>
+                  {messageActionSheet.actions.map((action) => (
+                    <Pressable
+                      key={action.label}
+                      onPress={() => {
+                        handleDismissActionSheet();
+                        action.onPress?.();
+                      }}
+                      style={({ pressed }) => [
+                        styles.actionSheetItem,
+                        pressed && styles.actionSheetItemPressed,
+                      ]}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.actionSheetLabel,
+                          action.variant === "cancel" && styles.actionSheetLabelCancel,
+                        ]}
+                        lightColor="#0f172a"
+                        darkColor="#e2e8f0"
+                      >
+                        {action.label}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+              </ThemedView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1846,10 +2071,61 @@ const styles = StyleSheet.create({
   historyItemTime: {
     fontSize: 14,
   },
+  actionSheetBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  actionSheetCardPressable: {
+    borderRadius: 20,
+  },
+  actionSheetCard: {
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    shadowColor: "rgba(15, 23, 42, 0.2)",
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  actionSheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  actionSheetList: {
+    gap: 8,
+  },
+  actionSheetItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: "rgba(148, 163, 184, 0.12)",
+  },
+  actionSheetItemPressed: {
+    opacity: 0.85,
+  },
+  actionSheetLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  actionSheetLabelCancel: {
+    color: "#ef4444",
+  },
 });
 
 
-function MessageBubble({ message }: { message: TranscriptionMessage }) {
+function MessageBubble({
+  message,
+  onLongPress,
+}: {
+  message: TranscriptionMessage;
+  onLongPress: (message: TranscriptionMessage) => void;
+}) {
   const { t } = useTranslation();
 
   const statusLabel = (() => {
@@ -1871,13 +2147,18 @@ function MessageBubble({ message }: { message: TranscriptionMessage }) {
       : t('transcription.status.waiting_result');
 
   return (
-    <ThemedView style={styles.messageBubble}>
-      {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
-      <ThemedText style={styles.messageBody}>
-        {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
-      </ThemedText>
-      <TranslationSection message={message} />
-    </ThemedView>
+    <Pressable
+      onLongPress={() => onLongPress(message)}
+      delayLongPress={250}
+      accessibilityRole="button">
+      <ThemedView style={styles.messageBubble}>
+        {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
+        <ThemedText style={styles.messageBody}>
+          {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
+        </ThemedText>
+        <TranslationSection message={message} />
+      </ThemedView>
+    </Pressable>
   );
 }
 

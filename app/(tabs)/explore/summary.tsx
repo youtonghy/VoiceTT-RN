@@ -90,77 +90,105 @@ export default function SummarySettingsScreen() {
             </View>
           </SettingsCard>
 
-          <SettingsCard variant="openai">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.summary.title_engine.openai_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiTitleModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiTitleModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  openaiTitleModel:
-                    formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_OPENAI_TITLE_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
-
-          <SettingsCard variant="gemini">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.summary.title_engine.gemini_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.geminiTitleModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiTitleModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  geminiTitleModel:
-                    formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_GEMINI_TITLE_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
-
-          <SettingsCard variant="prompt">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.summary.title_engine.prompt_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.titleSummaryPrompt}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))}
-              onBlur={() =>
-                updateSettings({
-                  titleSummaryPrompt:
-                    formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
-                })
-              }
-              style={multilineInputStyle}
-              placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
-              placeholderTextColor={placeholderTextColor}
-              multiline
-              textAlignVertical="top"
-            />
-          </SettingsCard>
+          {settings.titleSummaryEngine === 'openai' ? (
+            <SettingsCard variant="openai">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.title_engine.openai_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiTitleModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiTitleModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiTitleModel:
+                      formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_OPENAI_TITLE_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.title_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.titleSummaryPrompt}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    titleSummaryPrompt:
+                      formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          ) : (
+            <SettingsCard variant="gemini">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.title_engine.gemini_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.geminiTitleModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, geminiTitleModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    geminiTitleModel:
+                      formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_GEMINI_TITLE_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.title_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.titleSummaryPrompt}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    titleSummaryPrompt:
+                      formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          )}
 
           <SettingsCard variant="interaction">
             <ThemedText
@@ -181,84 +209,109 @@ export default function SummarySettingsScreen() {
             </View>
           </SettingsCard>
 
-          <SettingsCard variant="openai">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.summary.conversation_engine.openai_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiConversationModel}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
-              }
-              onBlur={() =>
-                updateCredentials({
-                  openaiConversationModel:
-                    formState.openaiConversationModel.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
-
-          <SettingsCard variant="gemini">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.summary.conversation_engine.gemini_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.geminiConversationModel}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
-              }
-              onBlur={() =>
-                updateCredentials({
-                  geminiConversationModel:
-                    formState.geminiConversationModel.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
-
-          <SettingsCard variant="prompt">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.summary.conversation_engine.prompt_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.conversationSummaryPrompt}
-              onChangeText={(text) =>
-                setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
-              }
-              onBlur={() =>
-                updateSettings({
-                  conversationSummaryPrompt:
-                    formState.conversationSummaryPrompt.trim() ||
-                    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-                })
-              }
-              style={multilineInputStyle}
-              placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
-              placeholderTextColor={placeholderTextColor}
-              multiline
-              textAlignVertical="top"
-            />
-          </SettingsCard>
+          {settings.conversationSummaryEngine === 'openai' ? (
+            <SettingsCard variant="openai">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.conversation_engine.openai_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiConversationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiConversationModel:
+                      formState.openaiConversationModel.trim() ||
+                      DEFAULT_OPENAI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.conversation_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.conversationSummaryPrompt}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    conversationSummaryPrompt:
+                      formState.conversationSummaryPrompt.trim() ||
+                      DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          ) : (
+            <SettingsCard variant="gemini">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.conversation_engine.gemini_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.geminiConversationModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    geminiConversationModel:
+                      formState.geminiConversationModel.trim() ||
+                      DEFAULT_GEMINI_CONVERSATION_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.conversation_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.conversationSummaryPrompt}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    conversationSummaryPrompt:
+                      formState.conversationSummaryPrompt.trim() ||
+                      DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

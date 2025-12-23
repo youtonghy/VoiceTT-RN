@@ -10,8 +10,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
 
 type RailItem = {
-  key: 'transcription' | 'qa' | 'settings';
-  href: '/' | '/qa' | '/explore';
+  key: 'transcription' | 'qa' | 'reading' | 'settings';
+  href: '/' | '/qa' | '/reading' | '/explore';
   label: string;
   icon: Parameters<typeof IconSymbol>[0]['name'];
   isActive: (pathname: string) => boolean;
@@ -39,6 +39,13 @@ export function SideTabRail() {
         label: t('navigation.tabs.qa'),
         icon: 'bubble.left.and.bubble.right.fill',
         isActive: (path) => path === '/qa' || path.startsWith('/qa/'),
+      },
+      {
+        key: 'reading',
+        href: '/reading',
+        label: t('navigation.tabs.reading'),
+        icon: 'speaker.wave.2.fill',
+        isActive: (path) => path === '/reading' || path.startsWith('/reading/'),
       },
       {
         key: 'settings',

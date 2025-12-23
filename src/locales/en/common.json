@@ -3,12 +3,14 @@
     "tabs": {
       "transcription": "Transcription",
       "qa": "Q&A",
+      "reading": "Read Aloud",
       "settings": "Settings"
     }
   },
   "common": {
     "actions": {
-      "ok": "OK"
+      "ok": "OK",
+      "cancel": "Cancel"
     }
   },
   "alerts": {
@@ -30,6 +32,13 @@
     }
   },
   "transcription": {
+    "actions": {
+      "title": "Message actions",
+      "copy_transcript": "Copy transcript",
+      "copy_translation": "Copy translation",
+      "read_transcript": "Read transcript aloud",
+      "read_translation": "Read translation aloud"
+    },
     "controls": {
       "start": "Start recording"
     },
@@ -138,6 +147,26 @@
       "send_input": "Send input"
     }
   },
+  "reading": {
+    "title": "Read Aloud",
+    "subtitle": "Send text to generate speech and replay it anytime.",
+    "empty": {
+      "title": "No messages yet",
+      "body": "Send a message to hear it spoken."
+    },
+    "input": {
+      "placeholder": "Type something to read aloud"
+    },
+    "status": {
+      "generating": "Generating audio...",
+      "ready": "Tap to replay",
+      "failed": "Failed to generate audio"
+    },
+    "errors": {
+      "synthesis_failed": "Failed to generate speech: {{message}}",
+      "playback_failed": "Unable to play audio: {{message}}"
+    }
+  },
   "settings": {
     "page_title": "Settings",
     "sections": {
@@ -156,6 +185,10 @@
       "translation": {
         "title": "Translation",
         "subtitle": "Toggle and pipeline"
+      },
+      "tts": {
+        "title": "Text-to-speech",
+        "subtitle": "Voice model and style"
       },
       "summary": {
         "title": "Summaries",
@@ -217,6 +250,7 @@
         "api_key": "API key",
         "transcription_model": "Transcription model",
         "translation_model": "Translation model",
+        "tts_model": "Text-to-speech model",
         "doubao_app_id": "Doubao App ID",
         "doubao_token": "Doubao Token",
         "doubao_cluster": "Doubao Cluster"
@@ -229,6 +263,21 @@
         "silence_duration": "Silence duration (sec)",
         "pre_roll": "Pre-roll duration (sec)",
         "max_segment": "Maximum segment length (sec)"
+      },
+      "metering": {
+        "title": "Current input",
+        "current_db": "Input level (dB)",
+        "idle": "Monitoring off",
+        "threshold_db": "Activation threshold (dB)",
+        "status_label": "Recognition status",
+        "status_off": "Monitoring off",
+        "status_no_signal": "No signal",
+        "status_above_threshold": "Above threshold",
+        "status_below_threshold": "Below threshold",
+        "status_unknown": "Unknown",
+        "not_available": "N/A",
+        "action_start": "Start monitoring",
+        "action_stop": "Stop monitoring"
       },
       "presets": {
         "save_title": "Save current setup",
@@ -250,7 +299,12 @@
     "transcription": {
       "labels": {
         "engine": "Transcription engine",
-        "source_language": "Source language"
+        "source_language": "Source language",
+        "openai_model": "OpenAI transcription model",
+        "gemini_model": "Gemini transcription model",
+        "prompt": "Prompting (optional)",
+        "prompt_placeholder": "e.g. Meeting recap with product names.",
+        "prompt_hint": "Leave empty to disable prompting."
       },
       "engines": {
         "openai": "OpenAI",
@@ -259,7 +313,11 @@
         "soniox": "Soniox",
         "doubao": "Doubao",
         "glm": "GLM"
-      }
+      },
+      "help_label_openai": "OpenAI speech-to-text documentation",
+      "help_label_gemini": "Gemini audio documentation",
+      "help_error_title": "Unable to open link",
+      "help_error_body": "Please try again later."
     },
     "voice_input": {
       "labels": {
@@ -277,13 +335,62 @@
     "translation": {
       "labels": {
         "enable_translation": "Enable translation",
-        "engine": "Translation engine"
+        "engine": "Translation engine",
+        "target_language": "Target language",
+        "select_language": "Select target language",
+        "openai_model": "OpenAI translation model",
+        "gemini_model": "Gemini translation model",
+        "prompt": "Prompting (optional)",
+        "prompt_placeholder": "e.g. Formal tone with industry terminology.",
+        "prompt_hint": "The translate-only instruction is appended automatically.",
+        "appended_instruction": "Translate the user input into {{language}}. Respond with translation only."
       },
       "engines": {
         "openai": "OpenAI",
         "gemini": "Gemini",
         "none": "None"
+      },
+      "languages": {
+        "en": "English",
+        "zh-Hans": "Chinese (Simplified)",
+        "zh-Hant": "Chinese (Traditional)",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "es": "Spanish",
+        "fr": "French",
+        "de": "German",
+        "pt": "Portuguese",
+        "ru": "Russian",
+        "ar": "Arabic",
+        "hi": "Hindi"
       }
+    },
+    "tts": {
+      "engine": {
+        "title": "Text-to-speech engine",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "OpenAI TTS model",
+        "voice_label": "OpenAI voice",
+        "prompt_label": "Voice prompt (optional)",
+        "prompt_placeholder": "e.g. Warm, calm, and articulate with gentle pacing.",
+        "prompt_hint": "Leave empty to disable voice instructions."
+      },
+      "gemini": {
+        "model_label": "Gemini TTS model",
+        "voice_label": "Gemini voice",
+        "prompt_label": "Voice prompt (optional)",
+        "prompt_placeholder": "e.g. Friendly, energetic, with crisp pacing.",
+        "prompt_hint": "Leave empty to disable voice instructions."
+      },
+      "help_label_openai": "OpenAI TTS documentation",
+      "help_label_gemini": "Gemini TTS documentation",
+      "help_error_title": "Unable to open link",
+      "help_error_body": "Please try again later."
     },
     "summary": {
       "title_engine": {

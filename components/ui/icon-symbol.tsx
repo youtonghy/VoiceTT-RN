@@ -22,6 +22,7 @@ const MAPPING = {
   'waveform': 'graphic-eq',
   'bubble.left.and.bubble.right.fill': 'question-answer',
   'questionmark.circle.fill': 'help',
+  'speaker.wave.2.fill': 'volume-up',
 } as IconMapping;
 
 /**

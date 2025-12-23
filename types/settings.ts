@@ -18,6 +18,7 @@ export type TranscriptionEngine = 'openai' | 'gemini' | 'qwen3' | 'soniox' | 'do
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
 export type VoiceInputEngine = TranscriptionEngine;
+export type TtsEngine = 'openai' | 'gemini';
 
 export type TitleSummaryEngine = 'openai' | 'gemini';
 export type ConversationSummaryEngine = 'openai' | 'gemini';
@@ -32,12 +33,14 @@ export interface EngineCredentials {
   openaiBaseUrl?: string;
   openaiTranscriptionModel?: string;
   openaiTranslationModel?: string;
+  openaiTtsModel?: string;
   openaiTitleModel?: string;
   openaiConversationModel?: string;
   openaiQaModel?: string;
   geminiApiKey?: string;
   geminiTranscriptionModel?: string;
   geminiTranslationModel?: string;
+  geminiTtsModel?: string;
   geminiTitleModel?: string;
   geminiConversationModel?: string;
   geminiQaModel?: string;
@@ -59,7 +62,11 @@ export interface TranscriptionSettings {
   maxSegmentDurationSec: number;
   transcriptionEngine: TranscriptionEngine;
   transcriptionLanguage: string; // e.g., 'auto'
+  openaiTranscriptionPrompt: string;
+  geminiTranscriptionPrompt: string;
   translationEngine: TranslationEngine;
+  openaiTranslationPrompt: string;
+  geminiTranslationPrompt: string;
   translationTargetLanguage: string;
   translationTimeoutSec: number;
   enableTranslation: boolean;
@@ -77,7 +84,89 @@ export interface RecordingPreset {
 }
 
 export const DEFAULT_OPENAI_TITLE_MODEL = 'gpt-4o';
+export const DEFAULT_OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
+export const DEFAULT_OPENAI_TTS_VOICE = 'alloy';
+export const OPENAI_TTS_VOICES = [
+  'alloy',
+  'ash',
+  'ballad',
+  'coral',
+  'echo',
+  'fable',
+  'nova',
+  'onyx',
+  'sage',
+  'shimmer',
+  'verse',
+  'marin',
+  'cedar',
+] as const;
+export const DEFAULT_GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+export const DEFAULT_GEMINI_TTS_VOICE = 'Kore';
+export const GEMINI_TTS_VOICES = [
+  'Zephyr',
+  'Puck',
+  'Charon',
+  'Kore',
+  'Fenrir',
+  'Leda',
+  'Orus',
+  'Aoede',
+  'Callirrhoe',
+  'Autonoe',
+  'Enceladus',
+  'Iapetus',
+  'Umbriel',
+  'Algieba',
+  'Despina',
+  'Erinome',
+  'Algenib',
+  'Rasalgethi',
+  'Laomedeia',
+  'Achernar',
+  'Alnilam',
+  'Schedar',
+  'Gacrux',
+  'Pulcherrima',
+  'Achird',
+  'Zubenelgenubi',
+  'Vindemiatrix',
+  'Sadachbia',
+  'Sadaltager',
+  'Sulafat',
+] as const;
 export const DEFAULT_GEMINI_TITLE_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_TRANSLATION_PROMPT_PREFIX = 'You are a translation engine.';
+export const COMMON_TRANSLATION_TARGET_LANGUAGES = [
+  { code: 'en', englishName: 'English', i18nKey: 'settings.translation.languages.en' },
+  {
+    code: 'zh-Hans',
+    englishName: 'Chinese (Simplified)',
+    i18nKey: 'settings.translation.languages.zh-Hans',
+  },
+  {
+    code: 'zh-Hant',
+    englishName: 'Chinese (Traditional)',
+    i18nKey: 'settings.translation.languages.zh-Hant',
+  },
+  { code: 'ja', englishName: 'Japanese', i18nKey: 'settings.translation.languages.ja' },
+  { code: 'ko', englishName: 'Korean', i18nKey: 'settings.translation.languages.ko' },
+  { code: 'es', englishName: 'Spanish', i18nKey: 'settings.translation.languages.es' },
+  { code: 'fr', englishName: 'French', i18nKey: 'settings.translation.languages.fr' },
+  { code: 'de', englishName: 'German', i18nKey: 'settings.translation.languages.de' },
+  { code: 'pt', englishName: 'Portuguese', i18nKey: 'settings.translation.languages.pt' },
+  { code: 'ru', englishName: 'Russian', i18nKey: 'settings.translation.languages.ru' },
+  { code: 'ar', englishName: 'Arabic', i18nKey: 'settings.translation.languages.ar' },
+  { code: 'hi', englishName: 'Hindi', i18nKey: 'settings.translation.languages.hi' },
+] as const;
+
+export type TranslationTargetLanguageCode =
+  (typeof COMMON_TRANSLATION_TARGET_LANGUAGES)[number]['code'];
+
+export function resolveTranslationTargetLanguageEnglishName(code: string): string {
+  const match = COMMON_TRANSLATION_TARGET_LANGUAGES.find((item) => item.code === code);
+  return match?.englishName ?? code;
+}
 export const DEFAULT_TITLE_SUMMARY_PROMPT =
   'You are an assistant who writes short, descriptive conversation titles in the same language as the provided transcript. Respond with a concise noun phrase under twelve words. Never disclose sensitive or personal data.';
 export const DEFAULT_OPENAI_CONVERSATION_MODEL = DEFAULT_OPENAI_TITLE_MODEL;
@@ -91,6 +180,9 @@ export const DEFAULT_QA_PROMPT =
 
 export interface AppSettings extends TranscriptionSettings {
   voiceInputEngine: VoiceInputEngine;
+  ttsEngine: TtsEngine;
+  ttsPrompt: string;
+  ttsVoice: string;
   titleSummaryEngine: TitleSummaryEngine;
   titleSummaryPrompt: string;
   conversationSummaryEngine: ConversationSummaryEngine;
@@ -112,8 +204,15 @@ export const defaultSettings: AppSettings = {
   maxSegmentDurationSec: 300,
   transcriptionEngine: 'openai',
   voiceInputEngine: 'openai',
+  ttsEngine: 'openai',
+  ttsPrompt: '',
+  ttsVoice: DEFAULT_OPENAI_TTS_VOICE,
   transcriptionLanguage: 'auto',
+  openaiTranscriptionPrompt: '',
+  geminiTranscriptionPrompt: '',
   translationEngine: 'openai',
+  openaiTranslationPrompt: DEFAULT_TRANSLATION_PROMPT_PREFIX,
+  geminiTranslationPrompt: DEFAULT_TRANSLATION_PROMPT_PREFIX,
   translationTargetLanguage: 'en',
   translationTimeoutSec: 20,
   enableTranslation: true,
@@ -130,11 +229,13 @@ export const defaultSettings: AppSettings = {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',
     openaiTranslationModel: 'gpt-4o-mini',
+    openaiTtsModel: DEFAULT_OPENAI_TTS_MODEL,
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,
     openaiConversationModel: DEFAULT_OPENAI_CONVERSATION_MODEL,
     openaiQaModel: DEFAULT_OPENAI_QA_MODEL,
     geminiTranscriptionModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiTranslationModel: 'gemini-2.5-flash',
+    geminiTtsModel: DEFAULT_GEMINI_TTS_MODEL,
     geminiTitleModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
     geminiQaModel: DEFAULT_GEMINI_QA_MODEL,
