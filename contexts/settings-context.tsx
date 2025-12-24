@@ -154,6 +154,9 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     } else if (!merged.recordingPresets.some((preset) => preset.id === merged.activeRecordingPresetId)) {
       merged.activeRecordingPresetId = null;
     }
+    if (typeof merged.desktopAudioInputId !== 'string' || !merged.desktopAudioInputId.trim()) {
+      merged.desktopAudioInputId = null;
+    }
     return merged;
   } catch (error) {
     console.warn('[settings] Failed to restore persisted settings', error);

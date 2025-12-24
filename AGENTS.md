@@ -14,6 +14,8 @@
 - Ship Android (API level TBD) and iOS (minimum version TBD) in lockstep.
 - Respect background policies: Android foreground service with notification; iOS Background Modes with energy impact monitoring.
 - Keep business logic in a platform-agnostic core (e.g., KMP or Flutter/Dart) where feasible; adapt UI per platform conventions.
+- Maintain Electron parity with React Native: every new feature must work on both desktop and mobile targets.
+- Ensure input parity across touch and keyboard/mouse; translate gestures appropriately (e.g., long-press on touch = right-click on desktop).
 
 ## Design System & Layout
 - Use Material Design 3 components; Android must support Monet dynamic color extraction.

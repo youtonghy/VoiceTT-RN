@@ -9,6 +9,7 @@ import {
   View,
   Alert,
   Modal,
+  Platform,
   TextInput,
   useWindowDimensions,
   NativeSyntheticEvent,
@@ -311,10 +312,15 @@ export default function TranscriptionScreen() {
   const isTablet = useIsTablet();
   const { settings } = useSettings();
   const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
+  const isDesktopApp =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    Boolean((window as { electron?: unknown }).electron);
   const carouselRef = useRef<ScrollView | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
+  const transcriptionScrollOffsetRef = useRef(0);
   const assistantInputRef = useRef<TextInput | null>(null);
   const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
@@ -427,11 +433,22 @@ export default function TranscriptionScreen() {
     }
   }, [clearError, error, t]);
 
+  const scrollToLatestTranscript = useCallback((animated: boolean) => {
+    const scroll = () => {
+      scrollRef.current?.scrollToEnd({ animated });
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(scroll);
+    } else {
+      setTimeout(scroll, 0);
+    }
+  }, []);
+
   useEffect(() => {
     if (messages.length > 0) {
-      scrollRef.current?.scrollToEnd({ animated: true });
+      scrollToLatestTranscript(true);
     }
-  }, [messages]);
+  }, [messages, scrollToLatestTranscript]);
 
   useEffect(() => {
     const pending = autoTitlePendingRef.current;
@@ -1112,8 +1129,19 @@ export default function TranscriptionScreen() {
         title: t("transcription.actions.title"),
         actions,
       });
+      if (isDesktopApp) {
+        const currentOffset = transcriptionScrollOffsetRef.current;
+        const restoreScroll = () => {
+          scrollRef.current?.scrollTo({ y: currentOffset, animated: false });
+        };
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(restoreScroll);
+        } else {
+          setTimeout(restoreScroll, 0);
+        }
+      }
     },
-    [handleSpeakText, settings.enableTranslation, t]
+    [handleSpeakText, isDesktopApp, settings.enableTranslation, t]
   );
 
   const handleDismissActionSheet = useCallback(() => {
@@ -1296,6 +1324,15 @@ export default function TranscriptionScreen() {
           ref={scrollRef}
           style={styles.dialogueScroll}
           contentContainerStyle={messages.length === 0 ? styles.emptyDialogue : styles.dialogueContent}
+          onContentSizeChange={() => {
+            if (messages.length > 0) {
+              scrollToLatestTranscript(true);
+            }
+          }}
+          onScroll={(event) => {
+            transcriptionScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled>
           {messages.length === 0 ? (
@@ -2127,6 +2164,10 @@ function MessageBubble({
   onLongPress: (message: TranscriptionMessage) => void;
 }) {
   const { t } = useTranslation();
+  const isDesktopApp =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    Boolean((window as { electron?: unknown }).electron);
 
   const statusLabel = (() => {
     switch (message.status) {
@@ -2148,8 +2189,21 @@ function MessageBubble({
 
   return (
     <Pressable
-      onLongPress={() => onLongPress(message)}
-      delayLongPress={250}
+      onLongPress={
+        isDesktopApp
+          ? undefined
+          : () => onLongPress(message)
+      }
+      onPointerDown={(event) => {
+        if (!isDesktopApp) {
+          return;
+        }
+        if (event.nativeEvent.button === 2) {
+          event.preventDefault();
+          onLongPress(message);
+        }
+      }}
+      delayLongPress={isDesktopApp ? undefined : 250}
       accessibilityRole="button">
       <ThemedView style={styles.messageBubble}>
         {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}

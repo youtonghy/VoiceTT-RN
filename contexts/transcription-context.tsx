@@ -17,7 +17,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
@@ -75,6 +75,265 @@ interface TranscriptionContextValue {
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
+
+const isElectronDesktop =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  Boolean((window as { electron?: unknown }).electron);
+
+let preferredDesktopAudioInputId: string | null = null;
+let desktopAudioOverrideInstalled = false;
+let originalGetUserMedia:
+  | ((constraints: MediaStreamConstraints) => Promise<MediaStream>)
+  | null = null;
+let desktopMeteringStream: MediaStream | null = null;
+let desktopMeteringContext: AudioContext | null = null;
+let desktopMeteringAnalyser: AnalyserNode | null = null;
+let desktopMeteringData: Uint8Array | null = null;
+
+function updatePreferredDesktopAudioInputId(value: string | null) {
+  preferredDesktopAudioInputId = value;
+}
+
+function applyPreferredAudioInput(
+  constraints: MediaStreamConstraints,
+  preferredId: string | null,
+) {
+  if (!preferredId || !constraints || typeof constraints !== 'object') {
+    return { nextConstraints: constraints, shouldFallback: false };
+  }
+  if (!Object.prototype.hasOwnProperty.call(constraints, 'audio')) {
+    return { nextConstraints: constraints, shouldFallback: false };
+  }
+  const audioConstraint = constraints.audio;
+  if (!audioConstraint) {
+    return { nextConstraints: constraints, shouldFallback: false };
+  }
+  if (typeof audioConstraint === 'boolean') {
+    if (!audioConstraint) {
+      return { nextConstraints: constraints, shouldFallback: false };
+    }
+    return {
+      nextConstraints: {
+        ...constraints,
+        audio: { deviceId: { exact: preferredId } },
+      },
+      shouldFallback: true,
+    };
+  }
+  if (typeof audioConstraint === 'object') {
+    if ('deviceId' in audioConstraint) {
+      return { nextConstraints: constraints, shouldFallback: false };
+    }
+    return {
+      nextConstraints: {
+        ...constraints,
+        audio: {
+          ...(audioConstraint as MediaTrackConstraints),
+          deviceId: { exact: preferredId },
+        },
+      },
+      shouldFallback: true,
+    };
+  }
+  return { nextConstraints: constraints, shouldFallback: false };
+}
+
+function stopDesktopMetering() {
+  if (desktopMeteringContext) {
+    desktopMeteringContext.close().catch(() => undefined);
+  }
+  desktopMeteringStream = null;
+  desktopMeteringContext = null;
+  desktopMeteringAnalyser = null;
+  desktopMeteringData = null;
+}
+
+function attachDesktopMeteringStream(stream: MediaStream) {
+  if (!isElectronDesktop || !stream) {
+    return;
+  }
+  if (desktopMeteringStream === stream && desktopMeteringAnalyser) {
+    return;
+  }
+  stopDesktopMetering();
+
+  const AudioContextConstructor =
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
+    (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextConstructor) {
+    return;
+  }
+
+  const context = new AudioContextConstructor();
+  if (context.state === 'suspended') {
+    context.resume().catch(() => undefined);
+  }
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 2048;
+  const source = context.createMediaStreamSource(stream);
+  source.connect(analyser);
+
+  desktopMeteringStream = stream;
+  desktopMeteringContext = context;
+  desktopMeteringAnalyser = analyser;
+  desktopMeteringData = new Uint8Array(analyser.fftSize);
+
+  stream.getTracks().forEach((track) => {
+    track.addEventListener('ended', () => {
+      if (desktopMeteringStream === stream) {
+        stopDesktopMetering();
+      }
+    });
+  });
+  console.log('[desktop-input] Desktop metering attached');
+}
+
+function readDesktopMeteringDb(): number | undefined {
+  if (!desktopMeteringAnalyser || !desktopMeteringData) {
+    return undefined;
+  }
+  desktopMeteringAnalyser.getByteTimeDomainData(desktopMeteringData);
+  let sum = 0;
+  for (let index = 0; index < desktopMeteringData.length; index += 1) {
+    const normalized = (desktopMeteringData[index] - 128) / 128;
+    sum += normalized * normalized;
+  }
+  const rms = Math.sqrt(sum / desktopMeteringData.length);
+  return rms > 0 ? 20 * Math.log10(rms) : -160;
+}
+
+function installDesktopAudioInputOverride() {
+  if (desktopAudioOverrideInstalled || !isElectronDesktop) {
+    return;
+  }
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return;
+  }
+
+  const mediaDevices = navigator.mediaDevices;
+  originalGetUserMedia = mediaDevices.getUserMedia.bind(mediaDevices);
+  mediaDevices.getUserMedia = (constraints) => {
+    if (!originalGetUserMedia) {
+      return Promise.reject(new Error('getUserMedia unavailable'));
+    }
+    const normalizedConstraints = (constraints ?? {}) as MediaStreamConstraints;
+    const { nextConstraints, shouldFallback } = applyPreferredAudioInput(
+      normalizedConstraints,
+      preferredDesktopAudioInputId,
+    );
+    if (preferredDesktopAudioInputId) {
+      console.log('[desktop-input] getUserMedia override active', {
+        deviceId: preferredDesktopAudioInputId,
+        shouldFallback,
+      });
+    }
+    const attempt = originalGetUserMedia(nextConstraints).then((stream) => {
+      attachDesktopMeteringStream(stream);
+      return stream;
+    });
+    if (!shouldFallback) {
+      return attempt;
+    }
+    return attempt.catch((error) =>
+      originalGetUserMedia!(normalizedConstraints)
+        .then((stream) => {
+          attachDesktopMeteringStream(stream);
+          return stream;
+        })
+        .catch(() => Promise.reject(error))
+    );
+  };
+  console.log('[desktop-input] Installed getUserMedia override');
+  desktopAudioOverrideInstalled = true;
+}
+
+function writeAscii(view: DataView, offset: number, value: string) {
+  for (let i = 0; i < value.length; i += 1) {
+    view.setUint8(offset + i, value.charCodeAt(i));
+  }
+}
+
+function encodeWavFromAudioBuffer(buffer: AudioBuffer): ArrayBuffer {
+  const sampleRate = buffer.sampleRate;
+  const length = buffer.length;
+  const channelCount = buffer.numberOfChannels;
+  const pcm = new Int16Array(length);
+  const channels: Float32Array[] = [];
+  for (let channel = 0; channel < channelCount; channel += 1) {
+    channels.push(buffer.getChannelData(channel));
+  }
+  for (let index = 0; index < length; index += 1) {
+    let mixed = 0;
+    for (let channel = 0; channel < channelCount; channel += 1) {
+      mixed += channels[channel][index] ?? 0;
+    }
+    mixed /= channelCount;
+    const clamped = Math.max(-1, Math.min(1, mixed));
+    pcm[index] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+  }
+
+  const blockAlign = 2;
+  const byteRate = sampleRate * blockAlign;
+  const bufferLength = 44 + pcm.length * 2;
+  const wavBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(wavBuffer);
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + pcm.length * 2, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, pcm.length * 2, true);
+  new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm.buffer));
+  return wavBuffer;
+}
+
+async function normalizeDesktopRecordingUri(fileUri: string): Promise<string | null> {
+  if (!isElectronDesktop || typeof fetch !== 'function') {
+    return null;
+  }
+  if (!fileUri.startsWith('blob:')) {
+    return null;
+  }
+  const response = await fetch(fileUri);
+  if (!response.ok) {
+    return null;
+  }
+  const blob = await response.blob();
+  const mimeType = blob.type.toLowerCase();
+  console.log('[transcription] Segment blob', { mimeType, size: blob.size });
+  if (!mimeType.includes('webm') && !mimeType.includes('ogg') && !mimeType.includes('mp4')) {
+    return null;
+  }
+  const arrayBuffer = await blob.arrayBuffer();
+  const AudioContextConstructor =
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
+    (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextConstructor) {
+    return null;
+  }
+  const context = new AudioContextConstructor();
+  if (context.state === 'suspended') {
+    await context.resume();
+  }
+  try {
+    const audioBuffer = await context.decodeAudioData(arrayBuffer);
+    const wavBuffer = encodeWavFromAudioBuffer(audioBuffer);
+    const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const wavUri = URL.createObjectURL(wavBlob);
+    console.log('[transcription] Converted segment to WAV', { size: wavBlob.size });
+    return wavUri;
+  } finally {
+    await context.close().catch(() => undefined);
+  }
+}
 
 interface RecordingStatus {
   isRecording: boolean;
@@ -199,6 +458,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const { settings } = useSettings();
   const settingsRef = useLatestRef(settings);
 
+  useEffect(() => {
+    if (!isElectronDesktop) {
+      return;
+    }
+    installDesktopAudioInputOverride();
+    updatePreferredDesktopAudioInputId(settings.desktopAudioInputId ?? null);
+    console.log('[desktop-input] Preferred device updated', {
+      deviceId: settings.desktopAudioInputId ?? 'default',
+    });
+  }, [settings.desktopAudioInputId]);
+
   const [messages, setMessages] = useState<TranscriptionMessage[]>([]);
   const messagesRef = useLatestRef(messages);
 
@@ -222,6 +492,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(1);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const meteringSourceRef = useRef<'recorder' | 'desktop' | 'none'>('none');
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
   const handleStatusUpdateRef = useRef<((status: RecordingStatus) => void) | null>(null);
   const meteringStaleSinceRef = useRef<number | null>(null);
@@ -301,6 +572,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const cleanupRecordingFile = useCallback(async (fileUri: string | null | undefined) => {
     if (fileUri) {
       try {
+        if (Platform.OS === 'web' && fileUri.startsWith('blob:')) {
+          URL.revokeObjectURL(fileUri);
+          return;
+        }
         await deleteAsync(fileUri, { idempotent: true });
       } catch (cleanupError) {
         console.warn('[transcription] Failed to clean recording file', cleanupError);
@@ -317,6 +592,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const currentMessageId = snapshot.messageId;
     const startOffsetMs = snapshot.confirmedStartMs ?? 0;
     const durationMs = status?.durationMillis ?? recorder.currentTime * 1000;
+    console.log('[transcription] Finalizing segment', {
+      messageId: currentMessageId,
+      startOffsetMs,
+      durationMs,
+    });
     const payload: TranscriptionSegmentPayload = {
       fileUri: '',
       startOffsetMs,
@@ -324,6 +604,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       durationMs,
       messageId: currentMessageId,
     };
+    let originalFileUri: string | null = null;
     try {
       // Stop the current recording
       if (statusIntervalRef.current) {
@@ -335,7 +616,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       if (!fileUri) {
         throw new Error(t('transcription.errors.empty_recording'));
       }
-      payload.fileUri = fileUri;
+      originalFileUri = fileUri;
+      let normalizedUri = fileUri;
+      try {
+        const maybeNormalized = await normalizeDesktopRecordingUri(fileUri);
+        if (maybeNormalized) {
+          normalizedUri = maybeNormalized;
+        }
+      } catch (normalizeError) {
+        console.warn('[transcription] Failed to normalize audio segment', normalizeError);
+      }
+      payload.fileUri = normalizedUri;
 
       if (sessionActiveRef.current) {
         startNewRecording().catch((restartError) => {
@@ -344,7 +635,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
 
       const segmentMetadata: SegmentMetadata = {
-        fileUri,
+        fileUri: normalizedUri,
         startOffsetMs,
         endOffsetMs: durationMs,
         durationMs,
@@ -364,6 +655,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       try {
         transcription = await transcribeSegment(payload, settingsRef.current, abortController.signal);
       } catch (transcribeError) {
+        console.warn('[transcription] Transcription failed', transcribeError);
         updateMessage(currentMessageId, (msg) => ({
           ...msg,
           status: 'failed',
@@ -372,6 +664,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         }));
         return;
       }
+      console.log('[transcription] Transcription completed', {
+        messageId: currentMessageId,
+        length: transcription.text.length,
+        language: transcription.language ?? 'auto',
+      });
 
       const shouldTranslate = settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none';
 
@@ -431,6 +728,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       if (payload.fileUri) {
         cleanupRecordingFile(payload.fileUri);
       }
+      if (originalFileUri && originalFileUri !== payload.fileUri) {
+        cleanupRecordingFile(originalFileUri);
+      }
     }
   }, [cleanupRecordingFile, recorder, resetSegmentState, sessionActiveRef, settingsRef, t, updateMessage]);
 
@@ -453,10 +753,25 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       statusIntervalRef.current = setInterval(() => {
         const recorderStatus = recorder.getStatus();
+        const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
+        const metering =
+          typeof recorderStatus.metering === 'number' && Number.isFinite(recorderStatus.metering)
+            ? recorderStatus.metering
+            : fallbackMetering;
+        const nextSource: 'recorder' | 'desktop' | 'none' =
+          typeof recorderStatus.metering === 'number'
+            ? 'recorder'
+            : typeof fallbackMetering === 'number'
+            ? 'desktop'
+            : 'none';
+        if (meteringSourceRef.current !== nextSource) {
+          console.log('[transcription] Metering source', { source: nextSource });
+          meteringSourceRef.current = nextSource;
+        }
         const status: RecordingStatus = {
           isRecording: recorderStatus.isRecording,
           durationMillis: recorderStatus.durationMillis,
-          metering: recorderStatus.metering,
+          metering,
           isDoneRecording: false,
         };
         handleStatusUpdateRef.current?.(status);

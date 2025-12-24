@@ -42,6 +42,26 @@ npx expo start
 
 在应用内进入 Settings → Credentials 配置各类引擎所需的 API Key / Base URL / 模型名。
 
+### 桌面版（Windows/macOS + Electron）
+
+本仓库使用 Expo Web 构建产物作为 Electron 的渲染层。
+
+开发模式（启动 Expo Web + Electron）：
+
+```bash
+npm install
+npm run desktop:dev
+```
+
+静态构建与预览：
+
+```bash
+npm run desktop:build
+npm run desktop:start
+```
+
+如需自定义端口，可设置 `EXPO_WEB_PORT`（默认 19006）。
+
 ### 免责声明
 
 - 本项目按“现状”提供，不对适用性、稳定性、准确性或特定用途作任何保证；使用风险由使用者自行承担。
@@ -89,6 +109,26 @@ npx expo start
 ```
 
 Configure engine API keys / base URLs / model names in Settings → Credentials.
+
+### Desktop (Windows/macOS + Electron)
+
+This repo uses the Expo web build as the Electron renderer.
+
+Dev mode (Expo Web + Electron):
+
+```bash
+npm install
+npm run desktop:dev
+```
+
+Static build + preview:
+
+```bash
+npm run desktop:build
+npm run desktop:start
+```
+
+Set `EXPO_WEB_PORT` to override the dev server port (default 19006).
 
 ### Disclaimer
 

@@ -192,6 +192,7 @@ export interface AppSettings extends TranscriptionSettings {
   themeMode: ThemeMode;
   languageMode: AppLanguageMode;
   credentials: EngineCredentials;
+  desktopAudioInputId: string | null;
   recordingPresets: RecordingPreset[];
   activeRecordingPresetId: string | null;
 }
@@ -246,6 +247,7 @@ export const defaultSettings: AppSettings = {
     doubaoToken: '',
     doubaoCluster: '',
   },
+  desktopAudioInputId: null,
   recordingPresets: [],
   activeRecordingPresetId: null,
 };

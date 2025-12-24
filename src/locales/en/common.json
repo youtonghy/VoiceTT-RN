@@ -264,6 +264,21 @@
         "pre_roll": "Pre-roll duration (sec)",
         "max_segment": "Maximum segment length (sec)"
       },
+      "input": {
+        "title": "Desktop input",
+        "description": "Select a microphone or loopback source for Electron recordings.",
+        "default": "System default",
+        "refresh": "Refresh devices",
+        "empty": "No audio inputs detected.",
+        "unknown_device": "Input {{index}}",
+        "status_idle": "Test idle",
+        "status_listening": "Listening…",
+        "status_signal": "Signal detected",
+        "test_start": "Test microphone",
+        "test_stop": "Stop test",
+        "load_failed": "Unable to load audio devices.",
+        "test_failed": "Unable to start the input test."
+      },
       "metering": {
         "title": "Current input",
         "current_db": "Input level (dB)",

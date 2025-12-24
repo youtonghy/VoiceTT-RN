@@ -59,6 +59,10 @@ const METERING_RECORDING_OPTIONS: RecordingOptions = {
 
 const createPresetId = () => `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 type PresetNumericValues = Omit<RecordingPreset, 'id' | 'name'>;
+type DesktopAudioInputOption = {
+  id: string;
+  label: string;
+};
 
 export default function RecordingSettingsScreen() {
   const { t } = useTranslation();
@@ -72,6 +76,25 @@ export default function RecordingSettingsScreen() {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [meteringDb, setMeteringDb] = useState<number | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isDesktopApp =
+    Platform.OS === 'web' &&
+    typeof window !== 'undefined' &&
+    Boolean((window as { electron?: unknown }).electron);
+  const [desktopInputs, setDesktopInputs] = useState<DesktopAudioInputOption[]>([]);
+  const [desktopInputError, setDesktopInputError] = useState<string | null>(null);
+  const [isTestingInput, setIsTestingInput] = useState(false);
+  const [hasInputSignal, setHasInputSignal] = useState(false);
+  const inputTestRef = useRef<{
+    stream: MediaStream | null;
+    context: AudioContext | null;
+    analyser: AnalyserNode | null;
+    intervalId: NodeJS.Timeout | null;
+  }>({
+    stream: null,
+    context: null,
+    analyser: null,
+    intervalId: null,
+  });
 
   const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
   const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
@@ -146,6 +169,15 @@ export default function RecordingSettingsScreen() {
     recognitionStatus,
     t,
   ]);
+  const selectedDesktopInputId = settings.desktopAudioInputId;
+  const inputTestStatusLabel = useMemo(() => {
+    if (!isTestingInput) {
+      return t('settings.recording.input.status_idle');
+    }
+    return hasInputSignal
+      ? t('settings.recording.input.status_signal')
+      : t('settings.recording.input.status_listening');
+  }, [hasInputSignal, isTestingInput, t]);
 
   const clearStatusInterval = useCallback(() => {
     if (statusIntervalRef.current) {
@@ -159,6 +191,10 @@ export default function RecordingSettingsScreen() {
       return;
     }
     try {
+      if (Platform.OS === 'web' && uri.startsWith('blob:')) {
+        URL.revokeObjectURL(uri);
+        return;
+      }
       await deleteAsync(uri, { idempotent: true });
     } catch (error) {
       if (__DEV__) {
@@ -185,6 +221,211 @@ export default function RecordingSettingsScreen() {
   useEffect(() => () => {
     void stopMonitoringSilently();
   }, [stopMonitoringSilently]);
+
+  const refreshDesktopInputs = useCallback(
+    async (requestPermission: boolean) => {
+      if (!isDesktopApp || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+        return;
+      }
+      console.log('[desktop-input] Refresh requested', { requestPermission });
+      setDesktopInputError(null);
+      try {
+        if (requestPermission) {
+          let permission = await getRecordingPermissionsAsync();
+          if (!permission.granted) {
+            permission = await requestRecordingPermissionsAsync();
+            if (!permission.granted) {
+              console.log('[desktop-input] Permission denied while refreshing devices');
+              Alert.alert(
+                t('alerts.microphone_permission.title'),
+                t('alerts.microphone_permission.message')
+              );
+              return;
+            }
+          }
+        }
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices
+          .filter((device) => device.kind === 'audioinput')
+          .filter((device) => device.deviceId !== 'default')
+          .map((device, index) => ({
+            id: device.deviceId,
+            label:
+              device.label?.trim() ||
+              t('settings.recording.input.unknown_device', { index: index + 1 }),
+          }));
+        setDesktopInputs(audioInputs);
+        console.log('[desktop-input] Devices refreshed', {
+          count: audioInputs.length,
+          selectedDeviceId: selectedDesktopInputId,
+        });
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to enumerate audio inputs', error);
+        }
+        console.log('[desktop-input] Refresh failed', {
+          message: (error as Error)?.message ?? 'unknown',
+        });
+        setDesktopInputError(t('settings.recording.input.load_failed'));
+      }
+    },
+    [isDesktopApp, selectedDesktopInputId, t]
+  );
+
+  useEffect(() => {
+    if (!isDesktopApp || typeof navigator === 'undefined' || !navigator.mediaDevices) {
+      return;
+    }
+    void refreshDesktopInputs(false);
+    const handleDeviceChange = () => {
+      console.log('[desktop-input] Device change detected');
+      void refreshDesktopInputs(false);
+    };
+    navigator.mediaDevices.addEventListener?.('devicechange', handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener?.('devicechange', handleDeviceChange);
+    };
+  }, [isDesktopApp, refreshDesktopInputs]);
+
+  const stopInputTest = useCallback(async () => {
+    if (inputTestRef.current.intervalId) {
+      clearInterval(inputTestRef.current.intervalId);
+      inputTestRef.current.intervalId = null;
+    }
+    if (inputTestRef.current.stream) {
+      inputTestRef.current.stream.getTracks().forEach((track) => track.stop());
+      inputTestRef.current.stream = null;
+    }
+    if (inputTestRef.current.context) {
+      try {
+        await inputTestRef.current.context.close();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to close input test context', error);
+        }
+      }
+      inputTestRef.current.context = null;
+    }
+    inputTestRef.current.analyser = null;
+    setIsTestingInput(false);
+    setHasInputSignal(false);
+    console.log('[desktop-input] Test stopped');
+  }, []);
+
+  useEffect(() => () => {
+    void stopInputTest();
+  }, [stopInputTest]);
+
+  const startInputTest = useCallback(
+    async (overrideDeviceId?: string | null) => {
+      if (!isDesktopApp) {
+        return;
+      }
+      await stopInputTest();
+      setDesktopInputError(null);
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setDesktopInputError(t('settings.recording.input.test_failed'));
+        return;
+      }
+
+      try {
+        let permission = await getRecordingPermissionsAsync();
+        if (!permission.granted) {
+          permission = await requestRecordingPermissionsAsync();
+          if (!permission.granted) {
+            console.log('[desktop-input] Permission denied while starting test');
+            Alert.alert(
+              t('alerts.microphone_permission.title'),
+              t('alerts.microphone_permission.message')
+            );
+            return;
+          }
+        }
+
+        const AudioContextConstructor =
+          (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
+          (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioContextConstructor) {
+          setDesktopInputError(t('settings.recording.input.test_failed'));
+          return;
+        }
+
+        const activeDeviceId = overrideDeviceId ?? selectedDesktopInputId;
+        console.log('[desktop-input] Test starting', { deviceId: activeDeviceId ?? 'default' });
+        const constraints: MediaStreamConstraints = activeDeviceId
+          ? { audio: { deviceId: { exact: activeDeviceId } }, video: false }
+          : { audio: true, video: false };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const context = new AudioContextConstructor();
+        if (context.state === 'suspended') {
+          await context.resume();
+        }
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 2048;
+        const source = context.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const data = new Uint8Array(analyser.fftSize);
+        const threshold = 0.02;
+
+        inputTestRef.current.stream = stream;
+        inputTestRef.current.context = context;
+        inputTestRef.current.analyser = analyser;
+        inputTestRef.current.intervalId = setInterval(() => {
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let index = 0; index < data.length; index += 1) {
+            const normalized = (data[index] - 128) / 128;
+            sum += normalized * normalized;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          const nextHasSignal = rms >= threshold;
+          setHasInputSignal((prev) => (prev === nextHasSignal ? prev : nextHasSignal));
+        }, 120);
+
+        setIsTestingInput(true);
+        setHasInputSignal(false);
+        void refreshDesktopInputs(false);
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to start input test', error);
+        }
+        console.log('[desktop-input] Test failed', {
+          message: (error as Error)?.message ?? 'unknown',
+        });
+        setDesktopInputError(t('settings.recording.input.test_failed'));
+        await stopInputTest();
+      }
+    },
+    [
+      isDesktopApp,
+      refreshDesktopInputs,
+      selectedDesktopInputId,
+      stopInputTest,
+      t,
+    ]
+  );
+
+  const handleToggleInputTest = useCallback(() => {
+    if (isTestingInput) {
+      console.log('[desktop-input] Test toggle: stop');
+      void stopInputTest();
+    } else {
+      console.log('[desktop-input] Test toggle: start');
+      void startInputTest();
+    }
+  }, [isTestingInput, startInputTest, stopInputTest]);
+
+  const handleSelectDesktopInput = useCallback(
+    (deviceId: string | null) => {
+      console.log('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
+      updateSettings({ desktopAudioInputId: deviceId });
+      if (isTestingInput) {
+        void startInputTest(deviceId);
+      }
+    },
+    [isTestingInput, startInputTest, updateSettings]
+  );
 
   const startMonitoring = useCallback(async () => {
     if (recorder.isRecording) {
@@ -424,6 +665,89 @@ export default function RecordingSettingsScreen() {
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
+          {isDesktopApp ? (
+            <SettingsCard variant="system">
+              <View style={recordingStyles.inputHeader}>
+                <ThemedText
+                  type="subtitle"
+                  lightColor={CARD_TEXT_LIGHT}
+                  darkColor={CARD_TEXT_DARK}>
+                  {t('settings.recording.input.title')}
+                </ThemedText>
+                <OptionPill
+                  label={t('settings.recording.input.refresh')}
+                  active={false}
+                  onPress={() => refreshDesktopInputs(true)}
+                />
+              </View>
+              <ThemedText
+                style={recordingStyles.inputDescription}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.recording.input.description')}
+              </ThemedText>
+              <View style={settingsStyles.optionsRow}>
+                <OptionPill
+                  label={t('settings.recording.input.default')}
+                  active={!selectedDesktopInputId}
+                  onPress={() => handleSelectDesktopInput(null)}
+                />
+                {desktopInputs.map((device) => (
+                  <OptionPill
+                    key={device.id}
+                    label={device.label}
+                    active={selectedDesktopInputId === device.id}
+                    onPress={() => handleSelectDesktopInput(device.id)}
+                  />
+                ))}
+              </View>
+              {desktopInputs.length === 0 ? (
+                <ThemedText
+                  style={recordingStyles.inputEmpty}
+                  lightColor={CARD_SUBTLE_LIGHT}
+                  darkColor={CARD_SUBTLE_DARK}>
+                  {t('settings.recording.input.empty')}
+                </ThemedText>
+              ) : null}
+              <View style={recordingStyles.inputTestRow}>
+                <View style={recordingStyles.inputStatus}>
+                  <View
+                    style={[
+                      recordingStyles.inputStatusDot,
+                      isTestingInput
+                        ? hasInputSignal
+                          ? recordingStyles.inputStatusDotActive
+                          : recordingStyles.inputStatusDotListening
+                        : recordingStyles.inputStatusDotIdle,
+                    ]}
+                  />
+                  <ThemedText
+                    style={recordingStyles.inputStatusLabel}
+                    lightColor={CARD_SUBTLE_LIGHT}
+                    darkColor={CARD_SUBTLE_DARK}>
+                    {inputTestStatusLabel}
+                  </ThemedText>
+                </View>
+                <OptionPill
+                  label={
+                    isTestingInput
+                      ? t('settings.recording.input.test_stop')
+                      : t('settings.recording.input.test_start')
+                  }
+                  active={isTestingInput}
+                  onPress={handleToggleInputTest}
+                />
+              </View>
+              {desktopInputError ? (
+                <ThemedText
+                  style={recordingStyles.inputError}
+                  lightColor={CARD_SUBTLE_LIGHT}
+                  darkColor={CARD_SUBTLE_DARK}>
+                  {desktopInputError}
+                </ThemedText>
+              ) : null}
+            </SettingsCard>
+          ) : null}
           <SettingsCard variant="system">
             <View style={settingsStyles.rowBetween}>
               <ThemedText
@@ -666,5 +990,50 @@ const recordingStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     lineHeight: 22,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  inputDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  inputEmpty: {
+    fontSize: 13,
+  },
+  inputTestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  inputStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inputStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  inputStatusDotIdle: {
+    backgroundColor: 'rgba(148, 163, 184, 0.7)',
+  },
+  inputStatusDotListening: {
+    backgroundColor: 'rgba(250, 204, 21, 0.85)',
+  },
+  inputStatusDotActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+  },
+  inputStatusLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  inputError: {
+    fontSize: 13,
   },
 });

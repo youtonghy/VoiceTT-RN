@@ -132,28 +132,169 @@ function ensureFileExists(uri: string) {
   }
 }
 
+function normalizeMimeType(raw?: string | null): string | null {
+  if (!raw) {
+    return null;
+  }
+  const base = raw.split(';')[0]?.trim().toLowerCase();
+  if (!base) {
+    return null;
+  }
+  if (base === 'audio/x-wav') {
+    return 'audio/wav';
+  }
+  return base;
+}
+
 function inferMimeType(uri: string): string {
   const lower = uri.toLowerCase();
   if (lower.endsWith('.wav')) return 'audio/wav';
   if (lower.endsWith('.m4a')) return 'audio/mp4';
+  if (lower.endsWith('.mp4')) return 'audio/mp4';
   if (lower.endsWith('.mp3')) return 'audio/mpeg';
   if (lower.endsWith('.ogg')) return 'audio/ogg';
+  if (lower.endsWith('.webm')) return 'audio/webm';
+  if (lower.endsWith('.aac')) return 'audio/aac';
   return 'audio/wav';
 }
 
-function inferFileName(uri: string): string {
-  if (!uri) {
-    return 'segment.wav';
+function inferFileExtensionFromMime(mimeType?: string | null): string | null {
+  const normalized = normalizeMimeType(mimeType);
+  switch (normalized) {
+    case 'audio/wav':
+      return 'wav';
+    case 'audio/mp4':
+      return 'm4a';
+    case 'audio/mpeg':
+      return 'mp3';
+    case 'audio/ogg':
+      return 'ogg';
+    case 'audio/webm':
+      return 'webm';
+    case 'audio/aac':
+      return 'aac';
+    default:
+      return null;
+  }
+}
+
+function inferAudioFormatFromMime(mimeType?: string | null): string | null {
+  const normalized = normalizeMimeType(mimeType);
+  switch (normalized) {
+    case 'audio/wav':
+      return 'wav';
+    case 'audio/mp4':
+      return 'mp4';
+    case 'audio/mpeg':
+      return 'mp3';
+    case 'audio/ogg':
+      return 'ogg';
+    case 'audio/webm':
+      return 'webm';
+    case 'audio/aac':
+      return 'aac';
+    default:
+      return null;
+  }
+}
+
+function inferFileName(uri: string, mimeType?: string | null): string {
+  const fallbackExtension = inferFileExtensionFromMime(mimeType) ?? 'wav';
+  if (!uri || isWebAssetUri(uri)) {
+    return `segment.${fallbackExtension}`;
   }
   const parts = uri.split(/[\/]/);
   const candidate = parts[parts.length - 1];
   if (!candidate) {
-    return 'segment.wav';
+    return `segment.${fallbackExtension}`;
   }
-  return candidate;
+  if (candidate.includes('.')) {
+    return candidate;
+  }
+  return `${candidate}.${fallbackExtension}`;
 }
 
-function inferQwenAudioFormat(uri: string): string {
+function isWebAssetUri(uri: string): boolean {
+  return (
+    uri.startsWith('blob:') ||
+    uri.startsWith('data:') ||
+    uri.startsWith('http://') ||
+    uri.startsWith('https://')
+  );
+}
+
+async function assertAudioUriExists(uri: string): Promise<void> {
+  if (Platform.OS === 'web' || isWebAssetUri(uri)) {
+    return;
+  }
+  const info = await getInfoAsync(uri);
+  if (!info.exists) {
+    throw new Error('Recording file not found on disk');
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  if (typeof btoa !== 'function') {
+    throw new Error('Base64 encoding is unavailable in this environment');
+  }
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+async function fetchAudioBlob(uri: string): Promise<Blob> {
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('Failed to read audio data from URI');
+  }
+  return await response.blob();
+}
+
+type AudioBase64Payload = {
+  base64: string;
+  mimeType: string;
+};
+
+async function readAudioAsBase64(uri: string): Promise<AudioBase64Payload> {
+  if (Platform.OS !== 'web') {
+    const base64 = await readAsStringAsync(uri, { encoding: EncodingType.Base64 });
+    return { base64, mimeType: inferMimeType(uri) };
+  }
+  const blob = await fetchAudioBlob(uri);
+  const buffer = await blob.arrayBuffer();
+  const base64 = arrayBufferToBase64(buffer);
+  const mimeType = normalizeMimeType(blob.type) ?? inferMimeType(uri);
+  return { base64, mimeType };
+}
+
+async function appendAudioToFormData(formData: FormData, uri: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    const blob = await fetchAudioBlob(uri);
+    const normalizedMime = normalizeMimeType(blob.type) ?? inferMimeType(uri);
+    const needsNormalized =
+      !blob.type || (normalizedMime && blob.type && normalizedMime !== blob.type);
+    const typedBlob = needsNormalized ? new Blob([blob], { type: normalizedMime }) : blob;
+    formData.append('file', typedBlob, inferFileName(uri, normalizedMime));
+    return;
+  }
+  formData.append('file', {
+    // @ts-ignore FormData typing does not include uri on web
+    uri,
+    name: inferFileName(uri, inferMimeType(uri)),
+    type: inferMimeType(uri),
+  } as any);
+}
+
+function inferQwenAudioFormat(uri: string, mimeType?: string | null): string {
+  const fromMime = inferAudioFormatFromMime(mimeType);
+  if (fromMime) {
+    return fromMime;
+  }
   const lower = uri.toLowerCase();
   if (lower.endsWith('.mp3')) return 'mp3';
   if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'mp4';
@@ -163,7 +304,11 @@ function inferQwenAudioFormat(uri: string): string {
   return 'wav';
 }
 
-function inferDoubaoAudioFormat(uri: string): string {
+function inferDoubaoAudioFormat(uri: string, mimeType?: string | null): string {
+  const fromMime = inferAudioFormatFromMime(mimeType);
+  if (fromMime) {
+    return fromMime;
+  }
   const lower = uri.toLowerCase();
   if (lower.endsWith('.ogg')) return 'ogg';
   if (lower.endsWith('.mp3')) return 'mp3';
@@ -317,20 +462,12 @@ async function transcribeWithOpenAI(
     throw new Error('Missing OpenAI API key');
   }
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
   const url = resolveOpenAIBaseUrl(settings) + '/v1/audio/transcriptions';
 
   const formData = new FormData();
-  formData.append('file', {
-    // @ts-ignore FormData typing does not include uri on web
-    uri: payload.fileUri,
-    name: inferFileName(payload.fileUri),
-    type: inferMimeType(payload.fileUri),
-  } as any);
+  await appendAudioToFormData(formData, payload.fileUri);
   formData.append('model', resolveTranscriptionModel(settings));
   formData.append('response_format', 'text');
   if (settings.openaiTranscriptionPrompt?.trim()) {
@@ -379,21 +516,15 @@ async function transcribeWithGemini(
   }
 
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
-  const base64Audio = await readAsStringAsync(payload.fileUri, {
-    encoding: EncodingType.Base64,
-  });
+  const { base64: base64Audio, mimeType: audioMime } = await readAudioAsBase64(payload.fileUri);
 
   if (!base64Audio) {
     throw new Error('Failed to read audio file for Gemini transcription');
   }
 
   const model = resolveTranscriptionModel(settings);
-  const audioMime = inferMimeType(payload.fileUri);
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -481,18 +612,10 @@ async function transcribeWithGlm(
     throw new Error('Missing GLM API key');
   }
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
   const formData = new FormData();
-  formData.append('file', {
-    // @ts-ignore FormData typing does not include uri on web
-    uri: payload.fileUri,
-    name: inferFileName(payload.fileUri),
-    type: inferMimeType(payload.fileUri),
-  } as any);
+  await appendAudioToFormData(formData, payload.fileUri);
   formData.append('model', resolveTranscriptionModel(settings));
   formData.append('stream', 'false');
   formData.append('request_id', `segment-${payload.messageId}-${Date.now()}`);
@@ -545,14 +668,9 @@ async function transcribeWithQwen(
     throw new Error('Missing Qwen API key');
   }
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
-  const base64Audio = await readAsStringAsync(payload.fileUri, {
-    encoding: EncodingType.Base64,
-  });
+  const { base64: base64Audio, mimeType: audioMime } = await readAudioAsBase64(payload.fileUri);
 
   if (!base64Audio) {
     throw new Error('Failed to read audio file for Qwen transcription');
@@ -567,8 +685,7 @@ async function transcribeWithQwen(
     asrOptions.language = language;
   }
 
-  const audioMime = inferMimeType(payload.fileUri);
-  const audioFormat = inferQwenAudioFormat(payload.fileUri);
+  const audioFormat = inferQwenAudioFormat(payload.fileUri, audioMime);
   const audioDataUri = createDataUri(audioMime, base64Audio);
 
   const messages = [
@@ -746,12 +863,7 @@ async function uploadSonioxFile(
   signal?: AbortSignal
 ): Promise<string> {
   const formData = new FormData();
-  formData.append('file', {
-    // @ts-ignore React Native FormData type
-    uri: fileUri,
-    name: inferFileName(fileUri),
-    type: inferMimeType(fileUri),
-  } as any);
+  await appendAudioToFormData(formData, fileUri);
 
   const data = await sonioxJsonRequest(
     apiKey,
@@ -936,10 +1048,7 @@ async function transcribeWithSoniox(
   }
 
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
   let fileId: string | undefined;
   let transcriptionId: string | undefined;
@@ -999,16 +1108,13 @@ async function transcribeWithDoubao(
     throw new Error('Missing Doubao credentials (appid, token, or cluster)');
   }
   ensureFileExists(payload.fileUri);
-  const info = await getInfoAsync(payload.fileUri);
-  if (!info.exists) {
-    throw new Error('Recording file not found on disk');
-  }
+  await assertAudioUriExists(payload.fileUri);
 
-  const base64Audio = await readAsStringAsync(payload.fileUri, { encoding: EncodingType.Base64 });
+  const { base64: base64Audio, mimeType: audioMime } = await readAudioAsBase64(payload.fileUri);
   if (!base64Audio) {
     throw new Error('Failed to read audio file for Doubao transcription');
   }
-  const audioUrl = createDataUri(inferMimeType(payload.fileUri), base64Audio);
+  const audioUrl = createDataUri(audioMime, base64Audio);
 
   const additions: Record<string, string> = {
     use_itn: 'True',
@@ -1028,7 +1134,7 @@ async function transcribeWithDoubao(
       uid: 'voice-tt-client',
     },
     audio: {
-      format: inferDoubaoAudioFormat(payload.fileUri),
+      format: inferDoubaoAudioFormat(payload.fileUri, audioMime),
       url: audioUrl,
     },
     additions,

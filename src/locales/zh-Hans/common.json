@@ -264,6 +264,21 @@
         "pre_roll": "前滚时长 (秒)",
         "max_segment": "最大片段 (秒)"
       },
+      "input": {
+        "title": "桌面输入",
+        "description": "选择麦克风或系统回环输入，用于桌面端录音。",
+        "default": "系统默认",
+        "refresh": "刷新设备",
+        "empty": "未检测到音频输入。",
+        "unknown_device": "输入 {{index}}",
+        "status_idle": "未启用测试",
+        "status_listening": "正在监听…",
+        "status_signal": "检测到声音",
+        "test_start": "测试麦克风",
+        "test_stop": "停止测试",
+        "load_failed": "无法获取音频设备。",
+        "test_failed": "无法开始输入测试。"
+      },
       "metering": {
         "title": "当前输入",
         "current_db": "输入电平（dB）",

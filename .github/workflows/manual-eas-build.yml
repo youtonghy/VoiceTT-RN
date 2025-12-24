@@ -1,4 +1,4 @@
-name: Manual Mobile Builds
+name: Manual Builds
 
 on:
   workflow_dispatch:
@@ -11,6 +11,18 @@ on:
         description: 'Run iOS build'
         type: boolean
         default: true
+      build_windows:
+        description: 'Run Windows desktop build'
+        type: boolean
+        default: false
+      build_linux:
+        description: 'Run Linux desktop build'
+        type: boolean
+        default: false
+      build_macos:
+        description: 'Reserved for macOS desktop build (signing not configured)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -159,3 +171,77 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$RELEASE_TAG" "${{ steps.find_ios_artifact.outputs.path }}" --clobber
+
+  desktop_windows:
+    needs: prepare_release
+    if: inputs.build_windows == true
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build desktop Windows package
+        run: |
+          npx expo export --platform web --output-dir web-build
+          npx electron-builder --win
+        shell: bash
+
+      - name: Upload Windows artifacts to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.exe dist/*.msi dist/*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Windows artifacts found in dist/"
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+        shell: bash
+
+  desktop_linux:
+    needs: prepare_release
+    if: inputs.build_linux == true
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build desktop Linux package
+        run: |
+          npx expo export --platform web --output-dir web-build
+          npx electron-builder --linux
+
+      - name: Upload Linux artifacts to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.AppImage dist/*.deb dist/*.rpm dist/*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Linux artifacts found in dist/"
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber

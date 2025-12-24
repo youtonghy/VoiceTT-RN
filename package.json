@@ -8,8 +8,44 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "desktop:dev": "node ./scripts/electron-dev.js",
+    "desktop:build": "npx expo export --platform web --output-dir web-build && npx electron-builder --win --linux",
     "lint": "expo lint",
     "check:i18n": "node ./scripts/check-i18n.js"
+  },
+  "build": {
+    "appId": "com.unbaked0692.vtt",
+    "productName": "VoiceTT",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "web-build/**",
+      "electron/**",
+      "assets/**",
+      "app.json",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/images/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/images/icon.png"
+    }
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -51,6 +87,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "electron": "^34.5.8",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
