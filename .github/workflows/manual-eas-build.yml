@@ -198,6 +198,8 @@ jobs:
 
       - name: Build desktop Windows package
         run: npm run desktop:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
       - name: Upload Windows artifacts to draft release
@@ -234,6 +236,8 @@ jobs:
 
       - name: Build desktop Linux package
         run: npm run desktop:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Linux artifacts to draft release
         env:
