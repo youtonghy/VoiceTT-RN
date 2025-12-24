@@ -192,9 +192,7 @@ jobs:
         run: npm ci
 
       - name: Build desktop Windows package
-        run: |
-          npx expo export --platform web --output-dir web-build
-          npx electron-builder --win
+        run: npm run desktop:build
         shell: bash
 
       - name: Upload Windows artifacts to draft release
@@ -230,9 +228,7 @@ jobs:
         run: npm ci
 
       - name: Build desktop Linux package
-        run: |
-          npx expo export --platform web --output-dir web-build
-          npx electron-builder --linux
+        run: npm run desktop:build
 
       - name: Upload Linux artifacts to draft release
         env:

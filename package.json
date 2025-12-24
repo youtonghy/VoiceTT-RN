@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "desktop:dev": "node ./scripts/electron-dev.js",
-    "desktop:build": "npx expo export --platform web --output-dir web-build && npx electron-builder --win --linux",
+    "desktop:build": "node ./scripts/desktop-build.js",
     "lint": "expo lint",
     "check:i18n": "node ./scripts/check-i18n.js"
   },
@@ -27,8 +27,11 @@
       "package.json"
     ],
     "extraMetadata": {
-      "main": "electron/main.js"
+      "main": "electron/main.js",
+      "dependencies": {}
     },
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
     "mac": {
       "target": [
         "dmg"
