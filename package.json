@@ -1,7 +1,8 @@
 {
   "name": "VoiceTT",
   "main": "expo-router/entry",
-  "version": "0.3.2",
+  "version": "0.3.3",
+  "author": "youtonghy <hi@youtonghy.com>",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -48,6 +49,11 @@
         "AppImage"
       ],
       "icon": "assets/images/icon.png"
+    },
+    "nsis": {
+      "allowElevation": false,
+      "include": "installer.nsh",
+      "perMachine": false
     }
   },
   "dependencies": {

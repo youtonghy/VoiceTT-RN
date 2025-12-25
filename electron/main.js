@@ -1,9 +1,11 @@
 const fs = require('fs');
-const http = require('http');
 const path = require('path');
-const { app, BrowserWindow, shell, session } = require('electron');
+const { app, BrowserWindow, shell, session, protocol } = require('electron');
 
 const envStartUrl = process.env.ELECTRON_START_URL;
+const APP_PROTOCOL = 'app';
+const APP_PROTOCOL_HOST = 'local';
+const APP_PROTOCOL_URL = `${APP_PROTOCOL}://${APP_PROTOCOL_HOST}`;
 const staticRoot = path.join(__dirname, '..', 'web-build');
 const staticIndex = path.join(staticRoot, 'index.html');
 const appConfig = require(path.join(__dirname, '..', 'app.json'));
@@ -13,6 +15,9 @@ const appVersion = expoConfig?.version || app.getVersion();
 const appId = expoConfig?.android?.package || expoConfig?.ios?.bundleIdentifier || expoConfig?.slug || appName;
 const rawIconPath = expoConfig?.icon ? path.join(__dirname, '..', expoConfig.icon) : null;
 const appIconPath = rawIconPath && fs.existsSync(rawIconPath) ? rawIconPath : null;
+const userDataPath = path.join(app.getPath('appData'), appName);
+
+app.setPath('userData', userDataPath);
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -25,15 +30,24 @@ const mimeTypes = {
   '.map': 'application/json; charset=utf-8',
 };
 
-let runtimeStartUrl = envStartUrl || null;
-let staticServer = null;
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: APP_PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
+
+let runtimeStartUrl = envStartUrl || APP_PROTOCOL_URL;
 
 function isTrustedOrigin(targetUrl) {
   if (!targetUrl) {
     return false;
-  }
-  if (!runtimeStartUrl) {
-    return targetUrl.startsWith('file://');
   }
   try {
     return new URL(targetUrl).origin === new URL(runtimeStartUrl).origin;
@@ -112,46 +126,22 @@ function resolveStaticFilePath(requestUrl) {
   return staticIndex;
 }
 
-function startStaticServer() {
-  if (staticServer) {
-    return Promise.resolve(staticServer);
-  }
+function registerAppProtocol() {
   if (!fs.existsSync(staticIndex)) {
     throw new Error('Missing web build. Run `npm run desktop:build` first.');
   }
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      if (!req.url) {
-        res.statusCode = 400;
-        res.end();
-        return;
-      }
-      const filePath = resolveStaticFilePath(req.url);
+  protocol.registerFileProtocol(APP_PROTOCOL, (request, callback) => {
+    try {
+      const filePath = resolveStaticFilePath(request.url);
       if (!filePath) {
-        res.statusCode = 403;
-        res.end();
+        callback({ error: -6 });
         return;
       }
       const ext = path.extname(filePath).toLowerCase();
-      res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-      fs.createReadStream(filePath)
-        .on('error', () => {
-          res.statusCode = 500;
-          res.end();
-        })
-        .pipe(res);
-    });
-    server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      if (!address || typeof address === 'string') {
-        reject(new Error('Failed to start static server.'));
-        return;
-      }
-      staticServer = server;
-      runtimeStartUrl = `http://127.0.0.1:${address.port}`;
-      resolve(server);
-    });
+      callback({ path: filePath, mimeType: mimeTypes[ext] || 'application/octet-stream' });
+    } catch (error) {
+      callback({ error: -6 });
+    }
   });
 }
 
@@ -221,7 +211,7 @@ app.whenReady().then(async () => {
   configurePermissions();
   try {
     if (!envStartUrl) {
-      await startStaticServer();
+      registerAppProtocol();
     }
     createMainWindow(runtimeStartUrl);
   } catch (error) {
@@ -239,11 +229,5 @@ app.on('activate', () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
-  }
-});
-
-app.on('before-quit', () => {
-  if (staticServer) {
-    staticServer.close();
   }
 });
