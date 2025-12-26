@@ -1,24 +1,32 @@
+/**
+ * 页面名称：外观设置 (Appearance Settings)
+ * 文件路径：app/(tabs)/explore/appearance.tsx
+ * 功能描述：允许用户配置应用程序的主题模式（自动、浅色、深色）和语言设置。
+ */
+
+import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { AppLanguageMode, ThemeMode } from '@/types/settings';
 import { resolveDeviceLanguage } from '@/i18n';
+import type { AppLanguageMode, ThemeMode } from '@/types/settings';
 
 import {
-  CARD_TEXT_LIGHT,
-  CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
 } from './shared';
 
+// --- 常量定义 ---
 const themeModes: ThemeMode[] = ['automatic', 'light', 'dark'];
 const languageModes: AppLanguageMode[] = ['system', 'en', 'zh-Hans'];
 
+// --- 主组件 ---
 export default function AppearanceSettingsScreen() {
   const { t, i18n } = useTranslation();
   const { settings, updateSettings } = useSettings();
@@ -32,6 +40,7 @@ export default function AppearanceSettingsScreen() {
   ];
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
 
+  // --- 处理函数 ---
   const applyLanguageMode = (mode: AppLanguageMode) => {
     updateSettings({ languageMode: mode });
     const target = mode === 'system' ? resolveDeviceLanguage() : mode;
@@ -44,6 +53,7 @@ export default function AppearanceSettingsScreen() {
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+      {/* 键盘避让视图 */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={settingsStyles.flex}>

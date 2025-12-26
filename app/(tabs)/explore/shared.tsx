@@ -1,31 +1,38 @@
-import { useEffect, useState } from 'react';
+/**
+ * 页面名称：设置共享组件与工具 (Settings Shared Components & Utils)
+ * 文件路径：app/(tabs)/explore/shared.tsx
+ * 功能描述：提供设置页面通用的样式定义、UI 组件（如 SettingsCard, OptionPill）以及表单状态管理 Hook。
+ */
+
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-  DEFAULT_GEMINI_TRANSLATION_MODEL,
-  DEFAULT_OPENAI_BASE_URL,
-  DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-  DEFAULT_OPENAI_TRANSLATION_MODEL,
-  DEFAULT_GLM_TRANSCRIPTION_MODEL,
-  DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+    DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
+    DEFAULT_GEMINI_TRANSLATION_MODEL,
+    DEFAULT_GLM_TRANSCRIPTION_MODEL,
+    DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+    DEFAULT_OPENAI_TRANSLATION_MODEL,
+    DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
 import {
-  AppSettings,
-  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-  DEFAULT_GEMINI_CONVERSATION_MODEL,
-  DEFAULT_GEMINI_TITLE_MODEL,
-  DEFAULT_GEMINI_TTS_MODEL,
-  DEFAULT_OPENAI_CONVERSATION_MODEL,
-  DEFAULT_OPENAI_TITLE_MODEL,
-  DEFAULT_OPENAI_TTS_MODEL,
-  DEFAULT_OPENAI_TTS_VOICE,
-  DEFAULT_TRANSLATION_PROMPT_PREFIX,
+    AppSettings,
+    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+    DEFAULT_GEMINI_CONVERSATION_MODEL,
+    DEFAULT_GEMINI_TITLE_MODEL,
+    DEFAULT_GEMINI_TTS_MODEL,
+    DEFAULT_OPENAI_CONVERSATION_MODEL,
+    DEFAULT_OPENAI_TITLE_MODEL,
+    DEFAULT_OPENAI_TTS_MODEL,
+    DEFAULT_OPENAI_TTS_VOICE,
+    DEFAULT_TRANSLATION_PROMPT_PREFIX,
 } from '@/types/settings';
 
+// --- 类型定义 ---
 export type NumericSettingKey =
   | 'activationThreshold'
   | 'activationDurationSec'

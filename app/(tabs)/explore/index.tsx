@@ -1,10 +1,16 @@
-import { useMemo, useCallback, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, Alert, Linking, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, type Href } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import Constants from 'expo-constants';
+/**
+ * 页面名称：设置主页 (Settings Index)
+ * 文件路径：app/(tabs)/explore/index.tsx
+ * 功能描述：展示设置选项列表，包括录音、语音输入、转录、翻译、TTS、摘要、QA、凭据和外观设置。
+ */
+
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Constants from 'expo-constants';
+import { useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -14,6 +20,7 @@ import { proVersionPromoCard } from '@/types/settings';
 
 import { settingsStyles } from './shared';
 
+// --- 类型与常量定义 ---
 type RouteHref = Extract<Href, string>;
 
 interface SettingsEntry {
@@ -27,6 +34,7 @@ const REPOSITORY_URL = 'https://github.com/youtonghy/VoiceTT';
 
 const aboutIconSource = require('../../../assets/images/icon.png');
 
+// --- 主组件 ---
 export default function SettingsIndexScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -38,12 +46,14 @@ export default function SettingsIndexScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
 
+  // 平板端自动跳转到第一个设置项
   useEffect(() => {
     if (isTablet) {
       router.replace('/explore/recording');
     }
   }, [isTablet, router]);
 
+  // --- 处理函数 ---
   const openExternalLink = useCallback((url: string) => {
     Linking.openURL(url).catch((error) => {
       console.warn('[settings] Failed to open link', url, error);
@@ -63,6 +73,7 @@ export default function SettingsIndexScreen() {
     openExternalLink(REPOSITORY_URL);
   }, [openExternalLink]);
 
+  // --- 版本信息 ---
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'dev';
   const buildVersion =
     Constants.nativeBuildVersion ??
@@ -77,6 +88,7 @@ export default function SettingsIndexScreen() {
     return [versionText, buildText].filter(Boolean) as string[];
   }, [appVersion, buildVersion, t]);
 
+  // --- 设置项列表配置 ---
   const entryItems: SettingsEntry[] = useMemo(
     () => [
       {

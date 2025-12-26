@@ -1,41 +1,50 @@
+/**
+ * 页面名称：摘要设置 (Summary Settings)
+ * 文件路径：app/(tabs)/explore/summary.tsx
+ * 功能描述：配置对话标题生成和内容摘要的引擎、模型以及自定义提示词。
+ */
 
+import { useTranslation } from 'react-i18next';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-  DEFAULT_GEMINI_CONVERSATION_MODEL,
-  DEFAULT_GEMINI_TITLE_MODEL,
-  DEFAULT_OPENAI_CONVERSATION_MODEL,
-  DEFAULT_OPENAI_TITLE_MODEL,
-  DEFAULT_TITLE_SUMMARY_PROMPT,
-  type ConversationSummaryEngine,
-  type TitleSummaryEngine,
+    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+    DEFAULT_GEMINI_CONVERSATION_MODEL,
+    DEFAULT_GEMINI_TITLE_MODEL,
+    DEFAULT_OPENAI_CONVERSATION_MODEL,
+    DEFAULT_OPENAI_TITLE_MODEL,
+    DEFAULT_TITLE_SUMMARY_PROMPT,
+    type ConversationSummaryEngine,
+    type TitleSummaryEngine,
 } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量定义 ---
 const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
 const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
 
+// --- 主组件 ---
 export default function SummarySettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -44,6 +53,7 @@ export default function SummarySettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
+  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,

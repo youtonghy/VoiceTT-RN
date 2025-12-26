@@ -1,6 +1,12 @@
+/**
+ * 页面名称：语音输入设置 (Voice Input Settings)
+ * 文件路径：app/(tabs)/explore/voice-input.tsx
+ * 功能描述：配置用于语音输入的 STT 引擎。
+ */
+
+import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -8,14 +14,17 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { TranscriptionEngine } from '@/types/settings';
 
 import {
-  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
 } from './shared';
 
+// --- 常量定义 ---
 const voiceInputEngines: TranscriptionEngine[] = ['openai', 'gemini', 'qwen3', 'soniox', 'doubao', 'glm'];
 
+// --- 主组件 ---
 export default function VoiceInputSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
@@ -23,6 +32,7 @@ export default function VoiceInputSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
+  // --- 样式配置 ---
   const safeAreaStyle = [
     settingsStyles.safeArea,
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
@@ -31,6 +41,7 @@ export default function VoiceInputSettingsScreen() {
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+      {/* 键盘避让视图 */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={settingsStyles.flex}>

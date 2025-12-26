@@ -1,6 +1,12 @@
+/**
+ * 页面名称：设置布局 (Settings Layout)
+ * 文件路径：app/(tabs)/explore/_layout.tsx
+ * 功能描述：配置设置模块的导航栈，并为平板端提供分栏布局（侧边栏 + 详情页）。
+ */
+
 import { Stack } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { SettingsSidebar } from '@/components/settings/settings-sidebar';
@@ -9,7 +15,8 @@ import { useIsTablet } from '@/hooks/use-is-tablet';
 export default function SettingsLayout() {
   const { t } = useTranslation();
   const isTablet = useIsTablet();
-
+
+  // 设置页面标题国际化
   const titles = {
     recording: t('settings.sections.recording.title'),
     voiceInput: t('settings.sections.voice_input.title'),
@@ -22,6 +29,7 @@ export default function SettingsLayout() {
     appearance: t('settings.sections.appearance.title'),
   };
 
+  // 导航栈配置
   const stack = (
     <Stack screenOptions={{ headerShadowVisible: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -37,10 +45,12 @@ export default function SettingsLayout() {
     </Stack>
   );
 
+  // 手机端直接返回导航栈
   if (!isTablet) {
     return stack;
   }
 
+  // 平板端返回分栏布局
   return (
     <View style={styles.splitRoot}>
       <SettingsSidebar />
@@ -49,6 +59,7 @@ export default function SettingsLayout() {
   );
 }
 
+// 样式定义
 const styles = StyleSheet.create({
   splitRoot: {
     flex: 1,

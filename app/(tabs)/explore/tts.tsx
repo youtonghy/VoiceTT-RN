@@ -1,47 +1,55 @@
+/**
+ * 页面名称：语音合成设置 (TTS Settings)
+ * 文件路径：app/(tabs)/explore/tts.tsx
+ * 功能描述：配置文本转语音 (TTS) 引擎、模型、音色以及自定义提示词。
+ */
+
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-  Pressable,
-  Alert,
-  Linking,
+    Alert,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  DEFAULT_GEMINI_TTS_MODEL,
-  DEFAULT_GEMINI_TTS_VOICE,
-  DEFAULT_OPENAI_TTS_MODEL,
-  DEFAULT_OPENAI_TTS_VOICE,
-  GEMINI_TTS_VOICES,
-  OPENAI_TTS_VOICES,
-  type TtsEngine,
+    DEFAULT_GEMINI_TTS_MODEL,
+    DEFAULT_GEMINI_TTS_VOICE,
+    DEFAULT_OPENAI_TTS_MODEL,
+    DEFAULT_OPENAI_TTS_VOICE,
+    GEMINI_TTS_VOICES,
+    OPENAI_TTS_VOICES,
+    type TtsEngine,
 } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT,
-  CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT,
-  CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量定义 ---
 const OPENAI_TTS_DOCS_URL = 'https://platform.openai.com/docs/guides/text-to-speech#custom-voices';
 const GEMINI_TTS_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/speech-generation';
 const ttsEngines: TtsEngine[] = ['openai', 'gemini'];
 
+// --- 主组件 ---
 export default function TtsSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();

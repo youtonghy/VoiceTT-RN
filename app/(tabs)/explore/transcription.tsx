@@ -1,43 +1,50 @@
+/**
+ * 页面名称：转录设置 (Transcription Settings)
+ * 文件路径：app/(tabs)/explore/transcription.tsx
+ * 功能描述：配置语音转文字 (STT) 引擎、模型、语言以及自定义提示词。
+ */
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { TranscriptionEngine } from '@/types/settings';
 import {
-  DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-  DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+    DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
+    DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
+import type { TranscriptionEngine } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT,
-  CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT,
-  CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量定义 ---
 const transcriptionEngines: TranscriptionEngine[] = ['openai', 'gemini', 'qwen3', 'soniox', 'doubao', 'glm'];
 const OPENAI_STT_DOCS_URL = 'https://platform.openai.com/docs/guides/speech-to-text';
 const GEMINI_STT_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/audio#javascript';
 
+// --- 主组件 ---
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -46,6 +53,7 @@ export default function TranscriptionSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
+  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,

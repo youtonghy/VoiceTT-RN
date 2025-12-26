@@ -1,24 +1,29 @@
+/**
+ * 页面名称：录音设置 (Recording Settings)
+ * 文件路径：app/(tabs)/explore/recording.tsx
+ * 功能描述：配置录音参数，包括采样率、声道、比特率、静音检测以及录音预设。
+ */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import {
-  getRecordingPermissionsAsync,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  useAudioRecorder,
-  type RecordingOptions,
+    getRecordingPermissionsAsync,
+    requestRecordingPermissionsAsync,
+    setAudioModeAsync,
+    useAudioRecorder,
+    type RecordingOptions,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
@@ -26,16 +31,19 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AppSettings, RecordingPreset } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
-  NumericSettingKey,
-  OptionPill,
-  SettingsCard,
-  formatNumberInput,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    NumericSettingKey,
+    OptionPill,
+    SettingsCard,
+    formatNumberInput,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量与配置 ---
 const METERING_RECORDING_OPTIONS: RecordingOptions = {
   isMeteringEnabled: true,
   extension: '.m4a',

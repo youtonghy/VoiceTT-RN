@@ -1,41 +1,48 @@
+/**
+ * 页面名称：翻译设置 (Translation Settings)
+ * 文件路径：app/(tabs)/explore/translation.tsx
+ * 功能描述：配置实时翻译引擎、目标语言、模型以及自定义翻译提示词。
+ */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Switch,
-  TextInput,
-  View,
-  StyleSheet,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { COMMON_TRANSLATION_TARGET_LANGUAGES, type TranslationEngine } from '@/types/settings';
 import {
-  DEFAULT_GEMINI_TRANSLATION_MODEL,
-  DEFAULT_OPENAI_TRANSLATION_MODEL,
+    DEFAULT_GEMINI_TRANSLATION_MODEL,
+    DEFAULT_OPENAI_TRANSLATION_MODEL,
 } from '@/services/transcription';
+import { COMMON_TRANSLATION_TARGET_LANGUAGES, type TranslationEngine } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT,
-  CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT,
-  CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量定义 ---
 const translationEngines: TranslationEngine[] = ['openai', 'gemini', 'none'];
 
+// --- 主组件 ---
 export default function TranslationSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -45,6 +52,7 @@ export default function TranslationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
+  // --- 样式配置 ---
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [

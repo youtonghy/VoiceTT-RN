@@ -1,35 +1,45 @@
+/**
+ * 页面名称：问答设置 (QA Settings)
+ * 文件路径：app/(tabs)/explore/qa.tsx
+ * 功能描述：配置问答引擎（OpenAI, Gemini）、模型选择以及自定义提示词 (Prompt)。
+ */
+
+import { useTranslation } from 'react-i18next';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  DEFAULT_GEMINI_QA_MODEL,
-  DEFAULT_OPENAI_QA_MODEL,
-  DEFAULT_QA_PROMPT,
-  type QaEngine,
+    DEFAULT_GEMINI_QA_MODEL,
+    DEFAULT_OPENAI_QA_MODEL,
+    DEFAULT_QA_PROMPT,
+    type QaEngine,
 } from '@/types/settings';
 
 import {
-  CARD_SUBTLE_LIGHT, CARD_SUBTLE_DARK,
-  CARD_TEXT_LIGHT, CARD_TEXT_DARK,
-  OptionPill,
-  SettingsCard,
-  settingsStyles,
-  useSettingsForm,
+    CARD_SUBTLE_DARK,
+    CARD_SUBTLE_LIGHT,
+    CARD_TEXT_DARK,
+    CARD_TEXT_LIGHT,
+    OptionPill,
+    SettingsCard,
+    settingsStyles,
+    useSettingsForm,
 } from './shared';
 
+// --- 常量定义 ---
 const qaEngines: QaEngine[] = ['openai', 'gemini'];
 
+// --- 主组件 ---
 export default function QaSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -38,6 +48,7 @@ export default function QaSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
+  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,
