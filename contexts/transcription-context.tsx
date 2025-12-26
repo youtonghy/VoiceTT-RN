@@ -81,6 +81,10 @@ const isElectronDesktop =
   typeof window !== 'undefined' &&
   Boolean((window as { electron?: unknown }).electron);
 
+type DesktopRecorderWithMediaRecorder = AudioRecorder & {
+  mediaRecorder?: MediaRecorder | null;
+};
+
 let preferredDesktopAudioInputId: string | null = null;
 let desktopAudioOverrideInstalled = false;
 let originalGetUserMedia:
@@ -246,6 +250,111 @@ function installDesktopAudioInputOverride() {
   };
   console.log('[desktop-input] Installed getUserMedia override');
   desktopAudioOverrideInstalled = true;
+}
+
+function getDesktopMediaRecorder(recorder: AudioRecorder): MediaRecorder | null {
+  if (!isElectronDesktop || typeof MediaRecorder === 'undefined') {
+    return null;
+  }
+  const candidate = (recorder as DesktopRecorderWithMediaRecorder).mediaRecorder;
+  if (!candidate || typeof candidate.requestData !== 'function') {
+    return null;
+  }
+  return candidate;
+}
+
+function resolveDesktopRecordingStream(recorder: AudioRecorder): MediaStream | null {
+  const mediaRecorder = getDesktopMediaRecorder(recorder);
+  if (mediaRecorder?.stream) {
+    return mediaRecorder.stream;
+  }
+  if (desktopMeteringStream) {
+    return desktopMeteringStream;
+  }
+  return null;
+}
+
+function buildDesktopMediaRecorderOptions(): MediaRecorderOptions {
+  const recordingOptions = buildRecordingOptions();
+  const webOptions = recordingOptions.web;
+  const options: MediaRecorderOptions = {};
+  const mimeType = webOptions?.mimeType;
+  if (mimeType && typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) {
+    options.mimeType = mimeType;
+  }
+  const bitsPerSecond = webOptions?.bitsPerSecond ?? recordingOptions.bitRate;
+  if (bitsPerSecond) {
+    options.bitsPerSecond = bitsPerSecond;
+  }
+  return options;
+}
+
+function createDesktopSegmentRecorder(stream: MediaStream): MediaRecorder | null {
+  if (!isElectronDesktop || typeof MediaRecorder === 'undefined') {
+    return null;
+  }
+  const options = buildDesktopMediaRecorderOptions();
+  try {
+    return new MediaRecorder(stream, options);
+  } catch (error) {
+    try {
+      return new MediaRecorder(stream);
+    } catch (fallbackError) {
+      console.warn('[transcription] Failed to create desktop segment recorder', fallbackError);
+      return null;
+    }
+  }
+}
+
+async function stopDesktopSegmentRecorder(recorder: MediaRecorder | null): Promise<Blob | null> {
+  if (!recorder || recorder.state === 'inactive') {
+    return null;
+  }
+  return new Promise<Blob>((resolve, reject) => {
+    let settled = false;
+    const chunks: Blob[] = [];
+    const cleanup = () => {
+      recorder.removeEventListener('dataavailable', handleData);
+      recorder.removeEventListener('error', handleError);
+      recorder.removeEventListener('stop', handleStop);
+    };
+    const handleData = (event: BlobEvent) => {
+      if (event.data && event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+    const handleError = (event: Event) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(new Error(`MediaRecorder error: ${event.type}`));
+    };
+    const handleStop = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      if (!chunks.length) {
+        resolve(new Blob());
+        return;
+      }
+      const type = chunks[0]?.type || recorder.mimeType;
+      resolve(new Blob(chunks, type ? { type } : undefined));
+    };
+    recorder.addEventListener('dataavailable', handleData);
+    recorder.addEventListener('error', handleError);
+    recorder.addEventListener('stop', handleStop);
+    try {
+      recorder.stop();
+    } catch (error) {
+      settled = true;
+      cleanup();
+      reject(error);
+    }
+  });
 }
 
 function writeAscii(view: DataView, offset: number, value: string) {
@@ -491,6 +600,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
 
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(1);
+  const segmentBaseMsRef = useRef(0);
+  const desktopSegmentRecorderRef = useRef<MediaRecorder | null>(null);
+  const desktopSegmentStreamRef = useRef<MediaStream | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const meteringSourceRef = useRef<'recorder' | 'desktop' | 'none'>('none');
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
@@ -590,36 +702,89 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
     resetSegmentState();
     const currentMessageId = snapshot.messageId;
-    const startOffsetMs = snapshot.confirmedStartMs ?? 0;
-    const durationMs = status?.durationMillis ?? recorder.currentTime * 1000;
+    const absoluteDurationMs =
+      status?.durationMillis ?? recorder.getStatus().durationMillis ?? recorder.currentTime * 1000;
+    const segmentBaseMs = segmentBaseMsRef.current;
+    const endOffsetMs = Math.max(0, absoluteDurationMs - segmentBaseMs);
+    const rawStartOffsetMs = (snapshot.confirmedStartMs ?? segmentBaseMs) - segmentBaseMs;
+    const startOffsetMs = Math.max(0, Math.min(endOffsetMs, rawStartOffsetMs));
     console.log('[transcription] Finalizing segment', {
       messageId: currentMessageId,
       startOffsetMs,
-      durationMs,
+      durationMs: endOffsetMs,
     });
     const payload: TranscriptionSegmentPayload = {
       fileUri: '',
       startOffsetMs,
-      endOffsetMs: durationMs,
-      durationMs,
+      endOffsetMs,
+      durationMs: endOffsetMs,
       messageId: currentMessageId,
     };
     let originalFileUri: string | null = null;
     try {
-      // Stop the current recording
-      if (statusIntervalRef.current) {
-        clearInterval(statusIntervalRef.current);
-        statusIntervalRef.current = null;
+      let normalizedUri: string | null = null;
+      let useDesktopSegmenter = isElectronDesktop && desktopSegmentRecorderRef.current !== null;
+      if (useDesktopSegmenter) {
+        try {
+          const segmentRecorder = desktopSegmentRecorderRef.current;
+          desktopSegmentRecorderRef.current = null;
+          const segmentBlob = await stopDesktopSegmentRecorder(segmentRecorder);
+          if (!segmentBlob || segmentBlob.size === 0) {
+            throw new Error(t('transcription.errors.empty_recording'));
+          }
+          const blobUri = URL.createObjectURL(segmentBlob);
+          originalFileUri = blobUri;
+          normalizedUri = blobUri;
+          segmentBaseMsRef.current = absoluteDurationMs;
+          if (sessionActiveRef.current) {
+            const stream =
+              desktopSegmentStreamRef.current ?? resolveDesktopRecordingStream(recorder);
+            if (stream) {
+              desktopSegmentStreamRef.current = stream;
+              const nextRecorder = createDesktopSegmentRecorder(stream);
+              if (nextRecorder) {
+                try {
+                  nextRecorder.start();
+                  desktopSegmentRecorderRef.current = nextRecorder;
+                  console.log('[transcription] Desktop segment recorder restarted');
+                } catch (restartError) {
+                  console.warn('[transcription] Failed to restart desktop segment recorder', restartError);
+                  desktopSegmentRecorderRef.current = null;
+                }
+              }
+            } else {
+              console.warn('[transcription] Desktop recording stream unavailable for restart');
+            }
+          }
+        } catch (segmentError) {
+          console.warn('[transcription] Desktop segment capture failed, falling back', segmentError);
+          useDesktopSegmenter = false;
+          normalizedUri = null;
+          originalFileUri = null;
+        }
       }
-      await recorder.stop();
-      const fileUri = recorder.uri;
-      if (!fileUri) {
+
+      if (!useDesktopSegmenter) {
+        // Stop the current recording
+        if (statusIntervalRef.current) {
+          clearInterval(statusIntervalRef.current);
+          statusIntervalRef.current = null;
+        }
+        await recorder.stop();
+        const fileUri = recorder.uri;
+        if (!fileUri) {
+          throw new Error(t('transcription.errors.empty_recording'));
+        }
+        originalFileUri = fileUri;
+        normalizedUri = fileUri;
+      }
+
+      if (!normalizedUri) {
         throw new Error(t('transcription.errors.empty_recording'));
       }
-      originalFileUri = fileUri;
-      let normalizedUri = fileUri;
+
       try {
-        const maybeNormalized = await normalizeDesktopRecordingUri(fileUri);
+        const maybeNormalized = await normalizeDesktopRecordingUri(normalizedUri);
         if (maybeNormalized) {
           normalizedUri = maybeNormalized;
         }
@@ -628,7 +793,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       payload.fileUri = normalizedUri;
 
-      if (sessionActiveRef.current) {
+      if (sessionActiveRef.current && !useDesktopSegmenter) {
         startNewRecording().catch((restartError) => {
           console.error('[transcription] Failed to restart recording', restartError);
         });
@@ -637,8 +802,8 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       const segmentMetadata: SegmentMetadata = {
         fileUri: normalizedUri,
         startOffsetMs,
-        endOffsetMs: durationMs,
-        durationMs,
+        endOffsetMs,
+        durationMs: endOffsetMs,
         createdAt: Date.now(),
         engine: settingsRef.current.transcriptionEngine,
         model: resolveTranscriptionModel(settingsRef.current),
@@ -732,7 +897,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         cleanupRecordingFile(originalFileUri);
       }
     }
-  }, [cleanupRecordingFile, recorder, resetSegmentState, sessionActiveRef, settingsRef, t, updateMessage]);
+  }, [cleanupRecordingFile, recorder, resetSegmentState, segmentBaseMsRef, sessionActiveRef, settingsRef, t, updateMessage]);
 
   // Update the ref when finalizeSegment changes
   useEffect(() => {
@@ -746,6 +911,33 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       console.log('[transcription] recorder prepared, starting record');
       recorder.record();
       console.log('[transcription] record() called');
+      segmentBaseMsRef.current = 0;
+      if (isElectronDesktop) {
+        const stream = resolveDesktopRecordingStream(recorder);
+        if (stream) {
+          desktopSegmentStreamRef.current = stream;
+          if (desktopSegmentRecorderRef.current) {
+            stopDesktopSegmentRecorder(desktopSegmentRecorderRef.current).catch((stopError) => {
+              console.warn('[transcription] Failed to stop existing desktop segment recorder', stopError);
+            });
+          }
+          const segmentRecorder = createDesktopSegmentRecorder(stream);
+          if (segmentRecorder) {
+            try {
+              segmentRecorder.start();
+              desktopSegmentRecorderRef.current = segmentRecorder;
+              console.log('[transcription] Desktop segment recorder started');
+            } catch (segmentError) {
+              console.warn('[transcription] Failed to start desktop segment recorder', segmentError);
+              desktopSegmentRecorderRef.current = null;
+            }
+          } else {
+            desktopSegmentRecorderRef.current = null;
+          }
+        } else {
+          console.warn('[transcription] Desktop recording stream unavailable');
+        }
+      }
 
       // Poll recording status periodically for metering and duration
       if (statusIntervalRef.current) {
@@ -781,7 +973,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       console.error('[transcription] Failed to start recording', startError);
       setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
     }
-  }, [recorder, t]);
+  }, [recorder, segmentBaseMsRef, t]);
 
   const stopAndResetRecording = useCallback(async () => {
     if (statusIntervalRef.current) {
@@ -867,9 +1059,21 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
     }
 
+    if (!hasActiveSegment && desktopSegmentRecorderRef.current) {
+      const segmentRecorder = desktopSegmentRecorderRef.current;
+      desktopSegmentRecorderRef.current = null;
+      try {
+        await stopDesktopSegmentRecorder(segmentRecorder);
+      } catch (stopError) {
+        console.warn('[transcription] Failed to stop desktop segment recorder', stopError);
+      }
+    }
+
     await stopAndResetRecording();
     resetSegmentState();
-  }, [resetSegmentState, sessionActiveRef, stopAndResetRecording]);
+    segmentBaseMsRef.current = 0;
+    desktopSegmentStreamRef.current = null;
+  }, [resetSegmentState, segmentBaseMsRef, sessionActiveRef, stopAndResetRecording]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
     console.log('[transcription] toggleSession called, isActive:', sessionActiveRef.current);
@@ -966,7 +1170,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
       }
+      if (desktopSegmentRecorderRef.current) {
+        const segmentRecorder = desktopSegmentRecorderRef.current;
+        desktopSegmentRecorderRef.current = null;
+        stopDesktopSegmentRecorder(segmentRecorder).catch(() => undefined);
+      }
       stopAndResetRecording();
+      desktopSegmentStreamRef.current = null;
     };
   }, [stopAndResetRecording]);
 
