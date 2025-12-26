@@ -24,6 +24,7 @@ import {
 const SETTINGS_STORAGE_KEY = '@agents/app-settings';
 const VALID_TRANSCRIPTION_ENGINES = new Set<AppSettings['transcriptionEngine']>([
   'openai',
+  'gemini',
   'qwen3',
   'soniox',
   'doubao',
@@ -51,6 +52,10 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (!parsed || typeof parsed !== 'object') {
       return null;
     }
+    const parsedSettings = parsed as AppSettings & { voiceInputEngine?: unknown };
+    if ('voiceInputEngine' in parsedSettings) {
+      delete parsedSettings.voiceInputEngine;
+    }
 
     // Load sensitive credentials from secure storage
     const secureCredentials = await secureGetCredentials();
@@ -58,7 +63,7 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
 
     const merged: AppSettings = {
       ...defaultSettings,
-      ...parsed,
+      ...parsedSettings,
       credentials: {
         ...defaultSettings.credentials,
         ...parsedCredentials,
@@ -81,9 +86,6 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     }
     if (!VALID_TRANSCRIPTION_ENGINES.has(merged.transcriptionEngine)) {
       merged.transcriptionEngine = defaultSettings.transcriptionEngine;
-    }
-    if (!VALID_TRANSCRIPTION_ENGINES.has(merged.voiceInputEngine)) {
-      merged.voiceInputEngine = merged.transcriptionEngine;
     }
     if (parsed.conversationSummaryEngine === undefined) {
       merged.conversationSummaryEngine = parsed.titleSummaryEngine ?? defaultSettings.titleSummaryEngine;

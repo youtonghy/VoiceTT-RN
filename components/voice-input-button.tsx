@@ -36,8 +36,8 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
   const messageCounterRef = useRef(1);
 
   const engineLabel = useMemo(
-    () => t(`settings.voice_input.engines.${settings.voiceInputEngine}`),
-    [settings.voiceInputEngine, t]
+    () => t(`settings.transcription.engines.${settings.transcriptionEngine}`),
+    [settings.transcriptionEngine, t]
   );
 
   const ensurePermissionAndMode = useCallback(async () => {
@@ -124,12 +124,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
         messageId: messageCounterRef.current++,
       };
 
-      const engineSettings = {
-        ...settings,
-        transcriptionEngine: settings.voiceInputEngine,
-      };
-
-      const result = await transcribeSegment(payload, engineSettings);
+      const result = await transcribeSegment(payload, settings);
       const transcript = result.text?.trim();
 
       if (!transcript) {
