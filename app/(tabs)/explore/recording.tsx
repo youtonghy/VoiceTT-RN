@@ -65,6 +65,9 @@ const METERING_RECORDING_OPTIONS: RecordingOptions = {
   },
 };
 
+const WEB_METERING_INTERVAL_MS = 120;
+const WEB_METERING_MIN_DB = -160;
+
 const createPresetId = () => `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 type PresetNumericValues = Omit<RecordingPreset, 'id' | 'name'>;
 type DesktopAudioInputOption = {
@@ -93,6 +96,17 @@ export default function RecordingSettingsScreen() {
   const [isTestingInput, setIsTestingInput] = useState(false);
   const [hasInputSignal, setHasInputSignal] = useState(false);
   const inputTestRef = useRef<{
+    stream: MediaStream | null;
+    context: AudioContext | null;
+    analyser: AnalyserNode | null;
+    intervalId: NodeJS.Timeout | null;
+  }>({
+    stream: null,
+    context: null,
+    analyser: null,
+    intervalId: null,
+  });
+  const webMeteringRef = useRef<{
     stream: MediaStream | null;
     context: AudioContext | null;
     analyser: AnalyserNode | null;
@@ -213,6 +227,25 @@ export default function RecordingSettingsScreen() {
 
   const stopMonitoringSilently = useCallback(async () => {
     clearStatusInterval();
+    if (webMeteringRef.current.intervalId) {
+      clearInterval(webMeteringRef.current.intervalId);
+      webMeteringRef.current.intervalId = null;
+    }
+    if (webMeteringRef.current.stream) {
+      webMeteringRef.current.stream.getTracks().forEach((track) => track.stop());
+      webMeteringRef.current.stream = null;
+    }
+    if (webMeteringRef.current.context) {
+      try {
+        await webMeteringRef.current.context.close();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to close web metering context', error);
+        }
+      }
+      webMeteringRef.current.context = null;
+    }
+    webMeteringRef.current.analyser = null;
     if (recorder.isRecording) {
       try {
         await recorder.stop();
@@ -414,6 +447,75 @@ export default function RecordingSettingsScreen() {
     ]
   );
 
+  const startWebMetering = useCallback(async () => {
+    if (!isDesktopApp) {
+      return;
+    }
+    if (webMeteringRef.current.intervalId) {
+      clearInterval(webMeteringRef.current.intervalId);
+      webMeteringRef.current.intervalId = null;
+    }
+    if (webMeteringRef.current.stream) {
+      webMeteringRef.current.stream.getTracks().forEach((track) => track.stop());
+      webMeteringRef.current.stream = null;
+    }
+    if (webMeteringRef.current.context) {
+      try {
+        await webMeteringRef.current.context.close();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to close web metering context', error);
+        }
+      }
+      webMeteringRef.current.context = null;
+    }
+    webMeteringRef.current.analyser = null;
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      throw new Error('mediaDevices unavailable');
+    }
+
+    const AudioContextConstructor =
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
+      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextConstructor) {
+      throw new Error('AudioContext unavailable');
+    }
+
+    const constraints: MediaStreamConstraints = selectedDesktopInputId
+      ? { audio: { deviceId: { exact: selectedDesktopInputId } }, video: false }
+      : { audio: true, video: false };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const context = new AudioContextConstructor();
+    if (context.state === 'suspended') {
+      await context.resume();
+    }
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.85;
+    const source = context.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const data = new Uint8Array(analyser.fftSize);
+
+    webMeteringRef.current.stream = stream;
+    webMeteringRef.current.context = context;
+    webMeteringRef.current.analyser = analyser;
+    webMeteringRef.current.intervalId = setInterval(() => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        const normalized = (data[index] - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const dbValue = rms > 0 ? 20 * Math.log10(rms) : WEB_METERING_MIN_DB;
+      const clamped = Math.max(WEB_METERING_MIN_DB, dbValue);
+      const rounded = Math.round(clamped * 10) / 10;
+      setMeteringDb((prev) => (prev === rounded ? prev : rounded));
+    }, WEB_METERING_INTERVAL_MS);
+  }, [isDesktopApp, selectedDesktopInputId]);
+
   const handleToggleInputTest = useCallback(() => {
     if (isTestingInput) {
       console.log('[desktop-input] Test toggle: stop');
@@ -424,22 +526,22 @@ export default function RecordingSettingsScreen() {
     }
   }, [isTestingInput, startInputTest, stopInputTest]);
 
-  const handleSelectDesktopInput = useCallback(
-    (deviceId: string | null) => {
-      console.log('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
-      updateSettings({ desktopAudioInputId: deviceId });
-      if (isTestingInput) {
-        void startInputTest(deviceId);
-      }
-    },
-    [isTestingInput, startInputTest, updateSettings]
-  );
-
   const startMonitoring = useCallback(async () => {
-    if (recorder.isRecording) {
-      return;
-    }
     try {
+      setMeteringDb(null);
+      if (isDesktopApp) {
+        if (webMeteringRef.current.intervalId) {
+          return;
+        }
+        await startWebMetering();
+        setIsMonitoring(true);
+        return;
+      }
+
+      if (recorder.isRecording) {
+        return;
+      }
+
       let permission = await getRecordingPermissionsAsync();
       if (!permission.granted) {
         permission = await requestRecordingPermissionsAsync();
@@ -462,7 +564,6 @@ export default function RecordingSettingsScreen() {
       await recorder.prepareToRecordAsync();
       recorder.record();
       setIsMonitoring(true);
-      setMeteringDb(null);
 
       clearStatusInterval();
       statusIntervalRef.current = setInterval(() => {
@@ -485,10 +586,29 @@ export default function RecordingSettingsScreen() {
       setIsMonitoring(false);
       setMeteringDb(null);
     }
-  }, [clearStatusInterval, recorder, t]);
+  }, [clearStatusInterval, isDesktopApp, recorder, startWebMetering, t]);
 
   const stopMonitoring = useCallback(async () => {
     clearStatusInterval();
+    if (webMeteringRef.current.intervalId) {
+      clearInterval(webMeteringRef.current.intervalId);
+      webMeteringRef.current.intervalId = null;
+    }
+    if (webMeteringRef.current.stream) {
+      webMeteringRef.current.stream.getTracks().forEach((track) => track.stop());
+      webMeteringRef.current.stream = null;
+    }
+    if (webMeteringRef.current.context) {
+      try {
+        await webMeteringRef.current.context.close();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[recording-settings] Failed to close web metering context', error);
+        }
+      }
+      webMeteringRef.current.context = null;
+    }
+    webMeteringRef.current.analyser = null;
     if (recorder.isRecording) {
       try {
         await recorder.stop();
@@ -503,6 +623,20 @@ export default function RecordingSettingsScreen() {
     setIsMonitoring(false);
     setMeteringDb(null);
   }, [cleanupRecordingFile, clearStatusInterval, recorder]);
+
+  const handleSelectDesktopInput = useCallback(
+    (deviceId: string | null) => {
+      console.log('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
+      updateSettings({ desktopAudioInputId: deviceId });
+      if (isTestingInput) {
+        void startInputTest(deviceId);
+      }
+      if (isMonitoring && isDesktopApp) {
+        void stopMonitoring().then(() => startMonitoring());
+      }
+    },
+    [isDesktopApp, isMonitoring, startInputTest, startMonitoring, stopMonitoring, updateSettings]
+  );
 
   const handleToggleMonitoring = useCallback(() => {
     if (isMonitoring) {
