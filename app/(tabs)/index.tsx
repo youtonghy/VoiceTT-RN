@@ -1593,6 +1593,7 @@ export default function TranscriptionScreen() {
           onChangeText={handleAssistantChange}
           autoCorrect={false}
           autoCapitalize="none"
+          enableDesktopSelection
           returnKeyType="done"
           selectionColor="#2563eb"
           placeholder={t('assistant.placeholders.input')}

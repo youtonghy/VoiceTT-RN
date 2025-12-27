@@ -669,6 +669,7 @@ export default function ReadingScreen() {
         onChangeText={setDraft}
         autoCapitalize="none"
         autoCorrect={false}
+        enableDesktopSelection
         placeholder={t('reading.input.placeholder')}
         placeholderTextColor={placeholderColor}
         returnKeyType="send"

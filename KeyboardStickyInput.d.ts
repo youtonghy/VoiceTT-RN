@@ -15,6 +15,7 @@ export interface KeyboardStickyInputProps extends TextInputProps {
   toolbar?: ReactNode;
   children?: ReactNode;
   layoutBottomInset?: number;
+  enableDesktopSelection?: boolean;
 }
 
 declare const KeyboardStickyInput: ForwardRefExoticComponent<

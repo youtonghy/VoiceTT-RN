@@ -54,6 +54,7 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
     value,
     onChangeText,
     multiline = false,
+    enableDesktopSelection = true,
     accessory,
     children,
     layoutBottomInset = 0,
@@ -61,10 +62,25 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
     ...rest
   } = props;
 
+  const isWeb = Platform.OS === 'web';
+  const isDesktopApp = isWeb && typeof window !== 'undefined' && Boolean(window.electron);
+  const shouldHandleKeyboard = !isDesktopApp;
+  const allowDesktopSelection = enableDesktopSelection && isDesktopApp;
   const bottomOffset = useRef(new Animated.Value(0)).current;
   const keyboardHeightRef = useRef(0);
   const safeAreaBottomRef = useRef(getEstimatedBottomInset());
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const desktopInputStyle = allowDesktopSelection
+    ? {
+        cursor: 'text',
+        userSelect: 'text',
+        outlineStyle: 'none',
+        outlineWidth: 0,
+        outlineColor: 'transparent',
+        boxShadow: 'none',
+      }
+    : null;
+  const desktopInputWrapperStyle = allowDesktopSelection ? { cursor: 'text' } : null;
 
   const animateTo = useCallback(
     (target) => {
@@ -79,6 +95,11 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
   );
 
   useEffect(() => {
+    if (!shouldHandleKeyboard) {
+      animateTo(0);
+      setIsKeyboardVisible(false);
+      return undefined;
+    }
     const handleKeyboardShow = (event) => {
       const keyboardHeight = resolveKeyboardHeight(event);
       keyboardHeightRef.current = keyboardHeight;
@@ -130,9 +151,13 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
         Dimensions.removeEventListener('change', handleDimensionChange);
       }
     };
-  }, [animateTo, layoutBottomInset]);
+  }, [animateTo, layoutBottomInset, shouldHandleKeyboard]);
 
   useEffect(() => {
+    if (!shouldHandleKeyboard) {
+      animateTo(0);
+      return;
+    }
     if (keyboardHeightRef.current > 0) {
       const correctedOffset = Math.max(
         keyboardHeightRef.current - safeAreaBottomRef.current - layoutBottomInset,
@@ -143,7 +168,7 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
       animateTo(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layoutBottomInset]);
+  }, [layoutBottomInset, shouldHandleKeyboard]);
 
   return (
     <SafeAreaView style={[styles.safeArea, containerStyle]} pointerEvents="box-none">
@@ -155,10 +180,15 @@ const KeyboardStickyInput = forwardRef((props, ref) => {
         ]}
       >
         {toolbar ? <View style={styles.toolbarContainer}>{toolbar}</View> : null}
-        <View style={[styles.inputWrapper, inputContainerStyle]}>
+        <View style={[styles.inputWrapper, inputContainerStyle, desktopInputWrapperStyle]}>
           <TextInput
             ref={ref}
-            style={[styles.input, multiline && styles.multilineInput, inputStyle]}
+            style={[
+              styles.input,
+              multiline && styles.multilineInput,
+              inputStyle,
+              desktopInputStyle,
+            ]}
             placeholder={placeholder}
             value={value}
             onChangeText={onChangeText}
