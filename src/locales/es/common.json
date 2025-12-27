@@ -1,5 +1,446 @@
 {
+  "navigation": {
+    "tabs": {
+      "transcription": "Transcripción",
+      "qa": "Q&A",
+      "reading": "Lectura en voz alta",
+      "settings": "Ajustes"
+    }
+  },
+  "common": {
+    "actions": {
+      "ok": "Aceptar",
+      "cancel": "Cancelar"
+    }
+  },
+  "alerts": {
+    "recording": {
+      "title": "Aviso de grabación"
+    },
+    "summary": {
+      "failure": "No se pudo generar el resumen"
+    },
+    "assistant": {
+      "failure": "La solicitud del asistente falló"
+    },
+    "conversation_title": {
+      "failure": "No se pudo generar el título de la conversación"
+    },
+    "microphone_permission": {
+      "title": "Se requiere permiso de micrófono",
+      "message": "Concede acceso al micrófono en la configuración del sistema para continuar grabando."
+    }
+  },
+  "transcription": {
+    "actions": {
+      "title": "Acciones del mensaje",
+      "copy_transcript": "Copiar transcripción",
+      "copy_translation": "Copiar traducción",
+      "read_transcript": "Leer transcripción en voz alta",
+      "read_translation": "Leer traducción en voz alta"
+    },
+    "controls": {
+      "start": "Iniciar grabación"
+    },
+    "status": {
+      "recording": "Grabando…",
+      "processing": "Procesando segmento…",
+      "pending_trigger": "Esperando activación",
+      "transcribing": "Transcribiendo",
+      "failed": "La transcripción falló",
+      "waiting_result": "Esperando resultado de transcripción…"
+    },
+    "errors": {
+      "no_content": "No se pudo obtener el contenido de texto",
+      "unable_to_start": "No se pudo iniciar la grabación: {{message}}",
+      "start_failed": "No se pudo iniciar la grabación: {{message}}",
+      "permission_denied": "Permiso de micrófono no concedido",
+      "empty_recording": "El resultado de la grabación está vacío"
+    },
+    "messages": {
+      "default_title": "Mensaje #{{id}}"
+    },
+    "sections": {
+      "live_title": "Transcripción",
+      "live_content": "Contenido en vivo",
+      "history_title": "Historial"
+    },
+    "history": {
+      "placeholder_empty": "Aún no hay transcripciones, inicia una grabación.",
+      "accessibility": {
+        "add": "Agregar conversación",
+        "view_conversation": "Ver conversación {{title}}"
+      },
+      "search_placeholder": "Buscar transcripciones o traducciones",
+      "placeholder_search_empty": "No hay historial coincidente.",
+      "new_conversation": "Nueva conversación {{id}}"
+    },
+    "export": {
+      "button": "Exportar",
+      "share_title": "Exportación de conversación",
+      "generated_at": "Generado el {{time}}",
+      "transcript": "Transcripción",
+      "translation": "Traducción",
+      "empty_title": "Nada para exportar",
+      "empty_body": "Inicia una grabación para obtener transcripción o traducción.",
+      "error_title": "Fallo al exportar",
+      "error_body": "No se puede compartir Markdown ahora. Inténtalo de nuevo.",
+      "accessibility": "Exportar conversación como Markdown"
+    },
+    "accessibility": {
+      "stop_recording": "Detener grabación",
+      "start_recording": "Iniciar grabación"
+    }
+  },
+  "translation": {
+    "status": {
+      "in_progress": "Traduciendo…",
+      "failed": "La traducción falló"
+    },
+    "errors": {
+      "empty_result": "El resultado de la traducción está vacío"
+    }
+  },
+  "qa": {
+    "title": "Q&A en vivo",
+    "subtitle": "Inicia una grabación para mostrar preguntas y respuestas en tiempo real.",
+    "manual_button": {
+      "label": "Q&A manual",
+      "accessibility": "Ejecutar extracción manual de Q&A para esta conversación"
+    },
+    "empty": {
+      "title": "Aún no hay preguntas",
+      "body": "Cuando alguien haga una pregunta, aparecerá aquí con una respuesta sugerida."
+    },
+    "status": {
+      "analyzing": "Analizando…"
+    },
+    "entry": {
+      "label": "Segmento {{title}}",
+      "default_title": "Mensaje #{{id}}",
+      "no_questions": "No se detectaron preguntas en este segmento.",
+      "manual_hint": "Toca el botón de Q&A manual arriba para extraer preguntas de este segmento.",
+      "error": "No se pudieron extraer preguntas: {{message}}"
+    },
+    "labels": {
+      "question": "P",
+      "answer": "R"
+    }
+  },
+  "assistant": {
+    "section": {
+      "title": "Asistente",
+      "summary_title": "Resumen de la conversación"
+    },
+    "placeholders": {
+      "no_messages": "Aún no hay historial de chat. Intenta hacer una pregunta.",
+      "summary": "Aún no hay resumen de la conversación. Aparecerá después de grabar.",
+      "input": "Pregunta algo…"
+    },
+    "status": {
+      "waiting_reply": "Esperando respuesta…"
+    },
+    "errors": {
+      "send_failed": "Error al enviar"
+    },
+    "accessibility": {
+      "send_input": "Enviar entrada"
+    }
+  },
+  "reading": {
+    "title": "Lectura en voz alta",
+    "subtitle": "Envía texto para generar voz y reproducirla cuando quieras.",
+    "empty": {
+      "title": "Aún no hay mensajes",
+      "body": "Envía un mensaje para escucharlo en voz alta."
+    },
+    "input": {
+      "placeholder": "Escribe algo para leer en voz alta"
+    },
+    "status": {
+      "generating": "Generando audio...",
+      "ready": "Toca para reproducir",
+      "failed": "No se pudo generar el audio"
+    },
+    "errors": {
+      "synthesis_failed": "No se pudo generar la voz: {{message}}",
+      "playback_failed": "No se pudo reproducir el audio: {{message}}"
+    }
+  },
   "settings": {
+    "page_title": "Ajustes",
+    "sections": {
+      "recording": {
+        "title": "Detección de grabación",
+        "subtitle": "Sensibilidad y detección de silencio"
+      },
+      "voice_input": {
+        "title": "Entrada de voz",
+        "subtitle": "Motor de micrófono del teclado"
+      },
+      "transcription": {
+        "title": "Transcripción",
+        "subtitle": "Motor y idioma de origen"
+      },
+      "translation": {
+        "title": "Traducción",
+        "subtitle": "Activación y canal"
+      },
+      "tts": {
+        "title": "Texto a voz",
+        "subtitle": "Modelo de voz y estilo"
+      },
+      "summary": {
+        "title": "Resúmenes",
+        "subtitle": "Motor de títulos y prompts"
+      },
+      "qa": {
+        "title": "Q&A en vivo",
+        "subtitle": "Modelo de extracción y prompt"
+      },
+      "appearance": {
+        "title": "Apariencia",
+        "subtitle": "Modo de tema"
+      },
+      "credentials": {
+        "title": "Credenciales",
+        "subtitle": "Administrar claves API"
+      }
+    },
+    "about": {
+      "title": "Acerca de",
+      "icon_accessibility": "Ícono de la app VoiceTT",
+      "links": {
+        "website": "Sitio web",
+        "repository": "Repositorio"
+      },
+      "meta": {
+        "version": "Versión {{version}}",
+        "build": "Compilación {{build}}"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
+    "credentials": {
+      "sections": {
+        "openai": {
+          "title": "OpenAI"
+        },
+        "gemini": {
+          "title": "Gemini"
+        },
+        "soniox": {
+          "title": "Soniox"
+        },
+        "qwen": {
+          "title": "Qwen3"
+        },
+        "glm": {
+          "title": "GLM"
+        },
+        "doubao": {
+          "title": "Doubao"
+        }
+      },
+      "labels": {
+        "base_url": "URL base",
+        "api_key": "Clave API",
+        "transcription_model": "Modelo de transcripción",
+        "translation_model": "Modelo de traducción",
+        "tts_model": "Modelo de texto a voz",
+        "doubao_app_id": "Doubao App ID",
+        "doubao_token": "Doubao Token",
+        "doubao_cluster": "Doubao Cluster"
+      }
+    },
+    "recording": {
+      "labels": {
+        "activation_threshold": "Umbral de activación",
+        "activation_duration": "Duración de activación (s)",
+        "silence_duration": "Duración de silencio (s)",
+        "pre_roll": "Duración de pre-roll (s)",
+        "max_segment": "Duración máxima de segmento (s)"
+      },
+      "input": {
+        "title": "Entrada de escritorio",
+        "description": "Selecciona un micrófono o fuente de loopback para grabaciones en Electron.",
+        "default": "Predeterminado del sistema",
+        "refresh": "Actualizar dispositivos",
+        "empty": "No se detectaron entradas de audio.",
+        "unknown_device": "Entrada {{index}}",
+        "status_idle": "Prueba inactiva",
+        "status_listening": "Escuchando…",
+        "status_signal": "Se detectó señal",
+        "test_start": "Probar micrófono",
+        "test_stop": "Detener prueba",
+        "load_failed": "No se pudieron cargar los dispositivos de audio.",
+        "test_failed": "No se pudo iniciar la prueba de entrada."
+      },
+      "metering": {
+        "title": "Entrada actual",
+        "current_db": "Nivel de entrada (dB)",
+        "idle": "Monitoreo apagado",
+        "threshold_db": "Umbral de activación (dB)",
+        "status_label": "Estado de reconocimiento",
+        "status_off": "Monitoreo apagado",
+        "status_no_signal": "Sin señal",
+        "status_above_threshold": "Por encima del umbral",
+        "status_below_threshold": "Por debajo del umbral",
+        "status_unknown": "Desconocido",
+        "not_available": "N/D",
+        "action_start": "Iniciar monitoreo",
+        "action_stop": "Detener monitoreo"
+      },
+      "presets": {
+        "save_title": "Guardar configuración actual",
+        "save_description": "Guarda los parámetros de sensibilidad actuales como una tarjeta reutilizable.",
+        "name_placeholder": "Nombre del preset",
+        "save_button": "Guardar preset",
+        "empty": "Aún no hay presets guardados.",
+        "apply_button": "Usar preset",
+        "delete_button": "Eliminar preset",
+        "active_badge": "Activo",
+        "default_name": "Preset {{index}}",
+        "invalid_title": "No se pudo guardar el preset",
+        "invalid_message": "Ingresa valores válidos antes de guardar.",
+        "delete_title": "¿Eliminar preset?",
+        "delete_message": "¿Eliminar \"{{name}}\" de los presets guardados?",
+        "cancel": "Cancelar"
+      }
+    },
+    "transcription": {
+      "labels": {
+        "engine": "Motor de transcripción",
+        "source_language": "Idioma de origen",
+        "openai_model": "Modelo de transcripción de OpenAI",
+        "gemini_model": "Modelo de transcripción de Gemini",
+        "prompt": "Prompt (opcional)",
+        "prompt_placeholder": "p. ej. Resumen de reunión con nombres de productos.",
+        "prompt_hint": "Déjalo vacío para desactivar el prompt."
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      },
+      "help_label_openai": "Documentación de transcripción de OpenAI",
+      "help_label_gemini": "Documentación de audio de Gemini",
+      "help_error_title": "No se pudo abrir el enlace",
+      "help_error_body": "Inténtalo de nuevo más tarde."
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "Motor de entrada de voz"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      }
+    },
+    "translation": {
+      "labels": {
+        "enable_translation": "Habilitar traducción",
+        "engine": "Motor de traducción",
+        "target_language": "Idioma de destino",
+        "select_language": "Seleccionar idioma de destino",
+        "openai_model": "Modelo de traducción de OpenAI",
+        "gemini_model": "Modelo de traducción de Gemini",
+        "prompt": "Prompt (opcional)",
+        "prompt_placeholder": "p. ej. Tono formal con terminología de la industria.",
+        "prompt_hint": "La instrucción de solo traducir se añade automáticamente.",
+        "appended_instruction": "Traduce la entrada del usuario al {{language}}. Responde solo con la traducción."
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "none": "Ninguno"
+      },
+      "languages": {
+        "en": "Inglés",
+        "zh-Hans": "Chino (simplificado)",
+        "zh-Hant": "Chino (tradicional)",
+        "ja": "Japonés",
+        "ko": "Coreano",
+        "es": "Español",
+        "fr": "Francés",
+        "de": "Alemán",
+        "pt": "Portugués",
+        "ru": "Ruso",
+        "ar": "Árabe",
+        "hi": "Hindi"
+      }
+    },
+    "tts": {
+      "engine": {
+        "title": "Motor de texto a voz",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "Modelo TTS de OpenAI",
+        "voice_label": "Voz de OpenAI",
+        "prompt_label": "Prompt de voz (opcional)",
+        "prompt_placeholder": "p. ej. Cálido, calmado y con ritmo suave.",
+        "prompt_hint": "Déjalo vacío para desactivar instrucciones de voz."
+      },
+      "gemini": {
+        "model_label": "Modelo TTS de Gemini",
+        "voice_label": "Voz de Gemini",
+        "prompt_label": "Prompt de voz (opcional)",
+        "prompt_placeholder": "p. ej. Amable, enérgico y con ritmo claro.",
+        "prompt_hint": "Déjalo vacío para desactivar instrucciones de voz."
+      },
+      "help_label_openai": "Documentación TTS de OpenAI",
+      "help_label_gemini": "Documentación TTS de Gemini",
+      "help_error_title": "No se pudo abrir el enlace",
+      "help_error_body": "Inténtalo de nuevo más tarde."
+    },
+    "summary": {
+      "title_engine": {
+        "title": "Motor de resumen de títulos",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "Modelo de títulos de OpenAI",
+        "gemini_label": "Modelo de títulos de Gemini",
+        "prompt_label": "Prompt de título"
+      },
+      "conversation_engine": {
+        "title": "Motor de resumen de conversaciones",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "Modelo de conversación de OpenAI",
+        "gemini_label": "Modelo de conversación de Gemini",
+        "prompt_label": "Prompt de conversación"
+      }
+    },
+    "qa": {
+      "engine": {
+        "title": "Motor de extracción de Q&A",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "Modelo Q&A de OpenAI",
+      "gemini_label": "Modelo Q&A de Gemini",
+      "prompt_label": "Prompt de extracción"
+    },
     "appearance": {
       "labels": {
         "mode": "Modo de tema",
@@ -19,6 +460,11 @@
         "light": "Claro",
         "dark": "Oscuro"
       }
+    },
+    "pro": {
+      "title": "Versión Pro",
+      "description": "Desbloquea un procesamiento de voz más rápido, traducción con IA y resúmenes de reuniones para dominar cada conversación.",
+      "cta": "Actualizar ahora"
     }
   }
 }

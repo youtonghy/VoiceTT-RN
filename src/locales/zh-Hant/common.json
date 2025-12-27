@@ -1,5 +1,446 @@
 {
+  "navigation": {
+    "tabs": {
+      "transcription": "轉寫",
+      "qa": "問答",
+      "reading": "朗讀",
+      "settings": "設定"
+    }
+  },
+  "common": {
+    "actions": {
+      "ok": "確定",
+      "cancel": "取消"
+    }
+  },
+  "alerts": {
+    "recording": {
+      "title": "錄音提示"
+    },
+    "summary": {
+      "failure": "總結生成失敗"
+    },
+    "assistant": {
+      "failure": "智能對話失敗"
+    },
+    "conversation_title": {
+      "failure": "會話標題生成失敗"
+    },
+    "microphone_permission": {
+      "title": "需要麥克風權限",
+      "message": "請在系統設定中授予麥克風權限以繼續錄音。"
+    }
+  },
+  "transcription": {
+    "actions": {
+      "title": "訊息操作",
+      "copy_transcript": "複製原文",
+      "copy_translation": "複製譯文",
+      "read_transcript": "朗讀原文",
+      "read_translation": "朗讀譯文"
+    },
+    "controls": {
+      "start": "開始錄音"
+    },
+    "status": {
+      "recording": "錄音中…",
+      "processing": "處理片段…",
+      "pending_trigger": "等待觸發",
+      "transcribing": "轉寫中",
+      "failed": "轉寫失敗",
+      "waiting_result": "等待轉寫結果..."
+    },
+    "errors": {
+      "no_content": "無法取得文字內容",
+      "unable_to_start": "無法啟動錄音: {{message}}",
+      "start_failed": "啟動錄音失敗: {{message}}",
+      "permission_denied": "麥克風權限未授權",
+      "empty_recording": "錄音結果為空"
+    },
+    "messages": {
+      "default_title": "訊息 #{{id}}"
+    },
+    "sections": {
+      "live_title": "轉寫",
+      "live_content": "轉寫內容",
+      "history_title": "歷史對話"
+    },
+    "history": {
+      "placeholder_empty": "尚未有轉寫內容，開始錄音吧。",
+      "accessibility": {
+        "add": "新增對話",
+        "view_conversation": "查看對話 {{title}}"
+      },
+      "search_placeholder": "搜尋對話轉寫或翻譯內容",
+      "placeholder_search_empty": "暫無符合的歷史紀錄。",
+      "new_conversation": "新對話{{id}}"
+    },
+    "export": {
+      "button": "匯出",
+      "share_title": "對話匯出",
+      "generated_at": "生成時間 {{time}}",
+      "transcript": "轉寫",
+      "translation": "翻譯",
+      "empty_title": "暫無可匯出的內容",
+      "empty_body": "請先開始錄音，取得轉寫或翻譯後再匯出。",
+      "error_title": "匯出失敗",
+      "error_body": "暫時無法分享 Markdown，請稍後再試。",
+      "accessibility": "以 Markdown 匯出對話"
+    },
+    "accessibility": {
+      "stop_recording": "停止錄音",
+      "start_recording": "開始錄音"
+    }
+  },
+  "translation": {
+    "status": {
+      "in_progress": "翻譯中...",
+      "failed": "翻譯失敗"
+    },
+    "errors": {
+      "empty_result": "翻譯結果為空"
+    }
+  },
+  "qa": {
+    "title": "即時問答",
+    "subtitle": "開始錄音，即時擷取問題並給出快速回答。",
+    "empty": {
+      "title": "暫時沒有問題",
+      "body": "當片段中出現提問時，會在此顯示並附上建議回答。"
+    },
+    "status": {
+      "analyzing": "分析中…"
+    },
+    "entry": {
+      "label": "片段 {{title}}",
+      "default_title": "訊息 #{{id}}",
+      "no_questions": "該片段未檢測到問題。",
+      "manual_hint": "點擊上方的手動問答按鈕即可分析該對話的提問內容。",
+      "error": "無法擷取問題：{{message}}"
+    },
+    "labels": {
+      "question": "問",
+      "answer": "答"
+    },
+    "manual_button": {
+      "label": "手動問答",
+      "accessibility": "為當前對話手動擷取問答"
+    }
+  },
+  "assistant": {
+    "section": {
+      "title": "智能對話",
+      "summary_title": "對話總結"
+    },
+    "placeholders": {
+      "no_messages": "暫無聊天記錄，試著提一個問題。",
+      "summary": "暫無對話總結，完成錄音後自動生成。",
+      "input": "輸入你的問題…"
+    },
+    "status": {
+      "waiting_reply": "等待回覆…"
+    },
+    "errors": {
+      "send_failed": "發送失敗"
+    },
+    "accessibility": {
+      "send_input": "發送輸入"
+    }
+  },
+  "reading": {
+    "title": "朗讀",
+    "subtitle": "傳送文字即可生成語音，隨時重複朗讀。",
+    "empty": {
+      "title": "尚無朗讀內容",
+      "body": "傳送一則訊息即可生成並朗讀。"
+    },
+    "input": {
+      "placeholder": "輸入要朗讀的內容"
+    },
+    "status": {
+      "generating": "正在生成語音…",
+      "ready": "點擊重新朗讀",
+      "failed": "朗讀生成失敗"
+    },
+    "errors": {
+      "synthesis_failed": "生成語音失敗：{{message}}",
+      "playback_failed": "無法播放音訊：{{message}}"
+    }
+  },
   "settings": {
+    "page_title": "設定",
+    "sections": {
+      "recording": {
+        "title": "錄音偵測",
+        "subtitle": "靈敏度與靜音判定"
+      },
+      "voice_input": {
+        "title": "語音輸入",
+        "subtitle": "鍵盤錄音使用的引擎"
+      },
+      "transcription": {
+        "title": "轉寫設定",
+        "subtitle": "引擎與來源語言"
+      },
+      "translation": {
+        "title": "翻譯設定",
+        "subtitle": "譯文開關與流程"
+      },
+      "tts": {
+        "title": "文字轉語音",
+        "subtitle": "語音模型與風格"
+      },
+      "summary": {
+        "title": "總結設定",
+        "subtitle": "標題引擎與提示詞"
+      },
+      "qa": {
+        "title": "即時問答",
+        "subtitle": "問題擷取模型與提示詞"
+      },
+      "appearance": {
+        "title": "外觀",
+        "subtitle": "深色與淺色模式"
+      },
+      "credentials": {
+        "title": "憑證",
+        "subtitle": "管理模型金鑰"
+      }
+    },
+    "about": {
+      "title": "關於",
+      "icon_accessibility": "VoiceTT 應用圖示",
+      "links": {
+        "website": "官方網站",
+        "repository": "專案倉庫"
+      },
+      "meta": {
+        "version": "版本 {{version}}",
+        "build": "建置 {{build}}"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
+    "credentials": {
+      "sections": {
+        "openai": {
+          "title": "OpenAI"
+        },
+        "gemini": {
+          "title": "Gemini"
+        },
+        "soniox": {
+          "title": "Soniox"
+        },
+        "qwen": {
+          "title": "Qwen3"
+        },
+        "glm": {
+          "title": "GLM"
+        },
+        "doubao": {
+          "title": "豆包"
+        }
+      },
+      "labels": {
+        "base_url": "基礎 URL",
+        "api_key": "API 金鑰",
+        "transcription_model": "轉寫模型",
+        "translation_model": "翻譯模型",
+        "tts_model": "TTS 模型",
+        "doubao_app_id": "App ID",
+        "doubao_token": "Token",
+        "doubao_cluster": "Cluster"
+      }
+    },
+    "recording": {
+      "labels": {
+        "activation_threshold": "啟動閾值",
+        "activation_duration": "啟動持續（秒）",
+        "silence_duration": "靜音判定（秒）",
+        "pre_roll": "前置緩衝（秒）",
+        "max_segment": "最大片段（秒）"
+      },
+      "input": {
+        "title": "桌面輸入",
+        "description": "選擇麥克風或系統回環輸入，用於桌面端錄音。",
+        "default": "系統預設",
+        "refresh": "重新整理裝置",
+        "empty": "未偵測到音訊輸入。",
+        "unknown_device": "輸入 {{index}}",
+        "status_idle": "未啟用測試",
+        "status_listening": "正在監聽…",
+        "status_signal": "偵測到聲音",
+        "test_start": "測試麥克風",
+        "test_stop": "停止測試",
+        "load_failed": "無法取得音訊裝置。",
+        "test_failed": "無法開始輸入測試。"
+      },
+      "metering": {
+        "title": "目前輸入",
+        "current_db": "輸入電平（dB）",
+        "idle": "未啟用監測",
+        "threshold_db": "啟動閾值（dB）",
+        "status_label": "辨識狀態",
+        "status_off": "未啟用監測",
+        "status_no_signal": "無訊號",
+        "status_above_threshold": "高於閾值",
+        "status_below_threshold": "低於閾值",
+        "status_unknown": "未知",
+        "not_available": "不可用",
+        "action_start": "開始監測",
+        "action_stop": "停止監測"
+      },
+      "presets": {
+        "save_title": "儲存目前設定",
+        "save_description": "將目前靈敏度參數儲存為可重複使用的卡片。",
+        "name_placeholder": "預設名稱",
+        "save_button": "儲存預設",
+        "empty": "尚未儲存任何參數卡片。",
+        "apply_button": "使用預設",
+        "delete_button": "刪除預設",
+        "active_badge": "已套用",
+        "default_name": "預設 {{index}}",
+        "invalid_title": "無法儲存預設",
+        "invalid_message": "請先填寫有效數值後再儲存。",
+        "delete_title": "刪除預設？",
+        "delete_message": "確定要刪除「{{name}}」這張卡片嗎？",
+        "cancel": "取消"
+      }
+    },
+    "transcription": {
+      "labels": {
+        "engine": "轉寫引擎",
+        "source_language": "來源語言",
+        "openai_model": "OpenAI 轉寫模型",
+        "gemini_model": "Gemini 轉寫模型",
+        "prompt": "Prompting（可選）",
+        "prompt_placeholder": "例如：會議紀要包含產品名稱。",
+        "prompt_hint": "留空將不會使用提示。"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "豆包",
+        "glm": "GLM"
+      },
+      "help_label_openai": "OpenAI 語音轉寫文件",
+      "help_label_gemini": "Gemini 音訊文件",
+      "help_error_title": "無法開啟連結",
+      "help_error_body": "請稍後再試。"
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "語音輸入引擎"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "豆包",
+        "glm": "GLM"
+      }
+    },
+    "translation": {
+      "labels": {
+        "enable_translation": "啟用翻譯",
+        "engine": "翻譯引擎",
+        "target_language": "目標語言",
+        "select_language": "選擇目標語言",
+        "openai_model": "OpenAI 翻譯模型",
+        "gemini_model": "Gemini 翻譯模型",
+        "prompt": "Prompting（可選）",
+        "prompt_placeholder": "例如：正式語氣並保留產業術語。",
+        "prompt_hint": "會自動附加下方「僅輸出譯文」的翻譯指令。",
+        "appended_instruction": "將使用者輸入翻譯為{{language}}，並且僅輸出譯文。"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "none": "關閉"
+      },
+      "languages": {
+        "en": "英語",
+        "zh-Hans": "簡體中文",
+        "zh-Hant": "繁體中文",
+        "ja": "日語",
+        "ko": "韓語",
+        "es": "西班牙語",
+        "fr": "法語",
+        "de": "德語",
+        "pt": "葡萄牙語",
+        "ru": "俄語",
+        "ar": "阿拉伯語",
+        "hi": "印地語"
+      }
+    },
+    "tts": {
+      "engine": {
+        "title": "文字轉語音引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "OpenAI 語音模型",
+        "voice_label": "OpenAI 語音",
+        "prompt_label": "語音提示詞（可選）",
+        "prompt_placeholder": "例如：溫暖、平靜、語速適中。",
+        "prompt_hint": "留空將不會使用提示詞。"
+      },
+      "gemini": {
+        "model_label": "Gemini 語音模型",
+        "voice_label": "Gemini 語音",
+        "prompt_label": "語音提示詞（可選）",
+        "prompt_placeholder": "例如：親切、有活力、語速清晰。",
+        "prompt_hint": "留空將不會使用提示詞。"
+      },
+      "help_label_openai": "OpenAI 語音文件",
+      "help_label_gemini": "Gemini 語音文件",
+      "help_error_title": "無法開啟連結",
+      "help_error_body": "請稍後再試。"
+    },
+    "summary": {
+      "title_engine": {
+        "title": "標題總結引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 標題模型",
+        "gemini_label": "Gemini 標題模型",
+        "prompt_label": "標題提示詞"
+      },
+      "conversation_engine": {
+        "title": "對話總結引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 對話總結模型",
+        "gemini_label": "Gemini 對話總結模型",
+        "prompt_label": "對話總結提示詞"
+      }
+    },
+    "qa": {
+      "engine": {
+        "title": "問答擷取引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "OpenAI 問答模型",
+      "gemini_label": "Gemini 問答模型",
+      "prompt_label": "擷取提示詞"
+    },
     "appearance": {
       "labels": {
         "mode": "主題模式",
@@ -19,6 +460,11 @@
         "light": "淺色",
         "dark": "深色"
       }
+    },
+    "pro": {
+      "title": "Pro 版本",
+      "description": "解鎖更快的語音處理、AI 翻譯與會議精華能力，輕鬆駕馭每一次對話。",
+      "cta": "立即升級"
     }
   }
 }

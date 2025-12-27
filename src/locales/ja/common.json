@@ -1,5 +1,446 @@
 {
+  "navigation": {
+    "tabs": {
+      "transcription": "文字起こし",
+      "qa": "Q&A",
+      "reading": "読み上げ",
+      "settings": "設定"
+    }
+  },
+  "common": {
+    "actions": {
+      "ok": "OK",
+      "cancel": "キャンセル"
+    }
+  },
+  "alerts": {
+    "recording": {
+      "title": "録音の通知"
+    },
+    "summary": {
+      "failure": "要約の生成に失敗しました"
+    },
+    "assistant": {
+      "failure": "アシスタントのリクエストに失敗しました"
+    },
+    "conversation_title": {
+      "failure": "会話タイトルの生成に失敗しました"
+    },
+    "microphone_permission": {
+      "title": "マイクの権限が必要です",
+      "message": "録音を続けるにはシステム設定でマイクのアクセスを許可してください。"
+    }
+  },
+  "transcription": {
+    "actions": {
+      "title": "メッセージ操作",
+      "copy_transcript": "文字起こしをコピー",
+      "copy_translation": "翻訳をコピー",
+      "read_transcript": "文字起こしを読み上げ",
+      "read_translation": "翻訳を読み上げ"
+    },
+    "controls": {
+      "start": "録音を開始"
+    },
+    "status": {
+      "recording": "録音中…",
+      "processing": "セグメントを処理中…",
+      "pending_trigger": "トリガー待機中",
+      "transcribing": "文字起こし中",
+      "failed": "文字起こしに失敗しました",
+      "waiting_result": "文字起こし結果を待機中…"
+    },
+    "errors": {
+      "no_content": "テキスト内容を取得できません",
+      "unable_to_start": "録音を開始できません: {{message}}",
+      "start_failed": "録音の開始に失敗しました: {{message}}",
+      "permission_denied": "マイクの権限がありません",
+      "empty_recording": "録音結果が空です"
+    },
+    "messages": {
+      "default_title": "メッセージ #{{id}}"
+    },
+    "sections": {
+      "live_title": "文字起こし",
+      "live_content": "ライブ内容",
+      "history_title": "履歴"
+    },
+    "history": {
+      "placeholder_empty": "まだ文字起こしがありません。録音を開始してください。",
+      "accessibility": {
+        "add": "会話を追加",
+        "view_conversation": "会話 {{title}} を表示"
+      },
+      "search_placeholder": "文字起こしまたは翻訳を検索",
+      "placeholder_search_empty": "一致する履歴がありません。",
+      "new_conversation": "新しい会話 {{id}}"
+    },
+    "export": {
+      "button": "書き出し",
+      "share_title": "会話の書き出し",
+      "generated_at": "{{time}} に生成",
+      "transcript": "文字起こし",
+      "translation": "翻訳",
+      "empty_title": "書き出す内容がありません",
+      "empty_body": "まず録音して文字起こしまたは翻訳を取得してください。",
+      "error_title": "書き出しに失敗しました",
+      "error_body": "現在 Markdown を共有できません。しばらくしてから再試行してください。",
+      "accessibility": "会話を Markdown で書き出し"
+    },
+    "accessibility": {
+      "stop_recording": "録音を停止",
+      "start_recording": "録音を開始"
+    }
+  },
+  "translation": {
+    "status": {
+      "in_progress": "翻訳中…",
+      "failed": "翻訳に失敗しました"
+    },
+    "errors": {
+      "empty_result": "翻訳結果が空です"
+    }
+  },
+  "qa": {
+    "title": "ライブ Q&A",
+    "subtitle": "録音を開始して、リアルタイムで質問と回答を表示します。",
+    "manual_button": {
+      "label": "手動 Q&A",
+      "accessibility": "この会話の手動 Q&A を実行"
+    },
+    "empty": {
+      "title": "まだ質問がありません",
+      "body": "話者が質問すると、ここに候補の回答とともに表示されます。"
+    },
+    "status": {
+      "analyzing": "解析中…"
+    },
+    "entry": {
+      "label": "セグメント {{title}}",
+      "default_title": "メッセージ #{{id}}",
+      "no_questions": "このセグメントで質問は検出されませんでした。",
+      "manual_hint": "上の手動 Q&A ボタンをタップしてこのセグメントを解析します。",
+      "error": "質問を抽出できませんでした: {{message}}"
+    },
+    "labels": {
+      "question": "Q",
+      "answer": "A"
+    }
+  },
+  "assistant": {
+    "section": {
+      "title": "アシスタント",
+      "summary_title": "会話の要約"
+    },
+    "placeholders": {
+      "no_messages": "まだチャット履歴がありません。質問してみてください。",
+      "summary": "まだ会話の要約がありません。録音後に表示されます。",
+      "input": "質問を入力…"
+    },
+    "status": {
+      "waiting_reply": "返信待ち…"
+    },
+    "errors": {
+      "send_failed": "送信に失敗しました"
+    },
+    "accessibility": {
+      "send_input": "入力を送信"
+    }
+  },
+  "reading": {
+    "title": "読み上げ",
+    "subtitle": "テキストを送信すると音声を生成し、いつでも再生できます。",
+    "empty": {
+      "title": "まだメッセージがありません",
+      "body": "メッセージを送信すると読み上げできます。"
+    },
+    "input": {
+      "placeholder": "読み上げたい内容を入力"
+    },
+    "status": {
+      "generating": "音声を生成中...",
+      "ready": "タップして再生",
+      "failed": "音声の生成に失敗しました"
+    },
+    "errors": {
+      "synthesis_failed": "音声の生成に失敗しました: {{message}}",
+      "playback_failed": "音声を再生できません: {{message}}"
+    }
+  },
   "settings": {
+    "page_title": "設定",
+    "sections": {
+      "recording": {
+        "title": "録音検出",
+        "subtitle": "感度と無音判定"
+      },
+      "voice_input": {
+        "title": "音声入力",
+        "subtitle": "キーボードマイクのエンジン"
+      },
+      "transcription": {
+        "title": "文字起こし",
+        "subtitle": "エンジンとソース言語"
+      },
+      "translation": {
+        "title": "翻訳",
+        "subtitle": "有効化とパイプライン"
+      },
+      "tts": {
+        "title": "テキスト読み上げ",
+        "subtitle": "音声モデルとスタイル"
+      },
+      "summary": {
+        "title": "要約",
+        "subtitle": "タイトルエンジンとプロンプト"
+      },
+      "qa": {
+        "title": "ライブ Q&A",
+        "subtitle": "質問抽出モデルとプロンプト"
+      },
+      "appearance": {
+        "title": "外観",
+        "subtitle": "テーマモード"
+      },
+      "credentials": {
+        "title": "認証情報",
+        "subtitle": "API キーを管理"
+      }
+    },
+    "about": {
+      "title": "このアプリについて",
+      "icon_accessibility": "VoiceTT アプリアイコン",
+      "links": {
+        "website": "ウェブサイト",
+        "repository": "リポジトリ"
+      },
+      "meta": {
+        "version": "バージョン {{version}}",
+        "build": "ビルド {{build}}"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
+    "credentials": {
+      "sections": {
+        "openai": {
+          "title": "OpenAI"
+        },
+        "gemini": {
+          "title": "Gemini"
+        },
+        "soniox": {
+          "title": "Soniox"
+        },
+        "qwen": {
+          "title": "Qwen3"
+        },
+        "glm": {
+          "title": "GLM"
+        },
+        "doubao": {
+          "title": "Doubao"
+        }
+      },
+      "labels": {
+        "base_url": "ベース URL",
+        "api_key": "API キー",
+        "transcription_model": "文字起こしモデル",
+        "translation_model": "翻訳モデル",
+        "tts_model": "テキスト読み上げモデル",
+        "doubao_app_id": "Doubao App ID",
+        "doubao_token": "Doubao Token",
+        "doubao_cluster": "Doubao Cluster"
+      }
+    },
+    "recording": {
+      "labels": {
+        "activation_threshold": "起動しきい値",
+        "activation_duration": "起動継続時間（秒）",
+        "silence_duration": "無音判定（秒）",
+        "pre_roll": "プリロール時間（秒）",
+        "max_segment": "最大セグメント長（秒）"
+      },
+      "input": {
+        "title": "デスクトップ入力",
+        "description": "Electron 録音用にマイクまたはループバック入力を選択します。",
+        "default": "システム既定",
+        "refresh": "デバイスを更新",
+        "empty": "音声入力が検出されません。",
+        "unknown_device": "入力 {{index}}",
+        "status_idle": "テスト停止中",
+        "status_listening": "リスニング中…",
+        "status_signal": "信号を検出",
+        "test_start": "マイクをテスト",
+        "test_stop": "テスト停止",
+        "load_failed": "音声デバイスを読み込めません。",
+        "test_failed": "入力テストを開始できません。"
+      },
+      "metering": {
+        "title": "現在の入力",
+        "current_db": "入力レベル (dB)",
+        "idle": "監視オフ",
+        "threshold_db": "起動しきい値 (dB)",
+        "status_label": "認識ステータス",
+        "status_off": "監視オフ",
+        "status_no_signal": "信号なし",
+        "status_above_threshold": "しきい値超え",
+        "status_below_threshold": "しきい値未満",
+        "status_unknown": "不明",
+        "not_available": "N/A",
+        "action_start": "監視を開始",
+        "action_stop": "監視を停止"
+      },
+      "presets": {
+        "save_title": "現在の設定を保存",
+        "save_description": "現在の感度パラメータを再利用可能なカードとして保存します。",
+        "name_placeholder": "プリセット名",
+        "save_button": "プリセットを保存",
+        "empty": "保存済みのプリセットはありません。",
+        "apply_button": "プリセットを使用",
+        "delete_button": "プリセットを削除",
+        "active_badge": "適用中",
+        "default_name": "プリセット {{index}}",
+        "invalid_title": "プリセットを保存できません",
+        "invalid_message": "保存する前に有効な数値を入力してください。",
+        "delete_title": "プリセットを削除しますか？",
+        "delete_message": "保存済みプリセット「{{name}}」を削除しますか？",
+        "cancel": "キャンセル"
+      }
+    },
+    "transcription": {
+      "labels": {
+        "engine": "文字起こしエンジン",
+        "source_language": "ソース言語",
+        "openai_model": "OpenAI 文字起こしモデル",
+        "gemini_model": "Gemini 文字起こしモデル",
+        "prompt": "プロンプト（任意）",
+        "prompt_placeholder": "例: 製品名を含む会議要約。",
+        "prompt_hint": "空欄にするとプロンプトは使用されません。"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      },
+      "help_label_openai": "OpenAI 音声認識ドキュメント",
+      "help_label_gemini": "Gemini 音声ドキュメント",
+      "help_error_title": "リンクを開けません",
+      "help_error_body": "後でもう一度お試しください。"
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "音声入力エンジン"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      }
+    },
+    "translation": {
+      "labels": {
+        "enable_translation": "翻訳を有効にする",
+        "engine": "翻訳エンジン",
+        "target_language": "対象言語",
+        "select_language": "対象言語を選択",
+        "openai_model": "OpenAI 翻訳モデル",
+        "gemini_model": "Gemini 翻訳モデル",
+        "prompt": "プロンプト（任意）",
+        "prompt_placeholder": "例: フォーマルな口調と業界用語。",
+        "prompt_hint": "翻訳のみの指示が自動で追加されます。",
+        "appended_instruction": "ユーザー入力を{{language}}に翻訳し、翻訳のみを返してください。"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "none": "なし"
+      },
+      "languages": {
+        "en": "英語",
+        "zh-Hans": "中国語（簡体）",
+        "zh-Hant": "中国語（繁体）",
+        "ja": "日本語",
+        "ko": "韓国語",
+        "es": "スペイン語",
+        "fr": "フランス語",
+        "de": "ドイツ語",
+        "pt": "ポルトガル語",
+        "ru": "ロシア語",
+        "ar": "アラビア語",
+        "hi": "ヒンディー語"
+      }
+    },
+    "tts": {
+      "engine": {
+        "title": "テキスト読み上げエンジン",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "OpenAI TTS モデル",
+        "voice_label": "OpenAI ボイス",
+        "prompt_label": "音声プロンプト（任意）",
+        "prompt_placeholder": "例: 温かく落ち着いた、ゆったりした話し方。",
+        "prompt_hint": "空欄にすると音声指示は無効になります。"
+      },
+      "gemini": {
+        "model_label": "Gemini TTS モデル",
+        "voice_label": "Gemini ボイス",
+        "prompt_label": "音声プロンプト（任意）",
+        "prompt_placeholder": "例: フレンドリーで元気、キビキビした話し方。",
+        "prompt_hint": "空欄にすると音声指示は無効になります。"
+      },
+      "help_label_openai": "OpenAI TTS ドキュメント",
+      "help_label_gemini": "Gemini TTS ドキュメント",
+      "help_error_title": "リンクを開けません",
+      "help_error_body": "後でもう一度お試しください。"
+    },
+    "summary": {
+      "title_engine": {
+        "title": "タイトル要約エンジン",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI タイトルモデル",
+        "gemini_label": "Gemini タイトルモデル",
+        "prompt_label": "タイトルプロンプト"
+      },
+      "conversation_engine": {
+        "title": "会話要約エンジン",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 会話モデル",
+        "gemini_label": "Gemini 会話モデル",
+        "prompt_label": "会話プロンプト"
+      }
+    },
+    "qa": {
+      "engine": {
+        "title": "Q&A 抽出エンジン",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "OpenAI Q&A モデル",
+      "gemini_label": "Gemini Q&A モデル",
+      "prompt_label": "抽出プロンプト"
+    },
     "appearance": {
       "labels": {
         "mode": "テーマモード",
@@ -19,6 +460,11 @@
         "light": "ライト",
         "dark": "ダーク"
       }
+    },
+    "pro": {
+      "title": "Pro バージョン",
+      "description": "より高速な音声処理、AI 翻訳、会議要約を解放して、あらゆる会話を掌握します。",
+      "cta": "今すぐアップグレード"
     }
   }
 }

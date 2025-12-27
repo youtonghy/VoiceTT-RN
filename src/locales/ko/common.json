@@ -1,5 +1,446 @@
 {
+  "navigation": {
+    "tabs": {
+      "transcription": "전사",
+      "qa": "Q&A",
+      "reading": "읽어주기",
+      "settings": "설정"
+    }
+  },
+  "common": {
+    "actions": {
+      "ok": "확인",
+      "cancel": "취소"
+    }
+  },
+  "alerts": {
+    "recording": {
+      "title": "녹음 알림"
+    },
+    "summary": {
+      "failure": "요약 생성에 실패했습니다"
+    },
+    "assistant": {
+      "failure": "어시스턴트 요청에 실패했습니다"
+    },
+    "conversation_title": {
+      "failure": "대화 제목 생성에 실패했습니다"
+    },
+    "microphone_permission": {
+      "title": "마이크 권한이 필요합니다",
+      "message": "녹음을 계속하려면 시스템 설정에서 마이크 접근을 허용하세요."
+    }
+  },
+  "transcription": {
+    "actions": {
+      "title": "메시지 작업",
+      "copy_transcript": "전사 복사",
+      "copy_translation": "번역 복사",
+      "read_transcript": "전사 읽어주기",
+      "read_translation": "번역 읽어주기"
+    },
+    "controls": {
+      "start": "녹음 시작"
+    },
+    "status": {
+      "recording": "녹음 중…",
+      "processing": "구간 처리 중…",
+      "pending_trigger": "트리거 대기 중",
+      "transcribing": "전사 중",
+      "failed": "전사 실패",
+      "waiting_result": "전사 결과 대기 중…"
+    },
+    "errors": {
+      "no_content": "텍스트 내용을 가져올 수 없습니다",
+      "unable_to_start": "녹음을 시작할 수 없습니다: {{message}}",
+      "start_failed": "녹음 시작에 실패했습니다: {{message}}",
+      "permission_denied": "마이크 권한이 없습니다",
+      "empty_recording": "녹음 결과가 비어 있습니다"
+    },
+    "messages": {
+      "default_title": "메시지 #{{id}}"
+    },
+    "sections": {
+      "live_title": "전사",
+      "live_content": "실시간 내용",
+      "history_title": "기록"
+    },
+    "history": {
+      "placeholder_empty": "아직 전사가 없습니다. 녹음을 시작하세요.",
+      "accessibility": {
+        "add": "대화 추가",
+        "view_conversation": "대화 {{title}} 보기"
+      },
+      "search_placeholder": "전사 또는 번역 검색",
+      "placeholder_search_empty": "일치하는 기록이 없습니다.",
+      "new_conversation": "새 대화 {{id}}"
+    },
+    "export": {
+      "button": "내보내기",
+      "share_title": "대화 내보내기",
+      "generated_at": "{{time}}에 생성",
+      "transcript": "전사",
+      "translation": "번역",
+      "empty_title": "내보낼 내용이 없습니다",
+      "empty_body": "먼저 녹음을 시작해 전사 또는 번역을 받아주세요.",
+      "error_title": "내보내기 실패",
+      "error_body": "지금은 Markdown을 공유할 수 없습니다. 잠시 후 다시 시도하세요.",
+      "accessibility": "대화를 Markdown으로 내보내기"
+    },
+    "accessibility": {
+      "stop_recording": "녹음 중지",
+      "start_recording": "녹음 시작"
+    }
+  },
+  "translation": {
+    "status": {
+      "in_progress": "번역 중…",
+      "failed": "번역 실패"
+    },
+    "errors": {
+      "empty_result": "번역 결과가 비어 있습니다"
+    }
+  },
+  "qa": {
+    "title": "실시간 Q&A",
+    "subtitle": "녹음을 시작하면 실시간으로 질문과 답변을 보여줍니다.",
+    "manual_button": {
+      "label": "수동 Q&A",
+      "accessibility": "이 대화의 수동 Q&A 실행"
+    },
+    "empty": {
+      "title": "아직 질문이 없습니다",
+      "body": "화자가 질문하면 여기에서 추천 답변과 함께 표시됩니다."
+    },
+    "status": {
+      "analyzing": "분석 중…"
+    },
+    "entry": {
+      "label": "구간 {{title}}",
+      "default_title": "메시지 #{{id}}",
+      "no_questions": "이 구간에서 질문을 찾지 못했습니다.",
+      "manual_hint": "위의 수동 Q&A 버튼을 탭하여 이 구간을 분석하세요.",
+      "error": "질문을 추출할 수 없습니다: {{message}}"
+    },
+    "labels": {
+      "question": "Q",
+      "answer": "A"
+    }
+  },
+  "assistant": {
+    "section": {
+      "title": "어시스턴트",
+      "summary_title": "대화 요약"
+    },
+    "placeholders": {
+      "no_messages": "아직 채팅 기록이 없습니다. 질문해 보세요.",
+      "summary": "아직 대화 요약이 없습니다. 녹음 후 표시됩니다.",
+      "input": "질문 입력…"
+    },
+    "status": {
+      "waiting_reply": "답변 대기 중…"
+    },
+    "errors": {
+      "send_failed": "전송 실패"
+    },
+    "accessibility": {
+      "send_input": "입력 전송"
+    }
+  },
+  "reading": {
+    "title": "읽어주기",
+    "subtitle": "텍스트를 보내면 음성을 생성하고 언제든지 다시 재생할 수 있습니다.",
+    "empty": {
+      "title": "아직 메시지가 없습니다",
+      "body": "메시지를 보내면 읽어줍니다."
+    },
+    "input": {
+      "placeholder": "읽어줄 내용을 입력"
+    },
+    "status": {
+      "generating": "오디오 생성 중...",
+      "ready": "탭하여 다시 재생",
+      "failed": "오디오 생성 실패"
+    },
+    "errors": {
+      "synthesis_failed": "음성 생성 실패: {{message}}",
+      "playback_failed": "오디오를 재생할 수 없습니다: {{message}}"
+    }
+  },
   "settings": {
+    "page_title": "설정",
+    "sections": {
+      "recording": {
+        "title": "녹음 감지",
+        "subtitle": "감도 및 무음 판정"
+      },
+      "voice_input": {
+        "title": "음성 입력",
+        "subtitle": "키보드 마이크 엔진"
+      },
+      "transcription": {
+        "title": "전사",
+        "subtitle": "엔진 및 원본 언어"
+      },
+      "translation": {
+        "title": "번역",
+        "subtitle": "토글 및 파이프라인"
+      },
+      "tts": {
+        "title": "텍스트 음성 변환",
+        "subtitle": "음성 모델과 스타일"
+      },
+      "summary": {
+        "title": "요약",
+        "subtitle": "제목 엔진과 프롬프트"
+      },
+      "qa": {
+        "title": "실시간 Q&A",
+        "subtitle": "질문 추출 모델과 프롬프트"
+      },
+      "appearance": {
+        "title": "모양",
+        "subtitle": "테마 모드"
+      },
+      "credentials": {
+        "title": "자격 증명",
+        "subtitle": "API 키 관리"
+      }
+    },
+    "about": {
+      "title": "정보",
+      "icon_accessibility": "VoiceTT 앱 아이콘",
+      "links": {
+        "website": "웹사이트",
+        "repository": "리포지토리"
+      },
+      "meta": {
+        "version": "버전 {{version}}",
+        "build": "빌드 {{build}}"
+      },
+      "footer": {
+        "copyright": "@2025 VoiceTT",
+        "powered": "Powered by Tokisantike Network",
+        "location": "Assembled in Melbourne"
+      }
+    },
+    "credentials": {
+      "sections": {
+        "openai": {
+          "title": "OpenAI"
+        },
+        "gemini": {
+          "title": "Gemini"
+        },
+        "soniox": {
+          "title": "Soniox"
+        },
+        "qwen": {
+          "title": "Qwen3"
+        },
+        "glm": {
+          "title": "GLM"
+        },
+        "doubao": {
+          "title": "Doubao"
+        }
+      },
+      "labels": {
+        "base_url": "기본 URL",
+        "api_key": "API 키",
+        "transcription_model": "전사 모델",
+        "translation_model": "번역 모델",
+        "tts_model": "텍스트 음성 모델",
+        "doubao_app_id": "Doubao App ID",
+        "doubao_token": "Doubao Token",
+        "doubao_cluster": "Doubao Cluster"
+      }
+    },
+    "recording": {
+      "labels": {
+        "activation_threshold": "활성화 임계값",
+        "activation_duration": "활성화 지속 시간(초)",
+        "silence_duration": "무음 지속 시간(초)",
+        "pre_roll": "프리롤 시간(초)",
+        "max_segment": "최대 구간 길이(초)"
+      },
+      "input": {
+        "title": "데스크톱 입력",
+        "description": "Electron 녹음을 위해 마이크 또는 루프백 입력을 선택합니다.",
+        "default": "시스템 기본값",
+        "refresh": "장치 새로고침",
+        "empty": "오디오 입력이 감지되지 않습니다.",
+        "unknown_device": "입력 {{index}}",
+        "status_idle": "테스트 대기",
+        "status_listening": "듣는 중…",
+        "status_signal": "신호 감지됨",
+        "test_start": "마이크 테스트",
+        "test_stop": "테스트 중지",
+        "load_failed": "오디오 장치를 불러올 수 없습니다.",
+        "test_failed": "입력 테스트를 시작할 수 없습니다."
+      },
+      "metering": {
+        "title": "현재 입력",
+        "current_db": "입력 레벨(dB)",
+        "idle": "모니터링 꺼짐",
+        "threshold_db": "활성화 임계값(dB)",
+        "status_label": "인식 상태",
+        "status_off": "모니터링 꺼짐",
+        "status_no_signal": "신호 없음",
+        "status_above_threshold": "임계값 초과",
+        "status_below_threshold": "임계값 미만",
+        "status_unknown": "알 수 없음",
+        "not_available": "N/A",
+        "action_start": "모니터링 시작",
+        "action_stop": "모니터링 중지"
+      },
+      "presets": {
+        "save_title": "현재 설정 저장",
+        "save_description": "현재 감도 파라미터를 재사용 가능한 카드로 저장합니다.",
+        "name_placeholder": "프리셋 이름",
+        "save_button": "프리셋 저장",
+        "empty": "저장된 프리셋이 없습니다.",
+        "apply_button": "프리셋 사용",
+        "delete_button": "프리셋 삭제",
+        "active_badge": "적용됨",
+        "default_name": "프리셋 {{index}}",
+        "invalid_title": "프리셋을 저장할 수 없습니다",
+        "invalid_message": "저장하기 전에 유효한 값을 입력하세요.",
+        "delete_title": "프리셋을 삭제할까요?",
+        "delete_message": "저장된 프리셋 \"{{name}}\"을(를) 삭제할까요?",
+        "cancel": "취소"
+      }
+    },
+    "transcription": {
+      "labels": {
+        "engine": "전사 엔진",
+        "source_language": "원본 언어",
+        "openai_model": "OpenAI 전사 모델",
+        "gemini_model": "Gemini 전사 모델",
+        "prompt": "프롬프트(선택)",
+        "prompt_placeholder": "예: 제품명이 포함된 회의 요약.",
+        "prompt_hint": "비워두면 프롬프트가 사용되지 않습니다."
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      },
+      "help_label_openai": "OpenAI 음성 인식 문서",
+      "help_label_gemini": "Gemini 오디오 문서",
+      "help_error_title": "링크를 열 수 없습니다",
+      "help_error_body": "잠시 후 다시 시도하세요."
+    },
+    "voice_input": {
+      "labels": {
+        "engine": "음성 입력 엔진"
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "qwen3": "Qwen3",
+        "soniox": "Soniox",
+        "doubao": "Doubao",
+        "glm": "GLM"
+      }
+    },
+    "translation": {
+      "labels": {
+        "enable_translation": "번역 사용",
+        "engine": "번역 엔진",
+        "target_language": "대상 언어",
+        "select_language": "대상 언어 선택",
+        "openai_model": "OpenAI 번역 모델",
+        "gemini_model": "Gemini 번역 모델",
+        "prompt": "프롬프트(선택)",
+        "prompt_placeholder": "예: 격식 있는 어조와 업계 용어.",
+        "prompt_hint": "번역만 출력하라는 지시가 자동으로 추가됩니다.",
+        "appended_instruction": "사용자 입력을 {{language}}로 번역하고 번역만 반환하세요."
+      },
+      "engines": {
+        "openai": "OpenAI",
+        "gemini": "Gemini",
+        "none": "없음"
+      },
+      "languages": {
+        "en": "영어",
+        "zh-Hans": "중국어(간체)",
+        "zh-Hant": "중국어(번체)",
+        "ja": "일본어",
+        "ko": "한국어",
+        "es": "스페인어",
+        "fr": "프랑스어",
+        "de": "독일어",
+        "pt": "포르투갈어",
+        "ru": "러시아어",
+        "ar": "아랍어",
+        "hi": "힌디어"
+      }
+    },
+    "tts": {
+      "engine": {
+        "title": "텍스트 음성 변환 엔진",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai": {
+        "model_label": "OpenAI TTS 모델",
+        "voice_label": "OpenAI 음성",
+        "prompt_label": "음성 프롬프트(선택)",
+        "prompt_placeholder": "예: 따뜻하고 차분하며 부드러운 속도.",
+        "prompt_hint": "비워두면 음성 지시가 비활성화됩니다."
+      },
+      "gemini": {
+        "model_label": "Gemini TTS 모델",
+        "voice_label": "Gemini 음성",
+        "prompt_label": "음성 프롬프트(선택)",
+        "prompt_placeholder": "예: 친근하고 활기차며 또렷한 속도.",
+        "prompt_hint": "비워두면 음성 지시가 비활성화됩니다."
+      },
+      "help_label_openai": "OpenAI TTS 문서",
+      "help_label_gemini": "Gemini TTS 문서",
+      "help_error_title": "링크를 열 수 없습니다",
+      "help_error_body": "잠시 후 다시 시도하세요."
+    },
+    "summary": {
+      "title_engine": {
+        "title": "제목 요약 엔진",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 제목 모델",
+        "gemini_label": "Gemini 제목 모델",
+        "prompt_label": "제목 프롬프트"
+      },
+      "conversation_engine": {
+        "title": "대화 요약 엔진",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 대화 모델",
+        "gemini_label": "Gemini 대화 모델",
+        "prompt_label": "대화 프롬프트"
+      }
+    },
+    "qa": {
+      "engine": {
+        "title": "Q&A 추출 엔진",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        }
+      },
+      "openai_label": "OpenAI Q&A 모델",
+      "gemini_label": "Gemini Q&A 모델",
+      "prompt_label": "추출 프롬프트"
+    },
     "appearance": {
       "labels": {
         "mode": "테마 모드",
@@ -19,6 +460,11 @@
         "light": "라이트",
         "dark": "다크"
       }
+    },
+    "pro": {
+      "title": "Pro 버전",
+      "description": "더 빠른 음성 처리, AI 번역, 회의 요약을 해제하여 모든 대화를 완벽히 관리하세요.",
+      "cta": "지금 업그레이드"
     }
   }
 }

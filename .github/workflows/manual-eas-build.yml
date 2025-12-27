@@ -206,8 +206,44 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           shopt -s nullglob
-          files=(dist/*.exe dist/*.msi dist/*.zip)
+
+          files=()
+          installer=""
+
+          if [ -f dist/latest.yml ]; then
+            installer=$(sed -n 's/^path: //p' dist/latest.yml | head -n 1)
+            if [ -n "$installer" ] && [ -f "dist/$installer" ]; then
+              files+=("dist/$installer")
+            fi
+          fi
+
+          if [ ${#files[@]} -eq 0 ]; then
+            while IFS= read -r -d '' file; do
+              files+=("$file")
+              break
+            done < <(find dist -maxdepth 1 -type f -name '*-Setup-*.exe' -print0)
+          fi
+
+          if [ ${#files[@]} -eq 0 ]; then
+            while IFS= read -r -d '' file; do
+              files+=("$file")
+              break
+            done < <(find dist -maxdepth 1 -type f -name '*.Setup.*.exe' -print0)
+          fi
+
+          if [ ${#files[@]} -eq 0 ]; then
+            while IFS= read -r -d '' file; do
+              files+=("$file")
+              break
+            done < <(find dist -maxdepth 1 -type f -name '*.exe' -print0)
+          fi
+
+          while IFS= read -r -d '' file; do
+            files+=("$file")
+          done < <(find dist -maxdepth 1 -type f \( -name '*.msi' -o -name '*.zip' \) -print0)
+
           if [ ${#files[@]} -eq 0 ]; then
             echo "No Windows artifacts found in dist/"
             exit 1
