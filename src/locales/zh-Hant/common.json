@@ -73,7 +73,22 @@
       },
       "search_placeholder": "搜尋對話轉寫或翻譯內容",
       "placeholder_search_empty": "暫無符合的歷史紀錄。",
-      "new_conversation": "新對話{{id}}"
+      "new_conversation": "新對話{{id}}",
+      "actions": {
+        "title": "對話操作",
+        "rename": "重新命名",
+        "generate_title": "生成標題",
+        "delete": "刪除"
+      },
+      "rename": {
+        "title": "重新命名對話",
+        "placeholder": "對話標題",
+        "save": "儲存"
+      },
+      "delete": {
+        "title": "刪除對話？",
+        "message": "這將移除此對話及其轉寫內容。"
+      }
     },
     "export": {
       "button": "匯出",
@@ -161,6 +176,11 @@
       "generating": "正在生成語音…",
       "ready": "點擊重新朗讀",
       "failed": "朗讀生成失敗"
+    },
+    "actions": {
+      "title": "朗讀操作",
+      "copy": "複製文字",
+      "delete": "刪除"
     },
     "errors": {
       "synthesis_failed": "生成語音失敗：{{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "主題模式",
-        "language": "語言"
+        "language": "語言",
+        "tabs": "顯示的標籤頁"
       },
       "languages": {
         "system": "跟隨系統",

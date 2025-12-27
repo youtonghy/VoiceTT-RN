@@ -73,7 +73,22 @@
       },
       "search_placeholder": "전사 또는 번역 검색",
       "placeholder_search_empty": "일치하는 기록이 없습니다.",
-      "new_conversation": "새 대화 {{id}}"
+      "new_conversation": "새 대화 {{id}}",
+      "actions": {
+        "title": "대화 작업",
+        "rename": "이름 변경",
+        "generate_title": "제목 생성",
+        "delete": "삭제"
+      },
+      "rename": {
+        "title": "대화 이름 변경",
+        "placeholder": "대화 제목",
+        "save": "저장"
+      },
+      "delete": {
+        "title": "대화를 삭제할까요?",
+        "message": "이 대화와 전사 내용이 삭제됩니다."
+      }
     },
     "export": {
       "button": "내보내기",
@@ -161,6 +176,11 @@
       "generating": "오디오 생성 중...",
       "ready": "탭하여 다시 재생",
       "failed": "오디오 생성 실패"
+    },
+    "actions": {
+      "title": "낭독 작업",
+      "copy": "텍스트 복사",
+      "delete": "삭제"
     },
     "errors": {
       "synthesis_failed": "음성 생성 실패: {{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "테마 모드",
-        "language": "언어"
+        "language": "언어",
+        "tabs": "표시할 탭"
       },
       "languages": {
         "system": "시스템",

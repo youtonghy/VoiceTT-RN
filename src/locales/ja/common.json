@@ -73,7 +73,22 @@
       },
       "search_placeholder": "文字起こしまたは翻訳を検索",
       "placeholder_search_empty": "一致する履歴がありません。",
-      "new_conversation": "新しい会話 {{id}}"
+      "new_conversation": "新しい会話 {{id}}",
+      "actions": {
+        "title": "会話操作",
+        "rename": "名前を変更",
+        "generate_title": "タイトルを生成",
+        "delete": "削除"
+      },
+      "rename": {
+        "title": "会話名を変更",
+        "placeholder": "会話タイトル",
+        "save": "保存"
+      },
+      "delete": {
+        "title": "会話を削除しますか？",
+        "message": "この会話と転写内容が削除されます。"
+      }
     },
     "export": {
       "button": "書き出し",
@@ -161,6 +176,11 @@
       "generating": "音声を生成中...",
       "ready": "タップして再生",
       "failed": "音声の生成に失敗しました"
+    },
+    "actions": {
+      "title": "朗読操作",
+      "copy": "テキストをコピー",
+      "delete": "削除"
     },
     "errors": {
       "synthesis_failed": "音声の生成に失敗しました: {{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "テーマモード",
-        "language": "言語"
+        "language": "言語",
+        "tabs": "表示するタブ"
       },
       "languages": {
         "system": "システム",

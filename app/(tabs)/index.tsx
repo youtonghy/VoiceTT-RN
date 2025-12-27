@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import KeyboardStickyInput from "@/KeyboardStickyInput";
 
+import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from "@/components/context-menu";
 import { MarkdownText } from "@/components/markdown-text";
 import { RecordingToggle } from "@/components/recording-toggle";
 import { ThemedText } from "@/components/themed-text";
@@ -63,10 +64,10 @@ type AssistantMessage = {
   error?: string;
 };
 
-type MessageAction = {
-  label: string;
-  onPress?: () => void;
-  variant?: "cancel";
+type ContextMenuState = {
+  title?: string;
+  actions: ContextMenuAction[];
+  anchor?: ContextMenuAnchor;
 };
 
 type HistoryConversation = {
@@ -341,6 +342,7 @@ export default function TranscriptionScreen() {
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
   const transcriptionScrollOffsetRef = useRef(0);
+  const historyLongPressRef = useRef<string | null>(null);
   const assistantInputRef = useRef<TextInput | null>(null);
   const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
@@ -351,12 +353,12 @@ export default function TranscriptionScreen() {
   const [assistantSending, setAssistantSending] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(1);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
-  const [messageActionSheet, setMessageActionSheet] = useState<{
-    title: string;
-    actions: MessageAction[];
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
+  const manualTitleAbortRef = useRef<AbortController | null>(null);
   const initialCarouselPositionedRef = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
@@ -637,6 +639,7 @@ export default function TranscriptionScreen() {
       autoTitleAbortRef.current?.abort();
       autoSummaryAbortRef.current?.abort();
       assistantAbortRef.current?.abort();
+      manualTitleAbortRef.current?.abort();
     };
   }, []);
 
@@ -1103,12 +1106,12 @@ export default function TranscriptionScreen() {
   );
 
   const handleMessageLongPress = useCallback(
-    (message: TranscriptionMessage) => {
+    (message: TranscriptionMessage, anchor?: ContextMenuAnchor) => {
       const transcript =
         typeof message.transcript === "string" ? message.transcript.trim() : "";
       const translation =
         typeof message.translation === "string" ? message.translation.trim() : "";
-      const actions: MessageAction[] = [];
+      const actions: ContextMenuAction[] = [];
 
       if (transcript) {
         actions.push({
@@ -1149,9 +1152,10 @@ export default function TranscriptionScreen() {
         variant: "cancel",
       });
 
-      setMessageActionSheet({
+      setContextMenu({
         title: t("transcription.actions.title"),
         actions,
+        anchor,
       });
       if (isDesktopApp) {
         const currentOffset = transcriptionScrollOffsetRef.current;
@@ -1168,11 +1172,152 @@ export default function TranscriptionScreen() {
     [handleSpeakText, isDesktopApp, settings.enableTranslation, t]
   );
 
-  const handleDismissActionSheet = useCallback(() => {
-    setMessageActionSheet(null);
+  const handleDismissContextMenu = useCallback(() => {
+    setContextMenu(null);
+    historyLongPressRef.current = null;
   }, []);
 
+  const openRenameDialog = useCallback((conversation: HistoryConversation) => {
+    setRenameDraft(conversation.title);
+    setRenameDialog({ conversationId: conversation.id });
+  }, []);
+
+  const handleRenameCancel = useCallback(() => {
+    setRenameDialog(null);
+    setRenameDraft("");
+  }, []);
+
+  const handleRenameSave = useCallback(() => {
+    if (!renameDialog) {
+      return;
+    }
+    const trimmed = renameDraft.trim();
+    if (!trimmed) {
+      return;
+    }
+    setHistoryItems((prev) =>
+      prev.map((item) =>
+        item.id === renameDialog.conversationId ? { ...item, title: trimmed } : item
+      )
+    );
+    setRenameDialog(null);
+    setRenameDraft("");
+  }, [renameDialog, renameDraft, setHistoryItems]);
+
+  const handleHistoryGenerateTitle = useCallback(
+    async (conversationId: string) => {
+      const conversation = historyItems.find((item) => item.id === conversationId);
+      if (!conversation) {
+        return;
+      }
+      const transcriptSegments = conversation.messages
+        .map((msg) => msg.transcript?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const transcriptText = transcriptSegments.join('\n').trim();
+      if (!transcriptText) {
+        return;
+      }
+      const translationSegments = conversation.messages
+        .map((msg) => msg.translation?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const translationText = (translationSegments.length > 0
+        ? translationSegments.join('\n').trim()
+        : conversation.translation?.trim()) || undefined;
+
+      manualTitleAbortRef.current?.abort();
+      const controller = new AbortController();
+      manualTitleAbortRef.current = controller;
+      try {
+        const generatedTitle = await generateConversationTitle(
+          transcriptText,
+          translationText,
+          settings,
+          controller.signal
+        );
+        const cleanTitle = generatedTitle.trim();
+        if (!cleanTitle) {
+          return;
+        }
+        setHistoryItems((prev) =>
+          prev.map((item) =>
+            item.id === conversationId ? { ...item, title: cleanTitle } : item
+          )
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[transcription] Failed to generate conversation title', err);
+        Alert.alert(t('alerts.conversation_title.failure'), message);
+      } finally {
+        if (manualTitleAbortRef.current === controller) {
+          manualTitleAbortRef.current = null;
+        }
+      }
+    },
+    [historyItems, settings, t]
+  );
+
+  const handleDeleteConversation = useCallback(
+    (conversation: HistoryConversation) => {
+      const confirmDelete = async () => {
+        if (conversation.id === activeConversationId) {
+          try {
+            await stopSession();
+          } catch (sessionError) {
+            console.warn(
+              "[transcription] stopSession failed before deleting conversation",
+              sessionError
+            );
+          }
+        }
+        setHistoryItems((prev) => prev.filter((item) => item.id !== conversation.id));
+      };
+
+      void confirmDelete();
+    },
+    [activeConversationId, setHistoryItems, stopSession]
+  );
+
+  const handleHistoryLongPress = useCallback(
+    (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
+      historyLongPressRef.current = conversation.id;
+      setContextMenu({
+        title: t('transcription.history.actions.title'),
+        actions: [
+          {
+            label: t('transcription.history.actions.rename'),
+            onPress: () => {
+              openRenameDialog(conversation);
+            },
+          },
+          {
+            label: t('transcription.history.actions.generate_title'),
+            onPress: () => {
+              void handleHistoryGenerateTitle(conversation.id);
+            },
+          },
+          {
+            label: t('transcription.history.actions.delete'),
+            variant: 'destructive',
+            onPress: () => {
+              handleDeleteConversation(conversation);
+            },
+          },
+          {
+            label: t('common.actions.cancel'),
+            variant: 'cancel',
+          },
+        ],
+        anchor,
+      });
+    },
+    [handleDeleteConversation, handleHistoryGenerateTitle, openRenameDialog, t]
+  );
+
   const assistantMessages = activeConversation?.assistantMessages ?? [];
+  const canSaveRename = renameDraft.trim().length > 0;
 
   useEffect(() => {
     if (assistantMessages.length === 0) {
@@ -1365,7 +1510,7 @@ export default function TranscriptionScreen() {
             </ThemedText>
           ) : (
             messages.map((item) => (
-              <MessageBubble key={item.id} message={item} onLongPress={handleMessageLongPress} />
+              <MessageBubble key={item.id} message={item} onOpenMenu={handleMessageLongPress} />
             ))
           )}
         </ScrollView>
@@ -1435,8 +1580,36 @@ export default function TranscriptionScreen() {
                     <Pressable
                       key={item.id}
                       onPress={() => {
+                        if (historyLongPressRef.current === item.id) {
+                          historyLongPressRef.current = null;
+                          return;
+                        }
                         void handleSelectConversation(item.id);
                       }}
+                      onLongPress={
+                        isDesktopApp
+                          ? undefined
+                          : () => handleHistoryLongPress(item)
+                      }
+                      onPointerDown={(event) => {
+                        if (!isDesktopApp) {
+                          return;
+                        }
+                        if (event.nativeEvent.button === 2) {
+                          event.preventDefault();
+                          const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+                            pageX?: number;
+                            pageY?: number;
+                            clientX?: number;
+                            clientY?: number;
+                          };
+                          handleHistoryLongPress(item, {
+                            x: typeof pageX === "number" ? pageX : clientX ?? 0,
+                            y: typeof pageY === "number" ? pageY : clientY ?? 0,
+                          });
+                        }
+                      }}
+                      delayLongPress={isDesktopApp ? undefined : 250}
                       accessibilityRole="button"
                       accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
                       style={({ pressed }) => [
@@ -1670,53 +1843,76 @@ export default function TranscriptionScreen() {
           )}
         </View>
       </ThemedView>
-      {messageActionSheet ? (
+      <ContextMenu
+        visible={Boolean(contextMenu)}
+        title={contextMenu?.title}
+        actions={contextMenu?.actions ?? []}
+        anchor={contextMenu?.anchor}
+        onRequestClose={handleDismissContextMenu}
+      />
+      {renameDialog ? (
         <Modal
           transparent
           animationType="fade"
           visible
-          onRequestClose={handleDismissActionSheet}
+          onRequestClose={handleRenameCancel}
         >
-          <Pressable style={styles.actionSheetBackdrop} onPress={handleDismissActionSheet}>
-            <Pressable style={styles.actionSheetCardPressable} onPress={() => {}}>
+          <Pressable style={styles.renameBackdrop} onPress={handleRenameCancel}>
+            <Pressable style={styles.renameCardPressable} onPress={() => {}}>
               <ThemedView
                 lightColor="#ffffff"
                 darkColor="#0f172a"
-                style={styles.actionSheetCard}
+                style={styles.renameCard}
               >
                 <ThemedText
                   type="subtitle"
-                  style={styles.actionSheetTitle}
+                  style={styles.renameTitle}
                   lightColor="#0f172a"
                   darkColor="#e2e8f0"
                 >
-                  {messageActionSheet.title}
+                  {t('transcription.history.rename.title')}
                 </ThemedText>
-                <View style={styles.actionSheetList}>
-                  {messageActionSheet.actions.map((action) => (
-                    <Pressable
-                      key={action.label}
-                      onPress={() => {
-                        handleDismissActionSheet();
-                        action.onPress?.();
-                      }}
-                      style={({ pressed }) => [
-                        styles.actionSheetItem,
-                        pressed && styles.actionSheetItemPressed,
-                      ]}
+                <TextInput
+                  value={renameDraft}
+                  onChangeText={setRenameDraft}
+                  placeholder={t('transcription.history.rename.placeholder')}
+                  placeholderTextColor={assistantPlaceholderColor}
+                  style={[styles.renameInput, { color: searchInputColor }]}
+                  selectionColor="#2563eb"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleRenameSave}
+                />
+                <View style={styles.renameActions}>
+                  <Pressable
+                    onPress={handleRenameCancel}
+                    style={styles.renameActionButton}
+                  >
+                    <ThemedText
+                      style={styles.renameActionLabel}
+                      lightColor="#0f172a"
+                      darkColor="#e2e8f0"
                     >
-                      <ThemedText
-                        style={[
-                          styles.actionSheetLabel,
-                          action.variant === "cancel" && styles.actionSheetLabelCancel,
-                        ]}
-                        lightColor="#0f172a"
-                        darkColor="#e2e8f0"
-                      >
-                        {action.label}
-                      </ThemedText>
-                    </Pressable>
-                  ))}
+                      {t('common.actions.cancel')}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleRenameSave}
+                    disabled={!canSaveRename}
+                    style={[
+                      styles.renameActionButton,
+                      styles.renameActionButtonPrimary,
+                      !canSaveRename && styles.renameActionButtonDisabled,
+                    ]}
+                  >
+                    <ThemedText
+                      style={[styles.renameActionLabel, styles.renameActionLabelPrimary]}
+                    >
+                      {t('transcription.history.rename.save')}
+                    </ThemedText>
+                  </Pressable>
                 </View>
               </ThemedView>
             </Pressable>
@@ -2133,17 +2329,16 @@ const styles = StyleSheet.create({
   historyItemTime: {
     fontSize: 14,
   },
-  actionSheetBackdrop: {
+  renameBackdrop: {
     flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
     backgroundColor: "rgba(15, 23, 42, 0.4)",
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    padding: 20,
   },
-  actionSheetCardPressable: {
+  renameCardPressable: {
     borderRadius: 20,
   },
-  actionSheetCard: {
+  renameCard: {
     borderRadius: 20,
     padding: 16,
     gap: 12,
@@ -2155,38 +2350,52 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
-  actionSheetTitle: {
+  renameTitle: {
     fontSize: 16,
     fontWeight: "700",
   },
-  actionSheetList: {
+  renameInput: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(148, 163, 184, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  renameActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 8,
   },
-  actionSheetItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
+  renameActionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(148, 163, 184, 0.15)",
   },
-  actionSheetItemPressed: {
-    opacity: 0.85,
+  renameActionButtonPrimary: {
+    backgroundColor: "#2563eb",
   },
-  actionSheetLabel: {
-    fontSize: 15,
+  renameActionButtonDisabled: {
+    opacity: 0.5,
+  },
+  renameActionLabel: {
+    fontSize: 14,
     fontWeight: "600",
   },
-  actionSheetLabelCancel: {
-    color: "#ef4444",
+  renameActionLabelPrimary: {
+    color: "#ffffff",
   },
 });
 
 
 function MessageBubble({
   message,
-  onLongPress,
+  onOpenMenu,
 }: {
   message: TranscriptionMessage;
-  onLongPress: (message: TranscriptionMessage) => void;
+  onOpenMenu: (message: TranscriptionMessage, anchor?: ContextMenuAnchor) => void;
 }) {
   const { t } = useTranslation();
   const isDesktopApp =
@@ -2217,7 +2426,7 @@ function MessageBubble({
       onLongPress={
         isDesktopApp
           ? undefined
-          : () => onLongPress(message)
+          : () => onOpenMenu(message)
       }
       onPointerDown={(event) => {
         if (!isDesktopApp) {
@@ -2225,7 +2434,16 @@ function MessageBubble({
         }
         if (event.nativeEvent.button === 2) {
           event.preventDefault();
-          onLongPress(message);
+          const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+            pageX?: number;
+            pageY?: number;
+            clientX?: number;
+            clientY?: number;
+          };
+          onOpenMenu(message, {
+            x: typeof pageX === "number" ? pageX : clientX ?? 0,
+            y: typeof pageY === "number" ? pageY : clientY ?? 0,
+          });
         }
       }}
       delayLongPress={isDesktopApp ? undefined : 250}

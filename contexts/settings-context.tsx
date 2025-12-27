@@ -159,6 +159,12 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (typeof merged.desktopAudioInputId !== 'string' || !merged.desktopAudioInputId.trim()) {
       merged.desktopAudioInputId = null;
     }
+    if (typeof merged.showQaTab !== 'boolean') {
+      merged.showQaTab = defaultSettings.showQaTab;
+    }
+    if (typeof merged.showReadingTab !== 'boolean') {
+      merged.showReadingTab = defaultSettings.showReadingTab;
+    }
     return merged;
   } catch (error) {
     console.warn('[settings] Failed to restore persisted settings', error);

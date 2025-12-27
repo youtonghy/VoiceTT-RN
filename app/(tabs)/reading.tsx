@@ -8,6 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { createAudioPlayer } from 'expo-audio';
+import * as Clipboard from 'expo-clipboard';
 import {
     EncodingType,
     documentDirectory,
@@ -17,10 +18,11 @@ import {
 } from 'expo-file-system/legacy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KeyboardStickyInput from '@/KeyboardStickyInput';
+import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSettings } from '@/contexts/settings-context';
@@ -64,6 +66,12 @@ type StoredHistoryPayload = {
   conversations?: unknown;
   activeConversationId?: string | null;
   nextIdCounter?: number;
+};
+
+type ContextMenuState = {
+  title?: string;
+  actions: ContextMenuAction[];
+  anchor?: ContextMenuAnchor;
 };
 
 // --- 辅助函数 ---
@@ -323,16 +331,22 @@ export default function ReadingScreen() {
   const inputCardBackground = useThemeColor({ light: '#ffffff', dark: 'rgba(15, 23, 42, 0.92)' }, 'background');
   const inputCardBorder = useThemeColor({ light: 'rgba(148, 163, 184, 0.3)', dark: 'rgba(148, 163, 184, 0.35)' }, 'background');
   const sendButtonBg = useThemeColor({ light: '#2563eb', dark: '#3b82f6' }, 'tint');
+  const isDesktopApp =
+    Platform.OS === 'web' &&
+    typeof window !== 'undefined' &&
+    Boolean((window as { electron?: unknown }).electron);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const nextIdCounterRef = useRef(1);
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const pendingIdsRef = useRef<Set<string>>(new Set());
+  const messageLongPressRef = useRef<string | null>(null);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -477,6 +491,21 @@ export default function ReadingScreen() {
     []
   );
 
+  const removeTtsMessage = useCallback((conversationId: string, messageId: string) => {
+    pendingIdsRef.current.delete(messageId);
+    setHistoryItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== conversationId) {
+          return item;
+        }
+        return {
+          ...item,
+          ttsMessages: item.ttsMessages.filter((msg) => msg.id !== messageId),
+        };
+      })
+    );
+  }, []);
+
   const appendTtsMessage = useCallback((conversationId: string, message: TtsMessage) => {
     setHistoryItems((prev) =>
       prev.map((item) =>
@@ -570,6 +599,46 @@ export default function ReadingScreen() {
     [activeConversation, generateAndPlay, playAudio]
   );
 
+  const handleDismissContextMenu = useCallback(() => {
+    setContextMenu(null);
+    messageLongPressRef.current = null;
+  }, []);
+
+  const handleMessageMenu = useCallback(
+    (message: TtsMessage, anchor?: ContextMenuAnchor) => {
+      if (!activeConversation) {
+        return;
+      }
+      messageLongPressRef.current = message.id;
+      const actions: ContextMenuAction[] = [
+        {
+          label: t('reading.actions.copy'),
+          onPress: () => {
+            void Clipboard.setStringAsync(message.content);
+          },
+        },
+        {
+          label: t('reading.actions.delete'),
+          variant: 'destructive',
+          onPress: () => {
+            removeTtsMessage(activeConversation.id, message.id);
+          },
+        },
+        {
+          label: t('common.actions.cancel'),
+          variant: 'cancel',
+        },
+      ];
+
+      setContextMenu({
+        title: t('reading.actions.title'),
+        actions,
+        anchor,
+      });
+    },
+    [activeConversation, removeTtsMessage, t]
+  );
+
   const handleSend = useCallback(async () => {
     const trimmed = draft.trim();
     if (!trimmed) {
@@ -618,14 +687,44 @@ export default function ReadingScreen() {
             ttsMessages.map((message) => {
               const statusText =
                 message.status === 'pending'
-                  ? t('reading.status.generating')
-                  : message.status === 'failed'
+                ? t('reading.status.generating')
+                : message.status === 'failed'
                     ? message.error || t('reading.status.failed')
                     : '';
               return (
                 <Pressable
                   key={message.id}
-                  onPress={() => handleReplay(message)}
+                  onPress={() => {
+                    if (messageLongPressRef.current === message.id) {
+                      messageLongPressRef.current = null;
+                      return;
+                    }
+                    void handleReplay(message);
+                  }}
+                  onLongPress={
+                    isDesktopApp
+                      ? undefined
+                      : () => handleMessageMenu(message)
+                  }
+                  onPointerDown={(event) => {
+                    if (!isDesktopApp) {
+                      return;
+                    }
+                    if (event.nativeEvent.button === 2) {
+                      event.preventDefault();
+                      const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+                        pageX?: number;
+                        pageY?: number;
+                        clientX?: number;
+                        clientY?: number;
+                      };
+                      handleMessageMenu(message, {
+                        x: typeof pageX === 'number' ? pageX : clientX ?? 0,
+                        y: typeof pageY === 'number' ? pageY : clientY ?? 0,
+                      });
+                    }
+                  }}
+                  delayLongPress={isDesktopApp ? undefined : 250}
                   disabled={message.status === 'pending'}
                   style={({ pressed }) => [
                     pressed && message.status !== 'pending' && styles.messagePressed,
@@ -689,6 +788,13 @@ export default function ReadingScreen() {
           <Ionicons name="volume-high" size={18} color="#ffffff" />
         </Pressable>
       </KeyboardStickyInput>
+      <ContextMenu
+        visible={Boolean(contextMenu)}
+        title={contextMenu?.title}
+        actions={contextMenu?.actions ?? []}
+        anchor={contextMenu?.anchor}
+        onRequestClose={handleDismissContextMenu}
+      />
     </SafeAreaView>
   );
 }

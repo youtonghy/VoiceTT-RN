@@ -73,7 +73,22 @@
       },
       "search_placeholder": "Search transcripts or translations",
       "placeholder_search_empty": "No matching history.",
-      "new_conversation": "New conversation {{id}}"
+      "new_conversation": "New conversation {{id}}",
+      "actions": {
+        "title": "Conversation actions",
+        "rename": "Rename",
+        "generate_title": "Generate title",
+        "delete": "Delete"
+      },
+      "rename": {
+        "title": "Rename conversation",
+        "placeholder": "Conversation title",
+        "save": "Save"
+      },
+      "delete": {
+        "title": "Delete conversation?",
+        "message": "This will remove the conversation and its transcript."
+      }
     },
     "export": {
       "button": "Export",
@@ -161,6 +176,11 @@
       "generating": "Generating audio...",
       "ready": "Tap to replay",
       "failed": "Failed to generate audio"
+    },
+    "actions": {
+      "title": "Read aloud actions",
+      "copy": "Copy text",
+      "delete": "Delete"
     },
     "errors": {
       "synthesis_failed": "Failed to generate speech: {{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "Theme mode",
-        "language": "Language"
+        "language": "Language",
+        "tabs": "Visible tabs"
       },
       "languages": {
         "system": "System",

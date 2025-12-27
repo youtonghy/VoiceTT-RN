@@ -73,7 +73,22 @@
       },
       "search_placeholder": "搜索对话转写或翻译内容",
       "placeholder_search_empty": "暂无匹配的历史记录。",
-      "new_conversation": "新对话{{id}}"
+      "new_conversation": "新对话{{id}}",
+      "actions": {
+        "title": "对话操作",
+        "rename": "重命名",
+        "generate_title": "生成标题",
+        "delete": "删除"
+      },
+      "rename": {
+        "title": "重命名对话",
+        "placeholder": "对话标题",
+        "save": "保存"
+      },
+      "delete": {
+        "title": "删除对话？",
+        "message": "将移除此对话及其转写内容。"
+      }
     },
     "export": {
       "button": "导出",
@@ -161,6 +176,11 @@
       "generating": "正在生成语音…",
       "ready": "点击重新朗读",
       "failed": "朗读生成失败"
+    },
+    "actions": {
+      "title": "朗读操作",
+      "copy": "复制文本",
+      "delete": "删除"
     },
     "errors": {
       "synthesis_failed": "生成语音失败：{{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "主题模式",
-        "language": "语言"
+        "language": "语言",
+        "tabs": "显示的标签页"
       },
       "languages": {
         "system": "跟随系统",

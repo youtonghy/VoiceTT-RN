@@ -189,6 +189,8 @@ export interface AppSettings extends TranscriptionSettings {
   qaPrompt: string;
   themeMode: ThemeMode;
   languageMode: AppLanguageMode;
+  showQaTab: boolean;
+  showReadingTab: boolean;
   credentials: EngineCredentials;
   desktopAudioInputId: string | null;
   recordingPresets: RecordingPreset[];
@@ -223,6 +225,8 @@ export const defaultSettings: AppSettings = {
   qaPrompt: DEFAULT_QA_PROMPT,
   themeMode: 'automatic',
   languageMode: 'system',
+  showQaTab: true,
+  showReadingTab: true,
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',

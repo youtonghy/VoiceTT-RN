@@ -73,7 +73,22 @@
       },
       "search_placeholder": "Buscar transcripciones o traducciones",
       "placeholder_search_empty": "No hay historial coincidente.",
-      "new_conversation": "Nueva conversación {{id}}"
+      "new_conversation": "Nueva conversación {{id}}",
+      "actions": {
+        "title": "Acciones de conversación",
+        "rename": "Renombrar",
+        "generate_title": "Generar título",
+        "delete": "Eliminar"
+      },
+      "rename": {
+        "title": "Renombrar conversación",
+        "placeholder": "Título de la conversación",
+        "save": "Guardar"
+      },
+      "delete": {
+        "title": "¿Eliminar conversación?",
+        "message": "Se eliminará la conversación y su transcripción."
+      }
     },
     "export": {
       "button": "Exportar",
@@ -161,6 +176,11 @@
       "generating": "Generando audio...",
       "ready": "Toca para reproducir",
       "failed": "No se pudo generar el audio"
+    },
+    "actions": {
+      "title": "Acciones de lectura",
+      "copy": "Copiar texto",
+      "delete": "Eliminar"
     },
     "errors": {
       "synthesis_failed": "No se pudo generar la voz: {{message}}",
@@ -444,7 +464,8 @@
     "appearance": {
       "labels": {
         "mode": "Modo de tema",
-        "language": "Idioma"
+        "language": "Idioma",
+        "tabs": "Pestañas visibles"
       },
       "languages": {
         "system": "Sistema",

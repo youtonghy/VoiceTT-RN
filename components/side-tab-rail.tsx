@@ -17,15 +17,21 @@ type RailItem = {
   isActive: (pathname: string) => boolean;
 };
 
-export function SideTabRail() {
+export function SideTabRail({
+  showQaTab = true,
+  showReadingTab = true,
+}: {
+  showQaTab?: boolean;
+  showReadingTab?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
 
   const palette = Colors[colorScheme ?? 'light'];
-  const items = useMemo<RailItem[]>(
-    () => [
+  const items = useMemo<RailItem[]>(() => {
+    const next: RailItem[] = [
       {
         key: 'transcription',
         href: '/',
@@ -54,9 +60,18 @@ export function SideTabRail() {
         icon: 'gearshape.fill',
         isActive: (path) => path === '/explore' || path.startsWith('/explore/'),
       },
-    ],
-    [t]
-  );
+    ];
+
+    return next.filter((item) => {
+      if (item.key === 'qa') {
+        return showQaTab;
+      }
+      if (item.key === 'reading') {
+        return showReadingTab;
+      }
+      return true;
+    });
+  }, [showQaTab, showReadingTab, t]);
 
   return (
     <SafeAreaView style={[styles.rail, { backgroundColor: palette.background }]} edges={['top', 'left', 'bottom']}>

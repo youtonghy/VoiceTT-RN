@@ -5,7 +5,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -39,6 +39,15 @@ export default function AppearanceSettingsScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
+  const languageLabels: Record<AppLanguageMode, string> = {
+    system: t('settings.appearance.languages.system'),
+    en: 'English',
+    'zh-Hans': '简体中文',
+    'zh-Hant': '繁體中文',
+    ja: '日本語',
+    ko: '한국어',
+    es: 'Español',
+  };
 
   // --- 处理函数 ---
   const applyLanguageMode = (mode: AppLanguageMode) => {
@@ -95,11 +104,38 @@ export default function AppearanceSettingsScreen() {
               {languageModes.map((mode) => (
                 <OptionPill
                   key={mode}
-                  label={t(`settings.appearance.languages.${mode}`)}
+                  label={languageLabels[mode]}
                   active={settings.languageMode === mode}
                   onPress={() => applyLanguageMode(mode)}
                 />
               ))}
+            </View>
+          </SettingsCard>
+
+          <SettingsCard variant="interaction">
+            <ThemedText
+              style={groupLabelStyle}
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
+              {t('settings.appearance.labels.tabs')}
+            </ThemedText>
+            <View style={settingsStyles.rowBetween}>
+              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
+                {t('navigation.tabs.qa')}
+              </ThemedText>
+              <Switch
+                value={settings.showQaTab}
+                onValueChange={(next) => updateSettings({ showQaTab: next })}
+              />
+            </View>
+            <View style={settingsStyles.rowBetween}>
+              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
+                {t('navigation.tabs.reading')}
+              </ThemedText>
+              <Switch
+                value={settings.showReadingTab}
+                onValueChange={(next) => updateSettings({ showReadingTab: next })}
+              />
             </View>
           </SettingsCard>
         </ScrollView>
