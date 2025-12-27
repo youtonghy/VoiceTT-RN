@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "appearance": {
+      "labels": {
+        "mode": "테마 모드",
+        "language": "언어"
+      },
+      "languages": {
+        "system": "시스템",
+        "en": "영어",
+        "zh-Hans": "중국어(간체)",
+        "zh-Hant": "중국어(번체)",
+        "ja": "일본어",
+        "ko": "한국어",
+        "es": "스페인어"
+      },
+      "modes": {
+        "automatic": "자동",
+        "light": "라이트",
+        "dark": "다크"
+      }
+    }
+  }
+}

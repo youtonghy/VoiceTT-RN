@@ -24,7 +24,7 @@ import {
 
 // --- 常量定义 ---
 const themeModes: ThemeMode[] = ['automatic', 'light', 'dark'];
-const languageModes: AppLanguageMode[] = ['system', 'en', 'zh-Hans'];
+const languageModes: AppLanguageMode[] = ['system', 'en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'es'];
 
 // --- 主组件 ---
 export default function AppearanceSettingsScreen() {

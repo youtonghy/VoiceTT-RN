@@ -449,7 +449,11 @@
       "languages": {
         "system": "跟随系统",
         "en": "English",
-        "zh-Hans": "简体中文"
+        "zh-Hans": "简体中文",
+        "zh-Hant": "繁体中文",
+        "ja": "日语",
+        "ko": "韩语",
+        "es": "西班牙语"
       },
       "modes": {
         "automatic": "跟随系统",

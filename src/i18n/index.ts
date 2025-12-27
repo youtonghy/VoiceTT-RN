@@ -5,12 +5,20 @@ import * as Localization from 'expo-localization';
 
 import en from '@/locales/en/common.json';
 import zhHans from '@/locales/zh-Hans/common.json';
+import zhHant from '@/locales/zh-Hant/common.json';
+import ja from '@/locales/ja/common.json';
+import ko from '@/locales/ko/common.json';
+import es from '@/locales/es/common.json';
 
-export type SupportedLanguage = 'en' | 'zh-Hans';
+export type SupportedLanguage = 'en' | 'zh-Hans' | 'zh-Hant' | 'ja' | 'ko' | 'es';
 
 const resources = {
   en: { common: en },
   'zh-Hans': { common: zhHans },
+  'zh-Hant': { common: zhHant },
+  ja: { common: ja },
+  ko: { common: ko },
+  es: { common: es },
 } satisfies Resource;
 
 const fallbackLng: SupportedLanguage = 'en';
@@ -18,11 +26,24 @@ const fallbackLng: SupportedLanguage = 'en';
 export const resolveDeviceLanguage = (): SupportedLanguage => {
   try {
     const locales = Localization.getLocales();
-    const primary = locales?.[0]?.languageTag ?? fallbackLng;
-    if (primary?.toLowerCase().startsWith('zh')) {
+    const primary = locales?.[0];
+    const languageCode = primary?.languageCode?.toLowerCase();
+    if (!languageCode) {
+      return fallbackLng;
+    }
+    if (languageCode === 'zh') {
+      const scriptCode = primary?.languageScriptCode?.toLowerCase();
+      const regionCode = primary?.regionCode?.toUpperCase();
+      if (scriptCode === 'hant' || regionCode === 'TW' || regionCode === 'HK' || regionCode === 'MO') {
+        return 'zh-Hant';
+      }
       return 'zh-Hans';
     }
-    return 'en';
+    const normalized = languageCode as SupportedLanguage;
+    if (normalized === 'en' || normalized === 'ja' || normalized === 'ko' || normalized === 'es') {
+      return normalized;
+    }
+    return fallbackLng;
   } catch (error) {
     if (__DEV__) {
       console.warn('[i18n] Failed to detect locale, using fallback', error);
@@ -59,6 +80,13 @@ if (!i18next.isInitialized) {
   });
 }
 
-export const supportedLanguages: SupportedLanguage[] = ['en', 'zh-Hans'];
+export const supportedLanguages: SupportedLanguage[] = [
+  'en',
+  'zh-Hans',
+  'zh-Hant',
+  'ja',
+  'ko',
+  'es',
+];
 
 export default i18next;

@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "appearance": {
+      "labels": {
+        "mode": "Modo de tema",
+        "language": "Idioma"
+      },
+      "languages": {
+        "system": "Sistema",
+        "en": "Inglés",
+        "zh-Hans": "Chino (simplificado)",
+        "zh-Hant": "Chino (tradicional)",
+        "ja": "Japonés",
+        "ko": "Coreano",
+        "es": "Español"
+      },
+      "modes": {
+        "automatic": "Automático",
+        "light": "Claro",
+        "dark": "Oscuro"
+      }
+    }
+  }
+}

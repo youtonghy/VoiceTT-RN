@@ -25,7 +25,7 @@ export type QaEngine = 'openai' | 'gemini';
 
 export type ThemeMode = 'automatic' | 'light' | 'dark';
 
-export type AppLanguageMode = 'system' | 'en' | 'zh-Hans';
+export type AppLanguageMode = 'system' | 'en' | 'zh-Hans' | 'zh-Hant' | 'ja' | 'ko' | 'es';
 
 export interface EngineCredentials {
   openaiApiKey?: string;

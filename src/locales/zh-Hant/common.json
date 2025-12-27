@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "appearance": {
+      "labels": {
+        "mode": "主題模式",
+        "language": "語言"
+      },
+      "languages": {
+        "system": "跟隨系統",
+        "en": "English",
+        "zh-Hans": "簡體中文",
+        "zh-Hant": "繁體中文",
+        "ja": "日語",
+        "ko": "韓語",
+        "es": "西班牙語"
+      },
+      "modes": {
+        "automatic": "跟隨系統",
+        "light": "淺色",
+        "dark": "深色"
+      }
+    }
+  }
+}

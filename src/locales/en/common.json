@@ -449,7 +449,11 @@
       "languages": {
         "system": "System",
         "en": "English",
-        "zh-Hans": "Simplified Chinese"
+        "zh-Hans": "Simplified Chinese",
+        "zh-Hant": "Traditional Chinese",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "es": "Spanish"
       },
       "modes": {
         "automatic": "Automatic",
