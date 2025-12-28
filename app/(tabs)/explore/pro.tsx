@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import * as Clipboard from 'expo-clipboard';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -66,6 +68,17 @@ export default function ProScreen() {
       void refreshStatus();
     }
   }, [licenseDraft, refreshStatus, t]);
+
+  const handleCopyDeviceUid = useCallback(async () => {
+    if (!deviceUid) {
+      return;
+    }
+    try {
+      await Clipboard.setStringAsync(deviceUid);
+    } catch (error) {
+      console.error('[settings] Failed to copy device UID', error);
+    }
+  }, [deviceUid]);
 
   const handleClear = useCallback(async () => {
     setIsBusy(true);
@@ -170,9 +183,27 @@ export default function ProScreen() {
             <ThemedText style={styles.fieldLabel} lightColor="#64748b" darkColor="#94a3b8">
               {t('settings.pro.fields.device_uid')}
             </ThemedText>
-            <ThemedText style={styles.monoValue} lightColor="#0f172a" darkColor="#e2e8f0">
-              {deviceUid || '--'}
-            </ThemedText>
+            <View style={styles.deviceUidRow}>
+              <ThemedText
+                style={styles.monoValue}
+                lightColor="#0f172a"
+                darkColor="#e2e8f0"
+                numberOfLines={1}>
+                {deviceUid || '--'}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Copy device UID"
+                disabled={!deviceUid}
+                onPress={handleCopyDeviceUid}
+                style={({ pressed }) => [styles.copyButton, pressed && styles.copyButtonPressed]}>
+                <Ionicons
+                  name="copy-outline"
+                  size={16}
+                  color={isDark ? '#bbf7d0' : '#166534'}
+                />
+              </Pressable>
+            </View>
           </View>
         </SettingsCard>
 
@@ -299,6 +330,25 @@ const styles = StyleSheet.create({
   },
   inactiveText: {
     color: '#dc2626',
+  },
+  deviceUidRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  copyButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(34, 197, 94, 0.35)',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+  },
+  copyButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
   },
   syncHint: {
     fontSize: 13,

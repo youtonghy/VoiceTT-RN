@@ -182,6 +182,9 @@ function validatePayload(payload: LicensePayload) {
   if (payload.product !== PRODUCT_ID) {
     throw new Error('Invalid product');
   }
+  if (!payload.deviceUid || typeof payload.deviceUid !== 'string') {
+    throw new Error('Device binding required');
+  }
   if (!isLifetime && !ALLOWED_DAYS.has(payload.planDays)) {
     throw new Error('Invalid plan duration');
   }
@@ -362,14 +365,14 @@ export async function activateProLicense(code: string): Promise<StoredLicense> {
   if (!isLifetime && expMs !== null && trustedNow > expMs) {
     throw new Error('LICENSE_EXPIRED');
   }
-  if (payload.deviceUid && payload.deviceUid !== deviceUid) {
+  if (payload.deviceUid !== deviceUid) {
     throw new Error('DEVICE_MISMATCH');
   }
 
   const stored: StoredLicense = {
     code,
     payload,
-    boundDeviceUid: payload.deviceUid || deviceUid,
+    boundDeviceUid: payload.deviceUid,
     activatedAtTrustedMs: trustedNow,
   };
   await storageSet(LICENSE_KEY, JSON.stringify(stored));
@@ -429,7 +432,7 @@ export async function getProStatus(): Promise<ProStatus> {
   }
 
   const deviceUid = await getDeviceUid();
-  if (stored.boundDeviceUid && stored.boundDeviceUid !== deviceUid) {
+  if (stored.payload.deviceUid !== deviceUid) {
     return { isActive: false, reason: 'device_mismatch', payload: stored.payload, expiresAtMs: expMs };
   }
 
