@@ -491,7 +491,46 @@
     "pro": {
       "title": "Pro バージョン",
       "description": "より高速な音声処理、AI 翻訳、会議要約を解放して、あらゆる会話を掌握します。",
-      "cta": "今すぐアップグレード"
+      "cta": "今すぐアップグレード",
+      "status": {
+        "active": "有効",
+        "inactive": "未有効",
+        "expired": "期限切れ",
+        "needs_time_sync": "時刻同期が必要",
+        "time_rollback": "時刻の巻き戻しを検出",
+        "device_mismatch": "デバイス不一致",
+        "invalid": "無効なライセンス",
+        "not_active_yet": "まだ有効ではありません"
+      },
+      "fields": {
+        "status": "ステータス",
+        "device_uid": "デバイス UID",
+        "license_code": "ライセンスコード",
+        "expires_at": "有効期限",
+        "plan_days": "期間（日）",
+        "license_id": "ライセンス ID",
+        "bound_device": "紐付けデバイス"
+      },
+      "actions": {
+        "activate": "有効化 / 切り替え",
+        "sync_time": "時刻同期",
+        "clear": "ライセンスを削除"
+      },
+      "placeholders": {
+        "license_code": "ライセンスコードを入力（LIC1.xxx）"
+      },
+      "messages": {
+        "activated": "ライセンスを有効化しました。",
+        "cleared": "ライセンスを削除しました。",
+        "need_online_time": "ライセンス確認のためオンラインで時刻同期してください。"
+      },
+      "values": {
+        "lifetime": "永久"
+      },
+      "errors": {
+        "activation_failed": "有効化に失敗しました：{{message}}",
+        "sync_failed": "時刻同期に失敗しました：{{message}}"
+      }
     }
   }
 }

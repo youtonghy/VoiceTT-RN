@@ -491,7 +491,46 @@
     "pro": {
       "title": "Pro 版本",
       "description": "解鎖更快的語音處理、AI 翻譯與會議精華能力，輕鬆駕馭每一次對話。",
-      "cta": "立即升級"
+      "cta": "立即升級",
+      "status": {
+        "active": "已啟用",
+        "inactive": "未啟用",
+        "expired": "已過期",
+        "needs_time_sync": "需要連網校時",
+        "time_rollback": "偵測到時間回退",
+        "device_mismatch": "裝置不符",
+        "invalid": "無效授權",
+        "not_active_yet": "尚未生效"
+      },
+      "fields": {
+        "status": "狀態",
+        "device_uid": "裝置 UID",
+        "license_code": "啟用碼",
+        "expires_at": "到期時間",
+        "plan_days": "授權時長（天）",
+        "license_id": "授權編號",
+        "bound_device": "綁定裝置"
+      },
+      "actions": {
+        "activate": "啟用 / 切換",
+        "sync_time": "連網校時",
+        "clear": "清除授權"
+      },
+      "placeholders": {
+        "license_code": "輸入啟用碼（LIC1.xxx）"
+      },
+      "messages": {
+        "activated": "授權已啟用。",
+        "cleared": "授權已清除。",
+        "need_online_time": "請連網校時以驗證授權。"
+      },
+      "values": {
+        "lifetime": "永久"
+      },
+      "errors": {
+        "activation_failed": "啟用失敗：{{message}}",
+        "sync_failed": "校時失敗：{{message}}"
+      }
     }
   }
 }

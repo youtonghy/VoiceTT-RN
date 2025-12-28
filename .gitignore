@@ -46,3 +46,8 @@ app-example
 
 # root-level screenshots or local captures
 
+# pricate docs
+/docs
+
+# Active licenses
+licenses.txt

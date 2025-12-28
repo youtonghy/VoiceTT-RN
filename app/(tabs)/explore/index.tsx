@@ -79,11 +79,11 @@ export default function SettingsIndexScreen() {
     getProStatus()
       .then((status) => {
         if (isActive) {
-          setIsPro(status);
+          setIsPro(status.isActive);
         }
       })
       .catch((error) => {
-        console.warn('[settings] Failed to load pro status', error);
+        console.error('[settings] Failed to load pro status', error);
       });
     return () => {
       isActive = false;

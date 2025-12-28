@@ -491,7 +491,46 @@
     "pro": {
       "title": "Versión Pro",
       "description": "Desbloquea un procesamiento de voz más rápido, traducción con IA y resúmenes de reuniones para dominar cada conversación.",
-      "cta": "Actualizar ahora"
+      "cta": "Actualizar ahora",
+      "status": {
+        "active": "Activo",
+        "inactive": "Inactivo",
+        "expired": "Caducado",
+        "needs_time_sync": "Se requiere sincronizar la hora",
+        "time_rollback": "Se detectó retroceso de hora",
+        "device_mismatch": "Dispositivo no coincide",
+        "invalid": "Licencia inválida",
+        "not_active_yet": "Aún no está activa"
+      },
+      "fields": {
+        "status": "Estado",
+        "device_uid": "UID del dispositivo",
+        "license_code": "Código de licencia",
+        "expires_at": "Vence el",
+        "plan_days": "Duración (días)",
+        "license_id": "ID de licencia",
+        "bound_device": "Dispositivo vinculado"
+      },
+      "actions": {
+        "activate": "Activar / Reemplazar",
+        "sync_time": "Sincronizar hora",
+        "clear": "Eliminar licencia"
+      },
+      "placeholders": {
+        "license_code": "Ingresa el código (LIC1.xxx)"
+      },
+      "messages": {
+        "activated": "Licencia activada.",
+        "cleared": "Licencia eliminada.",
+        "need_online_time": "Conéctate a internet para sincronizar la hora."
+      },
+      "values": {
+        "lifetime": "Permanente"
+      },
+      "errors": {
+        "activation_failed": "Fallo de activación: {{message}}",
+        "sync_failed": "Fallo al sincronizar la hora: {{message}}"
+      }
     }
   }
 }

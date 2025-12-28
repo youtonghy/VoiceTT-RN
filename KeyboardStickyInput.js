@@ -5,12 +5,12 @@ import {
   Easing,
   Keyboard,
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DEFAULT_KEYBOARD_HEIGHT = 300;
 

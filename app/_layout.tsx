@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { I18nextProvider } from 'react-i18next';
 
 import { I18nSettingsSync } from '@/components/i18n-settings-sync';
+import { ProTrustedTimeSync } from '@/components/pro-trusted-time-sync';
 import { SettingsProvider } from '@/contexts/settings-context';
 import { TranscriptionProvider } from '@/contexts/transcription-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -44,6 +45,7 @@ export default function RootLayout() {
     <I18nextProvider i18n={i18n}>
       <SettingsProvider>
         <I18nSettingsSync />
+        <ProTrustedTimeSync />
         <TranscriptionProvider>
           <RootLayoutNav />
         </TranscriptionProvider>

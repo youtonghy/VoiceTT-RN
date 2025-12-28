@@ -491,7 +491,46 @@
     "pro": {
       "title": "Pro 版本",
       "description": "解锁更快的语音处理、AI 翻译与会议精华能力，轻松驾驭每一次对话。",
-      "cta": "立即升级"
+      "cta": "立即升级",
+      "status": {
+        "active": "已激活",
+        "inactive": "未激活",
+        "expired": "已过期",
+        "needs_time_sync": "需要联网校时",
+        "time_rollback": "检测到时间回退",
+        "device_mismatch": "设备不匹配",
+        "invalid": "无效授权",
+        "not_active_yet": "尚未生效"
+      },
+      "fields": {
+        "status": "状态",
+        "device_uid": "设备 UID",
+        "license_code": "激活码",
+        "expires_at": "到期时间",
+        "plan_days": "授权时长（天）",
+        "license_id": "授权编号",
+        "bound_device": "绑定设备"
+      },
+      "actions": {
+        "activate": "激活 / 切换",
+        "sync_time": "联网校时",
+        "clear": "清除授权"
+      },
+      "placeholders": {
+        "license_code": "输入激活码（LIC1.xxx）"
+      },
+      "messages": {
+        "activated": "授权已激活。",
+        "cleared": "授权已清除。",
+        "need_online_time": "请联网校时以验证授权。"
+      },
+      "values": {
+        "lifetime": "永久"
+      },
+      "errors": {
+        "activation_failed": "激活失败：{{message}}",
+        "sync_failed": "校时失败：{{message}}"
+      }
     }
   }
 }

@@ -491,7 +491,46 @@
     "pro": {
       "title": "Pro Version",
       "description": "Unlock faster voice processing, AI translation, and meeting summaries to master every conversation.",
-      "cta": "Upgrade Now"
+      "cta": "Upgrade Now",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "expired": "Expired",
+        "needs_time_sync": "Time sync required",
+        "time_rollback": "Time rollback detected",
+        "device_mismatch": "Device mismatch",
+        "invalid": "Invalid license",
+        "not_active_yet": "Not active yet"
+      },
+      "fields": {
+        "status": "Status",
+        "device_uid": "Device UID",
+        "license_code": "License code",
+        "expires_at": "Expires at",
+        "plan_days": "Plan days",
+        "license_id": "License ID",
+        "bound_device": "Bound device"
+      },
+      "actions": {
+        "activate": "Activate / Replace",
+        "sync_time": "Sync time",
+        "clear": "Clear license"
+      },
+      "placeholders": {
+        "license_code": "Enter license code (LIC1.xxx)"
+      },
+      "messages": {
+        "activated": "License activated.",
+        "cleared": "License cleared.",
+        "need_online_time": "Please connect to the internet to sync time."
+      },
+      "values": {
+        "lifetime": "Lifetime"
+      },
+      "errors": {
+        "activation_failed": "Activation failed: {{message}}",
+        "sync_failed": "Time sync failed: {{message}}"
+      }
     }
   }
 }

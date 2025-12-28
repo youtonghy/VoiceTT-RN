@@ -491,7 +491,46 @@
     "pro": {
       "title": "Pro 버전",
       "description": "더 빠른 음성 처리, AI 번역, 회의 요약을 해제하여 모든 대화를 완벽히 관리하세요.",
-      "cta": "지금 업그레이드"
+      "cta": "지금 업그레이드",
+      "status": {
+        "active": "활성화됨",
+        "inactive": "비활성",
+        "expired": "만료됨",
+        "needs_time_sync": "시간 동기화 필요",
+        "time_rollback": "시간 되돌림 감지",
+        "device_mismatch": "기기 불일치",
+        "invalid": "잘못된 라이선스",
+        "not_active_yet": "아직 활성화되지 않음"
+      },
+      "fields": {
+        "status": "상태",
+        "device_uid": "기기 UID",
+        "license_code": "라이선스 코드",
+        "expires_at": "만료 시각",
+        "plan_days": "기간(일)",
+        "license_id": "라이선스 ID",
+        "bound_device": "바인딩 기기"
+      },
+      "actions": {
+        "activate": "활성화 / 교체",
+        "sync_time": "시간 동기화",
+        "clear": "라이선스 삭제"
+      },
+      "placeholders": {
+        "license_code": "라이선스 코드를 입력하세요 (LIC1.xxx)"
+      },
+      "messages": {
+        "activated": "라이선스가 활성화되었습니다.",
+        "cleared": "라이선스를 삭제했습니다.",
+        "need_online_time": "라이선스를 확인하려면 온라인에서 시간 동기화가 필요합니다."
+      },
+      "values": {
+        "lifetime": "영구"
+      },
+      "errors": {
+        "activation_failed": "활성화 실패: {{message}}",
+        "sync_failed": "시간 동기화 실패: {{message}}"
+      }
     }
   }
 }
