@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -35,6 +36,44 @@ function ensureBytes(value: unknown, label: string, expectedLength?: number): Ui
   return normalized;
 }
 
+async function useSecureStore(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+  if (cachedSecureStoreAvailable !== null) {
+    return cachedSecureStoreAvailable;
+  }
+  try {
+    cachedSecureStoreAvailable = await SecureStore.isAvailableAsync();
+  } catch {
+    cachedSecureStoreAvailable = false;
+  }
+  return cachedSecureStoreAvailable;
+}
+
+async function storageGet(key: string): Promise<string | null> {
+  if (await useSecureStore()) {
+    return SecureStore.getItemAsync(key);
+  }
+  return AsyncStorage.getItem(key);
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  if (await useSecureStore()) {
+    await SecureStore.setItemAsync(key, value);
+    return;
+  }
+  await AsyncStorage.setItem(key, value);
+}
+
+async function storageDelete(key: string): Promise<void> {
+  if (await useSecureStore()) {
+    await SecureStore.deleteItemAsync(key);
+    return;
+  }
+  await AsyncStorage.removeItem(key);
+}
+
 ed25519.etc.sha512Async = async (...messages) => {
   const data = concatBytes(...messages.map((item) => ensureBytes(item, 'sha512 input')));
   const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA512, data);
@@ -60,6 +99,7 @@ const TIME_ENDPOINTS = [
 const PUBLIC_KEY_TOML_ASSET = require('../pro-public.toml');
 let cachedPublicKey: Uint8Array | null = null;
 let cachedPublicKeyError: Error | null = null;
+let cachedSecureStoreAvailable: boolean | null = null;
 
 export type LicensePayload = {
   v: number;
@@ -250,7 +290,7 @@ async function fetchTrustedTimeMs(): Promise<number> {
 }
 
 async function loadTrustedTime(): Promise<TrustedTimeState | null> {
-  const raw = await SecureStore.getItemAsync(TRUSTED_TIME_KEY);
+  const raw = await storageGet(TRUSTED_TIME_KEY);
   if (!raw) {
     return null;
   }
@@ -262,7 +302,7 @@ async function loadTrustedTime(): Promise<TrustedTimeState | null> {
 }
 
 async function saveTrustedTime(state: TrustedTimeState) {
-  await SecureStore.setItemAsync(TRUSTED_TIME_KEY, JSON.stringify(state));
+  await storageSet(TRUSTED_TIME_KEY, JSON.stringify(state));
 }
 
 export async function syncTrustedTime(): Promise<number> {
@@ -294,13 +334,13 @@ async function trustedNowFromCache(): Promise<number> {
 }
 
 export async function getDeviceUid(): Promise<string> {
-  const existing = await SecureStore.getItemAsync(DEVICE_UID_KEY);
+  const existing = await storageGet(DEVICE_UID_KEY);
   if (existing) {
     return existing;
   }
   const bytes = await Crypto.getRandomBytesAsync(16);
   const uid = base64UrlEncode(bytes);
-  await SecureStore.setItemAsync(DEVICE_UID_KEY, uid);
+  await storageSet(DEVICE_UID_KEY, uid);
   return uid;
 }
 
@@ -332,12 +372,12 @@ export async function activateProLicense(code: string): Promise<StoredLicense> {
     boundDeviceUid: payload.deviceUid || deviceUid,
     activatedAtTrustedMs: trustedNow,
   };
-  await SecureStore.setItemAsync(LICENSE_KEY, JSON.stringify(stored));
+  await storageSet(LICENSE_KEY, JSON.stringify(stored));
   return stored;
 }
 
 export async function getStoredLicense(): Promise<StoredLicense | null> {
-  const raw = await SecureStore.getItemAsync(LICENSE_KEY);
+  const raw = await storageGet(LICENSE_KEY);
   if (!raw) {
     return null;
   }
@@ -349,7 +389,7 @@ export async function getStoredLicense(): Promise<StoredLicense | null> {
 }
 
 export async function clearProLicense(): Promise<void> {
-  await SecureStore.deleteItemAsync(LICENSE_KEY);
+  await storageDelete(LICENSE_KEY);
 }
 
 export async function getProStatus(): Promise<ProStatus> {

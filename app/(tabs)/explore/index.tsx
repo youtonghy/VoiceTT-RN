@@ -47,7 +47,6 @@ export default function SettingsIndexScreen() {
   ];
   const [isPro, setIsPro] = useState(false);
 
-  // 平板端自动跳转到第一个设置项
   useEffect(() => {
     if (isTablet) {
       router.replace('/explore/recording');

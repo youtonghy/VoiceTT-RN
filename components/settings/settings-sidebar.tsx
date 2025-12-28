@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter, type Href } from 'expo-router';
@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { settingsStyles } from '@/app/(tabs)/explore/shared';
+import { getProStatus } from '@/services/pro';
 
 type RouteHref = Extract<Href, string>;
 
@@ -24,8 +25,26 @@ export function SettingsSidebar() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
+  const [isPro, setIsPro] = useState(false);
 
   const sidebarWidth = Math.min(320, Math.max(240, Math.round(width * 0.28)));
+  const isProRoute = pathname === '/explore/pro' || pathname.startsWith('/explore/pro/');
+
+  useEffect(() => {
+    let isActive = true;
+    getProStatus()
+      .then((status) => {
+        if (isActive) {
+          setIsPro(status.isActive);
+        }
+      })
+      .catch((error) => {
+        console.error('[settings] Failed to load pro status', error);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [pathname]);
 
   const entries: SettingsEntry[] = useMemo(
     () => [
@@ -73,6 +92,22 @@ export function SettingsSidebar() {
     [t]
   );
 
+  const proCardTheme = isPro
+    ? {
+        background: isDark ? '#5c4512' : '#fef3c7',
+        border: isDark ? 'rgba(245, 158, 11, 0.4)' : 'rgba(202, 138, 4, 0.45)',
+        shadow: isDark ? 'rgba(245, 158, 11, 0.35)' : 'rgba(217, 119, 6, 0.3)',
+      }
+    : {
+        background: isDark ? '#064e3b' : '#dcfce7',
+        border: isDark ? 'rgba(16, 185, 129, 0.4)' : 'rgba(34, 197, 94, 0.35)',
+        shadow: isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(34, 197, 94, 0.3)',
+      };
+  const proCtaTheme = {
+    background: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(22, 163, 74, 0.12)',
+    border: isDark ? 'rgba(16, 185, 129, 0.45)' : 'rgba(22, 163, 74, 0.35)',
+  };
+
   return (
     <SafeAreaView
       style={[
@@ -93,6 +128,52 @@ export function SettingsSidebar() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.pro.title')}
+          onPress={() => router.replace('/explore/pro' as RouteHref)}
+          style={({ pressed }) => [
+            styles.proCardPressable,
+            { shadowColor: proCardTheme.shadow },
+            pressed && styles.proCardPressed,
+          ]}>
+          <ThemedView
+            style={[
+              styles.proCard,
+              { backgroundColor: proCardTheme.background, borderColor: proCardTheme.border },
+              isProRoute && styles.proCardActive,
+            ]}>
+            <View style={styles.proCardContent}>
+              <ThemedText
+                type="title"
+                style={styles.proCardTitle}
+                lightColor="#0f172a"
+                darkColor="#e2e8f0">
+                {t('settings.pro.title')}
+              </ThemedText>
+              <ThemedText
+                style={styles.proCardSubtitle}
+                lightColor="#475569"
+                darkColor="#cbd5e1">
+                {t('settings.pro.description')}
+              </ThemedText>
+              {!isPro ? (
+                <View
+                  style={[
+                    styles.proCardCta,
+                    { backgroundColor: proCtaTheme.background, borderColor: proCtaTheme.border },
+                  ]}>
+                  <ThemedText
+                    style={styles.proCardCtaText}
+                    lightColor="#166534"
+                    darkColor="#bbf7d0">
+                    {t('settings.pro.cta')}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+          </ThemedView>
+        </Pressable>
         {entries.map((entry) => {
           const active = pathname === entry.route || pathname.startsWith(`${entry.route}/`);
           return (
@@ -132,6 +213,52 @@ export function SettingsSidebar() {
 }
 
 const styles = StyleSheet.create({
+  proCardPressable: {
+    borderRadius: 20,
+    shadowColor: 'rgba(15, 23, 42, 0.08)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.9,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  proCardPressed: {
+    opacity: 0.94,
+    transform: [{ translateY: 1 }],
+  },
+  proCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  proCardActive: {
+    borderColor: 'rgba(37, 99, 235, 0.45)',
+  },
+  proCardContent: {
+    gap: 10,
+  },
+  proCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  proCardSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  proCardCta: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  proCardCtaText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
   safeArea: {
     flexShrink: 0,
     borderRightWidth: StyleSheet.hairlineWidth,
