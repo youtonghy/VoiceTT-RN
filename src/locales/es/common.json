@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "Aún no hay historial de chat. Intenta hacer una pregunta.",
       "summary": "Aún no hay resumen de la conversación. Aparecerá después de grabar.",
+      "summary_hidden": "Resumen oculto para esta conversación.",
       "input": "Pregunta algo…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "Error al enviar"
+    },
+    "actions": {
+      "summary_title": "Acciones del resumen",
+      "summary_regenerate": "Regenerar resumen",
+      "summary_hide": "Ocultar resumen para esta conversación"
     },
     "accessibility": {
       "send_input": "Enviar entrada"

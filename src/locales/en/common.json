@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "No chat history yet. Try asking a question.",
       "summary": "No conversation summary yet. It will appear after recording.",
+      "summary_hidden": "Summary hidden for this conversation.",
       "input": "Ask something…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "Failed to send"
+    },
+    "actions": {
+      "summary_title": "Summary actions",
+      "summary_regenerate": "Regenerate summary",
+      "summary_hide": "Hide summary for this conversation"
     },
     "accessibility": {
       "send_input": "Send input"

@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "暂无聊天记录，试着提一个问题。",
       "summary": "暂无对话总结，完成录音后自动生成。",
+      "summary_hidden": "此对话的总结已隐藏。",
       "input": "输入你的问题…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "发送失败"
+    },
+    "actions": {
+      "summary_title": "总结操作",
+      "summary_regenerate": "重新生成总结",
+      "summary_hide": "不显示（此对话不显示）"
     },
     "accessibility": {
       "send_input": "发送输入"

@@ -76,6 +76,7 @@ type HistoryConversation = {
   transcript: string;
   translation?: string;
   summary?: string;
+  summaryHidden: boolean;
   createdAt: number;
   messages: TranscriptionMessage[];
   assistantMessages: AssistantMessage[];
@@ -237,6 +238,7 @@ function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
       translation:
         typeof candidate.translation === "string" ? candidate.translation : undefined,
       summary: typeof candidate.summary === "string" ? candidate.summary : undefined,
+      summaryHidden: candidate.summaryHidden === true,
       createdAt:
         typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
           ? candidate.createdAt
@@ -558,6 +560,10 @@ export default function TranscriptionScreen() {
     if (!targetConversation) {
       return;
     }
+    if (targetConversation.summaryHidden) {
+      autoSummaryPendingRef.current = null;
+      return;
+    }
     const hasProcessing = targetConversation.messages.some(
       (msg) => msg.status === 'pending' || msg.status === 'transcribing'
     );
@@ -719,6 +725,7 @@ export default function TranscriptionScreen() {
         updatedConversation.transcript = "";
         updatedConversation.translation = undefined;
         updatedConversation.summary = undefined;
+        updatedConversation.summaryHidden = false;
       }
 
       const next = [...prev];
@@ -827,6 +834,7 @@ export default function TranscriptionScreen() {
         transcript: "",
         translation: undefined,
         summary: undefined,
+        summaryHidden: false,
         createdAt: now,
         messages: [],
         assistantMessages: [],
@@ -1259,6 +1267,85 @@ export default function TranscriptionScreen() {
     [historyItems, settings, t]
   );
 
+  const handleHistoryGenerateSummary = useCallback(
+    async (conversationId: string) => {
+      const conversation = historyItems.find((item) => item.id === conversationId);
+      if (!conversation) {
+        return;
+      }
+      const transcriptSegments = conversation.messages
+        .map((msg) => msg.transcript?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const transcriptText = transcriptSegments.join('\n').trim();
+      if (!transcriptText) {
+        Alert.alert(t('alerts.summary.failure'), t('assistant.placeholders.summary'));
+        return;
+      }
+      const translationSegments = conversation.messages
+        .map((msg) => msg.translation?.trim())
+        .filter((segment): segment is string => !!segment && segment.length > 0);
+      const translationText = (translationSegments.length > 0
+        ? translationSegments.join('\n').trim()
+        : conversation.translation?.trim()) || undefined;
+
+      if (autoSummaryAbortRef.current) {
+        autoSummaryAbortRef.current.abort();
+        autoSummaryAbortRef.current = null;
+      }
+      const controller = new AbortController();
+      autoSummaryAbortRef.current = controller;
+      try {
+        const generatedSummary = await generateConversationSummary(
+          transcriptText,
+          translationText,
+          settings,
+          controller.signal
+        );
+        const cleanSummary = generatedSummary.trim();
+        if (!cleanSummary) {
+          return;
+        }
+        setHistoryItems((prev) =>
+          prev.map((item) =>
+            item.id === conversationId
+              ? { ...item, summary: cleanSummary, summaryHidden: false }
+              : item
+          )
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[transcription] Failed to regenerate conversation summary', err);
+        Alert.alert(t('alerts.summary.failure'), message);
+      } finally {
+        if (autoSummaryAbortRef.current === controller) {
+          autoSummaryAbortRef.current = null;
+        }
+      }
+    },
+    [historyItems, settings, t]
+  );
+
+  const handleAssistantSummaryHide = useCallback(
+    (conversation: HistoryConversation) => {
+      if (autoSummaryAbortRef.current) {
+        autoSummaryAbortRef.current.abort();
+        autoSummaryAbortRef.current = null;
+      }
+      if (autoSummaryPendingRef.current?.conversationId === conversation.id) {
+        autoSummaryPendingRef.current = null;
+      }
+      setHistoryItems((prev) =>
+        prev.map((item) =>
+          item.id === conversation.id ? { ...item, summaryHidden: true } : item
+        )
+      );
+    },
+    [setHistoryItems]
+  );
+
   const handleDeleteConversation = useCallback(
     (conversation: HistoryConversation) => {
       const confirmDelete = async () => {
@@ -1316,6 +1403,34 @@ export default function TranscriptionScreen() {
     [handleDeleteConversation, handleHistoryGenerateTitle, openRenameDialog, t]
   );
 
+  const handleAssistantSummaryMenu = useCallback(
+    (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
+      setContextMenu({
+        title: t('assistant.actions.summary_title'),
+        actions: [
+          {
+            label: t('assistant.actions.summary_regenerate'),
+            onPress: () => {
+              void handleHistoryGenerateSummary(conversation.id);
+            },
+          },
+          {
+            label: t('assistant.actions.summary_hide'),
+            onPress: () => {
+              handleAssistantSummaryHide(conversation);
+            },
+          },
+          {
+            label: t('common.actions.cancel'),
+            variant: 'cancel',
+          },
+        ],
+        anchor,
+      });
+    },
+    [handleAssistantSummaryHide, handleHistoryGenerateSummary, t]
+  );
+
   const assistantMessages = activeConversation?.assistantMessages ?? [];
   const canSaveRename = renameDraft.trim().length > 0;
 
@@ -1334,8 +1449,13 @@ export default function TranscriptionScreen() {
   }, [assistantMessages.length]);
   const assistantHasInput = assistantDraft.trim().length > 0;
   const assistantCanSend = assistantHasInput && !assistantSending;
-  const assistantSummary = activeConversation?.summary?.trim() ?? '';
-  const assistantSummaryPlaceholder = t('assistant.placeholders.summary');
+  const assistantSummaryHidden = activeConversation?.summaryHidden ?? false;
+  const assistantSummary = assistantSummaryHidden
+    ? ''
+    : (activeConversation?.summary?.trim() ?? '');
+  const assistantSummaryPlaceholder = assistantSummaryHidden
+    ? t('assistant.placeholders.summary_hidden')
+    : t('assistant.placeholders.summary');
 
   const pageWidth = width;
   const tabletHistoryWidth = useMemo(() => {
@@ -1659,24 +1779,50 @@ export default function TranscriptionScreen() {
           style={styles.assistantConversationScroll}
           contentContainerStyle={styles.assistantConversationContent}
           showsVerticalScrollIndicator={false}>
-          <ThemedView
-            lightColor="#eff6ff"
-            darkColor="rgba(30, 41, 59, 0.6)"
-            style={styles.assistantSummaryCard}>
-            <ThemedText
-              style={styles.assistantSummaryLabel}
-              lightColor="#2563eb"
-              darkColor="#60a5fa">
-              {t('assistant.section.summary_title')}
-            </ThemedText>
-            <MarkdownText
-              style={styles.assistantSummaryText}
-              lightColor="#1e293b"
-              darkColor="#e2e8f0"
-            >
-              {assistantSummary || assistantSummaryPlaceholder}
-            </MarkdownText>
-          </ThemedView>
+          <Pressable
+            onLongPress={
+              isDesktopApp || !activeConversation
+                ? undefined
+                : () => handleAssistantSummaryMenu(activeConversation)
+            }
+            onPointerDown={(event) => {
+              if (!isDesktopApp || !activeConversation) {
+                return;
+              }
+              if (event.nativeEvent.button === 2) {
+                event.preventDefault();
+                const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+                  pageX?: number;
+                  pageY?: number;
+                  clientX?: number;
+                  clientY?: number;
+                };
+                handleAssistantSummaryMenu(activeConversation, {
+                  x: typeof pageX === "number" ? pageX : clientX ?? 0,
+                  y: typeof pageY === "number" ? pageY : clientY ?? 0,
+                });
+              }
+            }}
+            delayLongPress={isDesktopApp ? undefined : 250}>
+            <ThemedView
+              lightColor="#eff6ff"
+              darkColor="rgba(30, 41, 59, 0.6)"
+              style={styles.assistantSummaryCard}>
+              <ThemedText
+                style={styles.assistantSummaryLabel}
+                lightColor="#2563eb"
+                darkColor="#60a5fa">
+                {t('assistant.section.summary_title')}
+              </ThemedText>
+              <MarkdownText
+                style={styles.assistantSummaryText}
+                lightColor="#1e293b"
+                darkColor="#e2e8f0"
+              >
+                {assistantSummary || assistantSummaryPlaceholder}
+              </MarkdownText>
+            </ThemedView>
+          </Pressable>
           {assistantMessages.length === 0 ? (
             <ThemedText
               style={styles.assistantEmptyText}

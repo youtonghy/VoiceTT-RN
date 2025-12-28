@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "暫無聊天記錄，試著提一個問題。",
       "summary": "暫無對話總結，完成錄音後自動生成。",
+      "summary_hidden": "此對話的總結已隱藏。",
       "input": "輸入你的問題…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "發送失敗"
+    },
+    "actions": {
+      "summary_title": "總結操作",
+      "summary_regenerate": "重新生成總結",
+      "summary_hide": "不顯示（此對話不顯示）"
     },
     "accessibility": {
       "send_input": "發送輸入"

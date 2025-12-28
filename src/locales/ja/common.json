@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "まだチャット履歴がありません。質問してみてください。",
       "summary": "まだ会話の要約がありません。録音後に表示されます。",
+      "summary_hidden": "この会話の要約は非表示です。",
       "input": "質問を入力…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "送信に失敗しました"
+    },
+    "actions": {
+      "summary_title": "要約の操作",
+      "summary_regenerate": "要約を再生成",
+      "summary_hide": "この会話の要約を非表示"
     },
     "accessibility": {
       "send_input": "入力を送信"

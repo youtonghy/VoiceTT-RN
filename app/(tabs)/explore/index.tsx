@@ -7,7 +7,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useRouter, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useIsTablet } from '@/hooks/use-is-tablet';
-import { proVersionPromoCard } from '@/types/settings';
+import { getProStatus } from '@/services/pro';
 
 import { settingsStyles } from './shared';
 
@@ -45,6 +45,7 @@ export default function SettingsIndexScreen() {
     settingsStyles.safeArea,
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
+  const [isPro, setIsPro] = useState(false);
 
   // 平板端自动跳转到第一个设置项
   useEffect(() => {
@@ -62,8 +63,8 @@ export default function SettingsIndexScreen() {
   }, []);
 
   const handleOpenProCard = useCallback(() => {
-    openExternalLink(proVersionPromoCard.href);
-  }, [openExternalLink]);
+    router.push('/explore/pro' as RouteHref);
+  }, [router]);
 
   const handleOpenWebsite = useCallback(() => {
     openExternalLink(WEBSITE_URL);
@@ -72,6 +73,22 @@ export default function SettingsIndexScreen() {
   const handleOpenRepository = useCallback(() => {
     openExternalLink(REPOSITORY_URL);
   }, [openExternalLink]);
+
+  useEffect(() => {
+    let isActive = true;
+    getProStatus()
+      .then((status) => {
+        if (isActive) {
+          setIsPro(status);
+        }
+      })
+      .catch((error) => {
+        console.warn('[settings] Failed to load pro status', error);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // --- 版本信息 ---
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'dev';
@@ -155,6 +172,22 @@ export default function SettingsIndexScreen() {
     [handleOpenRepository, handleOpenWebsite, t]
   );
 
+  const proCardTheme = isPro
+    ? {
+        background: isDark ? '#5c4512' : '#fef3c7',
+        border: isDark ? 'rgba(245, 158, 11, 0.4)' : 'rgba(202, 138, 4, 0.45)',
+        shadow: isDark ? 'rgba(245, 158, 11, 0.35)' : 'rgba(217, 119, 6, 0.3)',
+      }
+    : {
+        background: isDark ? '#064e3b' : '#dcfce7',
+        border: isDark ? 'rgba(16, 185, 129, 0.4)' : 'rgba(34, 197, 94, 0.35)',
+        shadow: isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(34, 197, 94, 0.3)',
+      };
+  const proCtaTheme = {
+    background: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(22, 163, 74, 0.12)',
+    border: isDark ? 'rgba(16, 185, 129, 0.45)' : 'rgba(22, 163, 74, 0.35)',
+  };
+
   if (isTablet) {
     return null;
   }
@@ -176,14 +209,19 @@ export default function SettingsIndexScreen() {
           contentContainerStyle={styles.entryList}
           style={styles.entryScroll}>
           <Pressable
-            accessibilityRole="link"
+            accessibilityRole="button"
             accessibilityLabel={t('settings.pro.title')}
             onPress={handleOpenProCard}
-            style={({ pressed }) => [styles.proCardPressable, pressed && styles.proCardPressed]}>
+            style={({ pressed }) => [
+              styles.proCardPressable,
+              { shadowColor: proCardTheme.shadow },
+              pressed && styles.proCardPressed,
+            ]}>
             <ThemedView
-              lightColor="#ffffff"
-              darkColor="rgba(15, 23, 42, 0.92)"
-              style={styles.proCard}>
+              style={[
+                styles.proCard,
+                { backgroundColor: proCardTheme.background, borderColor: proCardTheme.border },
+              ]}>
               <View style={styles.proCardContent}>
                 <ThemedText
                   type="title"
@@ -198,14 +236,20 @@ export default function SettingsIndexScreen() {
                   darkColor="#cbd5e1">
                   {t('settings.pro.description')}
                 </ThemedText>
-                <View style={styles.proCardCta}>
-                  <ThemedText
-                    style={styles.proCardCtaText}
-                    lightColor="#2563eb"
-                    darkColor="#93c5fd">
-                    {t('settings.pro.cta')}
-                  </ThemedText>
-                </View>
+                {!isPro ? (
+                  <View
+                    style={[
+                      styles.proCardCta,
+                      { backgroundColor: proCtaTheme.background, borderColor: proCtaTheme.border },
+                    ]}>
+                    <ThemedText
+                      style={styles.proCardCtaText}
+                      lightColor="#166534"
+                      darkColor="#bbf7d0">
+                      {t('settings.pro.cta')}
+                    </ThemedText>
+                  </View>
+                ) : null}
               </View>
             </ThemedView>
           </Pressable>
@@ -324,7 +368,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 24,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
   },
   proCardContent: {
     gap: 14,
@@ -345,9 +388,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 14,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
   proCardCtaText: {
     fontSize: 13,

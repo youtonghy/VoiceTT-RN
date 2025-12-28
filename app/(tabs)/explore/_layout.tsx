@@ -26,6 +26,7 @@ export default function SettingsLayout() {
     qa: t('settings.sections.qa.title'),
     credentials: t('settings.sections.credentials.title'),
     appearance: t('settings.sections.appearance.title'),
+    pro: t('settings.pro.title'),
   };
 
   // 导航栈配置
@@ -38,6 +39,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="tts" options={{ title: titles.tts }} />
       <Stack.Screen name="summary" options={{ title: titles.summary }} />
       <Stack.Screen name="qa" options={{ title: titles.qa }} />
+      <Stack.Screen name="pro" options={{ title: titles.pro }} />
       <Stack.Screen name="credentials" options={{ title: titles.credentials }} />
       <Stack.Screen name="appearance" options={{ title: titles.appearance }} />
     </Stack>

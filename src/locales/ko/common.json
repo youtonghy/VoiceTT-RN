@@ -150,6 +150,7 @@
     "placeholders": {
       "no_messages": "아직 채팅 기록이 없습니다. 질문해 보세요.",
       "summary": "아직 대화 요약이 없습니다. 녹음 후 표시됩니다.",
+      "summary_hidden": "이 대화의 요약이 숨겨졌습니다.",
       "input": "질문 입력…"
     },
     "status": {
@@ -157,6 +158,11 @@
     },
     "errors": {
       "send_failed": "전송 실패"
+    },
+    "actions": {
+      "summary_title": "요약 작업",
+      "summary_regenerate": "요약 다시 생성",
+      "summary_hide": "이 대화의 요약 숨기기"
     },
     "accessibility": {
       "send_input": "입력 전송"
