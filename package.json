@@ -8,6 +8,7 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start",
     "ios": "expo start --ios",
+    
     "web": "expo start --web",
     "desktop:dev": "node ./scripts/electron-dev.js",
     "desktop:build": "node ./scripts/desktop-build.js",

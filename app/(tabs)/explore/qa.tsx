@@ -108,78 +108,82 @@ export default function QaSettingsScreen() {
             </View>
           </SettingsCard>
 
-          <SettingsCard variant="openai">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.qa.openai_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiQaModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiQaModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  openaiQaModel: formState.openaiQaModel.trim() || DEFAULT_OPENAI_QA_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_OPENAI_QA_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.qa.temperature_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.openaiQaTemperature}
-              onChangeText={(text) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  openaiQaTemperature: formatNumberInput(text),
-                }))
-              }
-              onBlur={() =>
-                updateSettings({
-                  openaiQaTemperature: resolveTemperature(
-                    formState.openaiQaTemperature,
-                    DEFAULT_OPENAI_QA_TEMPERATURE
-                  ),
-                })
-              }
-              keyboardType="decimal-pad"
-              style={baseInputStyle}
-              placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
+          {settings.qaEngine === 'openai' ? (
+            <SettingsCard variant="openai">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.qa.openai_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiQaModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiQaModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    openaiQaModel: formState.openaiQaModel.trim() || DEFAULT_OPENAI_QA_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_OPENAI_QA_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.qa.temperature_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiQaTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiQaTemperature: formatNumberInput(text),
+                  }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    openaiQaTemperature: resolveTemperature(
+                      formState.openaiQaTemperature,
+                      DEFAULT_OPENAI_QA_TEMPERATURE
+                    ),
+                  })
+                }
+                keyboardType="decimal-pad"
+                style={baseInputStyle}
+                placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </SettingsCard>
+          ) : null}
 
-          <SettingsCard variant="gemini">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.qa.gemini_label')}
-            </ThemedText>
-            <TextInput
-              value={formState.geminiQaModel}
-              onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiQaModel: text }))}
-              onBlur={() =>
-                updateCredentials({
-                  geminiQaModel: formState.geminiQaModel.trim() || DEFAULT_GEMINI_QA_MODEL,
-                })
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={baseInputStyle}
-              placeholder={DEFAULT_GEMINI_QA_MODEL}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </SettingsCard>
+          {settings.qaEngine === 'gemini' ? (
+            <SettingsCard variant="gemini">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.qa.gemini_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.geminiQaModel}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiQaModel: text }))}
+                onBlur={() =>
+                  updateCredentials({
+                    geminiQaModel: formState.geminiQaModel.trim() || DEFAULT_GEMINI_QA_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_GEMINI_QA_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+            </SettingsCard>
+          ) : null}
 
           <SettingsCard variant="prompt">
             <ThemedText
