@@ -1,7 +1,7 @@
 /**
  * 页面名称：摘要设置 (Summary Settings)
  * 文件路径：app/(tabs)/explore/summary.tsx
- * 功能描述：配置对话标题生成和内容摘要的引擎、模型以及自定义提示词。
+ * 功能描述：配置标题总结、对话总结与智能对话的引擎、模型以及提示词。
  */
 
 import { useTranslation } from 'react-i18next';
@@ -19,12 +19,19 @@ import { ThemedText } from '@/components/themed-text';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
+    DEFAULT_ASSISTANT_PROMPT,
+    DEFAULT_GEMINI_ASSISTANT_MODEL,
     DEFAULT_CONVERSATION_SUMMARY_PROMPT,
     DEFAULT_GEMINI_CONVERSATION_MODEL,
     DEFAULT_GEMINI_TITLE_MODEL,
+    DEFAULT_OPENAI_ASSISTANT_MODEL,
+    DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
     DEFAULT_OPENAI_CONVERSATION_MODEL,
+    DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
     DEFAULT_OPENAI_TITLE_MODEL,
+    DEFAULT_OPENAI_TITLE_TEMPERATURE,
     DEFAULT_TITLE_SUMMARY_PROMPT,
+    type AssistantEngine,
     type ConversationSummaryEngine,
     type TitleSummaryEngine,
 } from '@/types/settings';
@@ -36,6 +43,7 @@ import {
     CARD_TEXT_LIGHT,
     OptionPill,
     SettingsCard,
+    formatNumberInput,
     settingsStyles,
     useSettingsForm,
 } from './shared';
@@ -43,6 +51,7 @@ import {
 // --- 常量定义 ---
 const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
 const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
+const assistantEngines: AssistantEngine[] = ['openai', 'gemini'];
 
 // --- 主组件 ---
 export default function SummarySettingsScreen() {
@@ -67,6 +76,17 @@ export default function SummarySettingsScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const resolveTemperature = (value: string, fallback: number) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 2) {
+      return fallback;
+    }
+    return parsed;
+  };
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -123,6 +143,33 @@ export default function SummarySettingsScreen() {
                 autoCorrect={false}
                 style={baseInputStyle}
                 placeholder={DEFAULT_OPENAI_TITLE_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.title_engine.temperature_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiTitleTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiTitleTemperature: formatNumberInput(text),
+                  }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    openaiTitleTemperature: resolveTemperature(
+                      formState.openaiTitleTemperature,
+                      DEFAULT_OPENAI_TITLE_TEMPERATURE
+                    ),
+                  })
+                }
+                keyboardType="decimal-pad"
+                style={baseInputStyle}
+                placeholder={`${DEFAULT_OPENAI_TITLE_TEMPERATURE}`}
                 placeholderTextColor={placeholderTextColor}
               />
               <ThemedText
@@ -247,6 +294,33 @@ export default function SummarySettingsScreen() {
               />
               <ThemedText
                 style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.conversation_engine.temperature_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiConversationTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiConversationTemperature: formatNumberInput(text),
+                  }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    openaiConversationTemperature: resolveTemperature(
+                      formState.openaiConversationTemperature,
+                      DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
+                    ),
+                  })
+                }
+                keyboardType="decimal-pad"
+                style={baseInputStyle}
+                placeholder={`${DEFAULT_OPENAI_CONVERSATION_TEMPERATURE}`}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
                 lightColor={CARD_TEXT_LIGHT}
                 darkColor={CARD_TEXT_DARK}>
                 {t('settings.summary.conversation_engine.prompt_label')}
@@ -316,6 +390,146 @@ export default function SummarySettingsScreen() {
                 }
                 style={multilineInputStyle}
                 placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          )}
+
+          <SettingsCard variant="interaction">
+            <ThemedText
+              type="subtitle"
+              lightColor={CARD_TEXT_LIGHT}
+              darkColor={CARD_TEXT_DARK}>
+              {t('settings.summary.assistant_engine.title')}
+            </ThemedText>
+            <View style={settingsStyles.optionsRow}>
+              {assistantEngines.map((engine) => (
+                <OptionPill
+                  key={engine}
+                  label={t(`settings.summary.assistant_engine.engines.${engine}`)}
+                  active={settings.assistantEngine === engine}
+                  onPress={() => updateSettings({ assistantEngine: engine })}
+                />
+              ))}
+            </View>
+          </SettingsCard>
+
+          {settings.assistantEngine === 'openai' ? (
+            <SettingsCard variant="openai">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.assistant_engine.openai_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiAssistantModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, openaiAssistantModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    openaiAssistantModel:
+                      formState.openaiAssistantModel.trim() || DEFAULT_OPENAI_ASSISTANT_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_OPENAI_ASSISTANT_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.assistant_engine.temperature_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.openaiAssistantTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiAssistantTemperature: formatNumberInput(text),
+                  }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    openaiAssistantTemperature: resolveTemperature(
+                      formState.openaiAssistantTemperature,
+                      DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
+                    ),
+                  })
+                }
+                keyboardType="decimal-pad"
+                style={baseInputStyle}
+                placeholder={`${DEFAULT_OPENAI_ASSISTANT_TEMPERATURE}`}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.assistant_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.assistantPrompt}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, assistantPrompt: text }))}
+                onBlur={() =>
+                  updateSettings({
+                    assistantPrompt: formState.assistantPrompt.trim() || DEFAULT_ASSISTANT_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_ASSISTANT_PROMPT}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+            </SettingsCard>
+          ) : (
+            <SettingsCard variant="gemini">
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_SUBTLE_LIGHT}
+                darkColor={CARD_SUBTLE_DARK}>
+                {t('settings.summary.assistant_engine.gemini_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.geminiAssistantModel}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({ ...prev, geminiAssistantModel: text }))
+                }
+                onBlur={() =>
+                  updateCredentials({
+                    geminiAssistantModel:
+                      formState.geminiAssistantModel.trim() || DEFAULT_GEMINI_ASSISTANT_MODEL,
+                  })
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={baseInputStyle}
+                placeholder={DEFAULT_GEMINI_ASSISTANT_MODEL}
+                placeholderTextColor={placeholderTextColor}
+              />
+              <ThemedText
+                style={[groupLabelStyle, styles.cardLabel]}
+                lightColor={CARD_TEXT_LIGHT}
+                darkColor={CARD_TEXT_DARK}>
+                {t('settings.summary.assistant_engine.prompt_label')}
+              </ThemedText>
+              <TextInput
+                value={formState.assistantPrompt}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, assistantPrompt: text }))}
+                onBlur={() =>
+                  updateSettings({
+                    assistantPrompt: formState.assistantPrompt.trim() || DEFAULT_ASSISTANT_PROMPT,
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={DEFAULT_ASSISTANT_PROMPT}
                 placeholderTextColor={placeholderTextColor}
                 multiline
                 textAlignVertical="top"

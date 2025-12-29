@@ -8,6 +8,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import {
@@ -42,6 +44,7 @@ import {
     generateAssistantReply,
     generateConversationSummary,
     generateConversationTitle,
+    translateText,
     type AssistantConversationTurn,
 } from "@/services/transcription";
 import { synthesizeSpeech } from "@/services/tts";
@@ -1471,44 +1474,127 @@ export default function TranscriptionScreen() {
     }
   }, [isTablet]);
 
-  const handleExportMarkdown = useCallback(async () => {
-    const exportableMessages = messages.filter(
-      (item) => (item.transcript && item.transcript.trim()) || (item.translation && item.translation.trim())
-    );
+  const handleExportConversation = useCallback(async () => {
+    const includeTranscript = settings.exportIncludeTranscript;
+    const includeTranslation = settings.exportIncludeTranslation;
+    const includeTime = settings.exportIncludeTime;
+    const exportFormat = settings.exportFormat;
+
+    if (!includeTranscript && !includeTranslation) {
+      Alert.alert(t('transcription.export.empty_title'), t('transcription.export.empty_body'));
+      return;
+    }
+
+    const exportableMessages = messages.filter((item) => {
+      const transcript = item.transcript?.trim();
+      const translation = item.translation?.trim();
+      if (includeTranscript && transcript) {
+        return true;
+      }
+      if (includeTranslation && (translation || transcript)) {
+        return true;
+      }
+      return false;
+    });
+
     if (exportableMessages.length === 0) {
       Alert.alert(t('transcription.export.empty_title'), t('transcription.export.empty_body'));
       return;
     }
 
-    const lines: string[] = [];
-    lines.push(`# ${t('transcription.export.share_title')}`);
-    lines.push('');
-    lines.push(t('transcription.export.generated_at', { time: formatRecordTime(Date.now(), i18n.language) }));
-    lines.push('');
+    const headerLines = [
+      `# ${t('transcription.export.share_title')}`,
+      '',
+      t('transcription.export.generated_at', { time: formatRecordTime(Date.now(), i18n.language) }),
+      '',
+    ];
+    const contentLines: string[] = [];
+    let hasContent = false;
 
-    exportableMessages.forEach((message, index) => {
-      const heading = message.title?.trim() || t('transcription.messages.default_title', { id: message.id });
-      lines.push(`## ${index + 1}. ${heading}`);
-      if (message.transcript && message.transcript.trim()) {
-        lines.push(`**${t('transcription.export.transcript')}**: ${message.transcript.trim()}`);
+    const translateOnDemand = async (text: string) => {
+      if (settings.translationEngine === 'none') {
+        return '';
       }
-      if (message.translation && message.translation.trim()) {
-        lines.push(`**${t('transcription.export.translation')}**: ${message.translation.trim()}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), settings.translationTimeoutSec * 1000);
+      try {
+        const result = await translateText(
+          text,
+          { ...settings, enableTranslation: true },
+          controller.signal
+        );
+        return result.text?.trim() ?? '';
+      } finally {
+        clearTimeout(timeoutId);
       }
-      lines.push('');
-    });
+    };
 
-    const markdown = lines.join('\n');
     try {
-      await Share.share({
-        message: markdown,
-        title: t('transcription.export.share_title'),
-      });
+      for (const message of exportableMessages) {
+        const transcriptText = includeTranscript ? message.transcript?.trim() ?? '' : '';
+        let translationText = includeTranslation ? message.translation?.trim() ?? '' : '';
+        if (!translationText && includeTranslation && message.transcript?.trim()) {
+          translationText = await translateOnDemand(message.transcript.trim());
+        }
+        if (!transcriptText && !translationText) {
+          continue;
+        }
+        if (includeTime) {
+          contentLines.push(`[${formatExportTimestamp(message.createdAt)}]`);
+        }
+        if (transcriptText) {
+          contentLines.push(transcriptText);
+        }
+        if (translationText) {
+          contentLines.push(translationText);
+        }
+        contentLines.push('');
+        hasContent = true;
+      }
+
+      if (!hasContent) {
+        Alert.alert(t('transcription.export.empty_title'), t('transcription.export.empty_body'));
+        return;
+      }
+
+      const exportText = [...headerLines, ...contentLines].join('\n');
+      if (exportFormat === 'markdown') {
+        await Share.share({
+          message: exportText,
+          title: t('transcription.export.share_title'),
+        });
+        return;
+      }
+
+      const html = buildExportHtml(exportText);
+      if (Platform.OS === 'web') {
+        await Print.printAsync({ html });
+        return;
+      }
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        await Share.share({
+          url: uri,
+          title: t('transcription.export.share_title'),
+          message: exportText,
+        });
+      }
     } catch (shareError) {
-      console.warn('[transcription] Failed to export markdown', shareError);
+      console.warn('[transcription] Failed to export conversation', shareError);
       Alert.alert(t('transcription.export.error_title'), t('transcription.export.error_body'));
     }
-  }, [messages, t, i18n.language]);
+  }, [
+    messages,
+    settings,
+    t,
+    i18n.language,
+  ]);
 
 
   useEffect(() => {
@@ -1598,7 +1684,7 @@ export default function TranscriptionScreen() {
         <View style={styles.headerActions}>
           <Pressable
             onPress={() => {
-              void handleExportMarkdown();
+              void handleExportConversation();
             }}
             accessibilityRole="button"
             accessibilityLabel={t('transcription.export.accessibility')}
@@ -2674,4 +2760,50 @@ function formatRecordTime(timestamp: number, language: string) {
     const minutes = `${date.getMinutes()}`.padStart(2, '0');
     return `${month}/${day} ${hours}:${minutes}`;
   }
+}
+
+function formatExportTimestamp(timestamp: number) {
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  const seconds = `${date.getSeconds()}`.padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes};${seconds}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildExportHtml(content: string) {
+  const escaped = escapeHtml(content);
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", sans-serif;
+        padding: 24px;
+        line-height: 1.6;
+        color: #0f172a;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 14px;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <pre>${escaped}</pre>
+  </body>
+</html>`;
 }

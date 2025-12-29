@@ -1,4 +1,10 @@
-import { AppSettings, DEFAULT_GEMINI_QA_MODEL, DEFAULT_OPENAI_QA_MODEL, DEFAULT_QA_PROMPT } from '@/types/settings';
+import {
+  AppSettings,
+  DEFAULT_GEMINI_QA_MODEL,
+  DEFAULT_OPENAI_QA_MODEL,
+  DEFAULT_OPENAI_QA_TEMPERATURE,
+  DEFAULT_QA_PROMPT,
+} from '@/types/settings';
 import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
 import { TranscriptQaItem } from '@/types/transcription';
 import {
@@ -7,6 +13,7 @@ import {
   validateApiKey,
   validateModelName,
   validateQuestion,
+  validateTemperature,
 } from '@/services/input-validation';
 import { RateLimiter, DEFAULT_RATE_LIMITS } from '@/services/rate-limiter';
 import { createSafeError, ErrorCategory } from '@/services/error-handler';
@@ -53,6 +60,12 @@ function sanitizeQaItems(raw: unknown): TranscriptQaItem[] {
     }
   });
   return items;
+}
+
+function resolveTemperature(value: unknown, fallback: number): number {
+  const candidate = typeof value === 'number' ? value : Number(value);
+  const validation = validateTemperature(candidate);
+  return validation.valid ? candidate : fallback;
 }
 
 function parseQaResponseText(text: string): TranscriptQaItem[] {
@@ -245,7 +258,10 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
         content: `Transcript segment:\n${validatedTranscript}`,
       },
     ],
-    temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiQaTemperature,
+      DEFAULT_OPENAI_QA_TEMPERATURE
+    ),
     max_tokens: MAX_QUESTION_EXTRACTION_TOKENS,
     response_format: {
       type: 'json_object',
@@ -337,7 +353,10 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
         content: `Transcript context:\n${validatedTranscript}\n\nQuestion: ${validatedQuestion}`,
       },
     ],
-    temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiQaTemperature,
+      DEFAULT_OPENAI_QA_TEMPERATURE
+    ),
     max_tokens: MAX_ANSWER_TOKENS,
   };
 
@@ -413,7 +432,10 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
         content: `Transcript segment:\n${validatedTranscript}`,
       },
     ],
-    temperature: DEFAULT_QA_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiQaTemperature,
+      DEFAULT_OPENAI_QA_TEMPERATURE
+    ),
     max_tokens: MAX_QA_OUTPUT_TOKENS,
     response_format: {
       type: 'json_object',

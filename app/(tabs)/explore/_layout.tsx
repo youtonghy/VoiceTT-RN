@@ -21,6 +21,7 @@ export default function SettingsLayout() {
     recording: t('settings.sections.recording.title'),
     transcription: t('settings.sections.transcription.title'),
     translation: t('settings.sections.translation.title'),
+    export: t('settings.sections.export.title'),
     tts: t('settings.sections.tts.title'),
     summary: t('settings.sections.summary.title'),
     qa: t('settings.sections.qa.title'),
@@ -36,6 +37,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="recording" options={{ title: titles.recording }} />
       <Stack.Screen name="transcription" options={{ title: titles.transcription }} />
       <Stack.Screen name="translation" options={{ title: titles.translation }} />
+      <Stack.Screen name="export" options={{ title: titles.export }} />
       <Stack.Screen name="tts" options={{ title: titles.tts }} />
       <Stack.Screen name="summary" options={{ title: titles.summary }} />
       <Stack.Screen name="qa" options={{ title: titles.qa }} />

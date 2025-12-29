@@ -21,11 +21,14 @@ export type TtsEngine = 'openai' | 'gemini';
 
 export type TitleSummaryEngine = 'openai' | 'gemini';
 export type ConversationSummaryEngine = 'openai' | 'gemini';
+export type AssistantEngine = 'openai' | 'gemini';
 export type QaEngine = 'openai' | 'gemini';
 
 export type ThemeMode = 'automatic' | 'light' | 'dark';
 
 export type AppLanguageMode = 'system' | 'en' | 'zh-Hans' | 'zh-Hant' | 'ja' | 'ko' | 'es';
+
+export type ExportFormat = 'markdown' | 'pdf';
 
 export interface EngineCredentials {
   openaiApiKey?: string;
@@ -35,6 +38,7 @@ export interface EngineCredentials {
   openaiTtsModel?: string;
   openaiTitleModel?: string;
   openaiConversationModel?: string;
+  openaiAssistantModel?: string;
   openaiQaModel?: string;
   geminiApiKey?: string;
   geminiTranscriptionModel?: string;
@@ -42,6 +46,7 @@ export interface EngineCredentials {
   geminiTtsModel?: string;
   geminiTitleModel?: string;
   geminiConversationModel?: string;
+  geminiAssistantModel?: string;
   geminiQaModel?: string;
   sonioxApiKey?: string;
   qwenApiKey?: string;
@@ -172,6 +177,15 @@ export const DEFAULT_OPENAI_CONVERSATION_MODEL = DEFAULT_OPENAI_TITLE_MODEL;
 export const DEFAULT_GEMINI_CONVERSATION_MODEL = DEFAULT_GEMINI_TITLE_MODEL;
 export const DEFAULT_CONVERSATION_SUMMARY_PROMPT =
   'You are a helpful assistant who writes detailed conversation summaries in the same language as the transcript. Produce 2-4 sentences that capture the main topics, decisions, and follow-up actions. Avoid fabricating details and never include sensitive personal data.';
+export const DEFAULT_OPENAI_ASSISTANT_MODEL = DEFAULT_OPENAI_CONVERSATION_MODEL;
+export const DEFAULT_GEMINI_ASSISTANT_MODEL = DEFAULT_GEMINI_CONVERSATION_MODEL;
+export const DEFAULT_ASSISTANT_PROMPT =
+  'You are a helpful conversation assistant who answers follow-up questions using the provided meeting context. Ground responses in the transcript and avoid inventing details. If the answer is unknown, say you do not know. Respond in the same language as the user whenever possible. You can use Markdown formatting to structure your responses with headings, lists, code blocks, and emphasis where appropriate.';
+export const DEFAULT_OPENAI_TITLE_TEMPERATURE = 1;
+export const DEFAULT_OPENAI_CONVERSATION_TEMPERATURE = 1;
+export const DEFAULT_OPENAI_ASSISTANT_TEMPERATURE = 1;
+export const DEFAULT_OPENAI_QA_TEMPERATURE = 1;
+export const DEFAULT_OPENAI_TRANSLATION_TEMPERATURE = 1;
 export const DEFAULT_OPENAI_QA_MODEL = DEFAULT_OPENAI_CONVERSATION_MODEL;
 export const DEFAULT_GEMINI_QA_MODEL = DEFAULT_GEMINI_CONVERSATION_MODEL;
 export const DEFAULT_QA_PROMPT =
@@ -185,8 +199,19 @@ export interface AppSettings extends TranscriptionSettings {
   titleSummaryPrompt: string;
   conversationSummaryEngine: ConversationSummaryEngine;
   conversationSummaryPrompt: string;
+  openaiTitleTemperature: number;
+  openaiConversationTemperature: number;
+  openaiAssistantTemperature: number;
+  openaiQaTemperature: number;
+  openaiTranslationTemperature: number;
+  assistantEngine: AssistantEngine;
+  assistantPrompt: string;
   qaEngine: QaEngine;
   qaPrompt: string;
+  exportFormat: ExportFormat;
+  exportIncludeTranscript: boolean;
+  exportIncludeTranslation: boolean;
+  exportIncludeTime: boolean;
   themeMode: ThemeMode;
   languageMode: AppLanguageMode;
   showQaTab: boolean;
@@ -217,10 +242,21 @@ export const defaultSettings: AppSettings = {
   translationTimeoutSec: 20,
   enableTranslation: true,
   enableAutoStart: false,
+  exportFormat: 'markdown',
+  exportIncludeTranscript: true,
+  exportIncludeTranslation: true,
+  exportIncludeTime: false,
   titleSummaryEngine: 'openai',
   titleSummaryPrompt: DEFAULT_TITLE_SUMMARY_PROMPT,
   conversationSummaryEngine: 'openai',
   conversationSummaryPrompt: DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  openaiTitleTemperature: DEFAULT_OPENAI_TITLE_TEMPERATURE,
+  openaiConversationTemperature: DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
+  openaiAssistantTemperature: DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
+  openaiQaTemperature: DEFAULT_OPENAI_QA_TEMPERATURE,
+  openaiTranslationTemperature: DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
+  assistantEngine: 'openai',
+  assistantPrompt: DEFAULT_ASSISTANT_PROMPT,
   qaEngine: 'openai',
   qaPrompt: DEFAULT_QA_PROMPT,
   themeMode: 'automatic',
@@ -234,12 +270,14 @@ export const defaultSettings: AppSettings = {
     openaiTtsModel: DEFAULT_OPENAI_TTS_MODEL,
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,
     openaiConversationModel: DEFAULT_OPENAI_CONVERSATION_MODEL,
+    openaiAssistantModel: DEFAULT_OPENAI_ASSISTANT_MODEL,
     openaiQaModel: DEFAULT_OPENAI_QA_MODEL,
     geminiTranscriptionModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiTranslationModel: 'gemini-2.5-flash',
     geminiTtsModel: DEFAULT_GEMINI_TTS_MODEL,
     geminiTitleModel: DEFAULT_GEMINI_TITLE_MODEL,
     geminiConversationModel: DEFAULT_GEMINI_CONVERSATION_MODEL,
+    geminiAssistantModel: DEFAULT_GEMINI_ASSISTANT_MODEL,
     geminiQaModel: DEFAULT_GEMINI_QA_MODEL,
     qwenTranscriptionModel: 'Qwen3-ASR',
     glmApiKey: '',

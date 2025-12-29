@@ -99,8 +99,8 @@
       "empty_title": "暂无可导出的内容",
       "empty_body": "请先开始录音，获取转写或翻译后再导出。",
       "error_title": "导出失败",
-      "error_body": "暂时无法分享 Markdown，请稍后再试。",
-      "accessibility": "以 Markdown 导出对话"
+      "error_body": "暂时无法分享导出内容，请稍后再试。",
+      "accessibility": "导出对话"
     },
     "accessibility": {
       "stop_recording": "停止录音",
@@ -211,6 +211,10 @@
       "translation": {
         "title": "翻译设置",
         "subtitle": "译文开关与管线"
+      },
+      "export": {
+        "title": "导出设置",
+        "subtitle": "格式与内容"
       },
       "tts": {
         "title": "文字转语音",
@@ -381,6 +385,7 @@
         "select_language": "选择目标语言",
         "openai_model": "OpenAI 翻译模型",
         "gemini_model": "Gemini 翻译模型",
+        "temperature": "温度",
         "prompt": "Prompting（可选）",
         "prompt_placeholder": "例如：正式语气并保留行业术语。",
         "prompt_hint": "会自动附加下方“仅输出译文”的翻译指令。",
@@ -404,6 +409,24 @@
         "ru": "俄语",
         "ar": "阿拉伯语",
         "hi": "印地语"
+      }
+    },
+    "export": {
+      "labels": {
+        "format": "格式",
+        "content": "内容",
+        "include_transcript": "原文",
+        "include_translation": "翻译",
+        "timestamp": "时间戳",
+        "include_time": "输出时间"
+      },
+      "formats": {
+        "markdown": "Markdown",
+        "pdf": "PDF"
+      },
+      "hints": {
+        "translation_on_demand": "未开启翻译时，将在导出时即时翻译。",
+        "translation_unavailable": "请先选择翻译引擎后再导出翻译内容。"
       }
     },
     "tts": {
@@ -442,7 +465,8 @@
         },
         "openai_label": "OpenAI 标题模型",
         "gemini_label": "Gemini 标题模型",
-        "prompt_label": "标题提示词"
+        "prompt_label": "标题提示词",
+        "temperature_label": "温度"
       },
       "conversation_engine": {
         "title": "对话总结引擎",
@@ -452,7 +476,19 @@
         },
         "openai_label": "OpenAI 对话总结模型",
         "gemini_label": "Gemini 对话总结模型",
-        "prompt_label": "对话总结提示词"
+        "prompt_label": "对话总结提示词",
+        "temperature_label": "温度"
+      },
+      "assistant_engine": {
+        "title": "智能对话引擎",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 智能对话模型",
+        "gemini_label": "Gemini 智能对话模型",
+        "prompt_label": "智能对话提示词",
+        "temperature_label": "温度"
       }
     },
     "qa": {
@@ -465,7 +501,8 @@
       },
       "openai_label": "OpenAI 问答模型",
       "gemini_label": "Gemini 问答模型",
-      "prompt_label": "抽取提示词"
+      "prompt_label": "抽取提示词",
+      "temperature_label": "温度"
     },
     "appearance": {
       "labels": {

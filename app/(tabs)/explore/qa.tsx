@@ -21,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     DEFAULT_GEMINI_QA_MODEL,
     DEFAULT_OPENAI_QA_MODEL,
+    DEFAULT_OPENAI_QA_TEMPERATURE,
     DEFAULT_QA_PROMPT,
     type QaEngine,
 } from '@/types/settings';
@@ -32,6 +33,7 @@ import {
     CARD_TEXT_LIGHT,
     OptionPill,
     SettingsCard,
+    formatNumberInput,
     settingsStyles,
     useSettingsForm,
 } from './shared';
@@ -62,6 +64,17 @@ export default function QaSettingsScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const resolveTemperature = (value: string, fallback: number) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 2) {
+      return fallback;
+    }
+    return parsed;
+  };
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -114,6 +127,33 @@ export default function QaSettingsScreen() {
               autoCorrect={false}
               style={baseInputStyle}
               placeholder={DEFAULT_OPENAI_QA_MODEL}
+              placeholderTextColor={placeholderTextColor}
+            />
+            <ThemedText
+              style={[groupLabelStyle, styles.cardLabel]}
+              lightColor={CARD_SUBTLE_LIGHT}
+              darkColor={CARD_SUBTLE_DARK}>
+              {t('settings.qa.temperature_label')}
+            </ThemedText>
+            <TextInput
+              value={formState.openaiQaTemperature}
+              onChangeText={(text) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  openaiQaTemperature: formatNumberInput(text),
+                }))
+              }
+              onBlur={() =>
+                updateSettings({
+                  openaiQaTemperature: resolveTemperature(
+                    formState.openaiQaTemperature,
+                    DEFAULT_OPENAI_QA_TEMPERATURE
+                  ),
+                })
+              }
+              keyboardType="decimal-pad"
+              style={baseInputStyle}
+              placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
               placeholderTextColor={placeholderTextColor}
             />
           </SettingsCard>

@@ -99,8 +99,8 @@
       "empty_title": "書き出す内容がありません",
       "empty_body": "まず録音して文字起こしまたは翻訳を取得してください。",
       "error_title": "書き出しに失敗しました",
-      "error_body": "現在 Markdown を共有できません。しばらくしてから再試行してください。",
-      "accessibility": "会話を Markdown で書き出し"
+      "error_body": "現在書き出し内容を共有できません。しばらくしてから再試行してください。",
+      "accessibility": "会話を書き出し"
     },
     "accessibility": {
       "stop_recording": "録音を停止",
@@ -211,6 +211,10 @@
       "translation": {
         "title": "翻訳",
         "subtitle": "有効化とパイプライン"
+      },
+      "export": {
+        "title": "エクスポート",
+        "subtitle": "形式と内容"
       },
       "tts": {
         "title": "テキスト読み上げ",
@@ -381,6 +385,7 @@
         "select_language": "対象言語を選択",
         "openai_model": "OpenAI 翻訳モデル",
         "gemini_model": "Gemini 翻訳モデル",
+        "temperature": "温度",
         "prompt": "プロンプト（任意）",
         "prompt_placeholder": "例: フォーマルな口調と業界用語。",
         "prompt_hint": "翻訳のみの指示が自動で追加されます。",
@@ -404,6 +409,24 @@
         "ru": "ロシア語",
         "ar": "アラビア語",
         "hi": "ヒンディー語"
+      }
+    },
+    "export": {
+      "labels": {
+        "format": "形式",
+        "content": "内容",
+        "include_transcript": "原文",
+        "include_translation": "翻訳",
+        "timestamp": "タイムスタンプ",
+        "include_time": "時間を出力"
+      },
+      "formats": {
+        "markdown": "Markdown",
+        "pdf": "PDF"
+      },
+      "hints": {
+        "translation_on_demand": "翻訳が無効でも、エクスポート時に翻訳します。",
+        "translation_unavailable": "翻訳エンジンを選択してから翻訳を含めてください。"
       }
     },
     "tts": {
@@ -442,7 +465,8 @@
         },
         "openai_label": "OpenAI タイトルモデル",
         "gemini_label": "Gemini タイトルモデル",
-        "prompt_label": "タイトルプロンプト"
+        "prompt_label": "タイトルプロンプト",
+        "temperature_label": "温度"
       },
       "conversation_engine": {
         "title": "会話要約エンジン",
@@ -452,7 +476,19 @@
         },
         "openai_label": "OpenAI 会話モデル",
         "gemini_label": "Gemini 会話モデル",
-        "prompt_label": "会話プロンプト"
+        "prompt_label": "会話プロンプト",
+        "temperature_label": "温度"
+      },
+      "assistant_engine": {
+        "title": "会話アシスタントエンジン",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 会話アシスタントモデル",
+        "gemini_label": "Gemini 会話アシスタントモデル",
+        "prompt_label": "アシスタントプロンプト",
+        "temperature_label": "温度"
       }
     },
     "qa": {
@@ -465,7 +501,8 @@
       },
       "openai_label": "OpenAI Q&A モデル",
       "gemini_label": "Gemini Q&A モデル",
-      "prompt_label": "抽出プロンプト"
+      "prompt_label": "抽出プロンプト",
+      "temperature_label": "温度"
     },
     "appearance": {
       "labels": {

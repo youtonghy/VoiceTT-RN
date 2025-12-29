@@ -26,7 +26,11 @@ import {
     DEFAULT_GEMINI_TRANSLATION_MODEL,
     DEFAULT_OPENAI_TRANSLATION_MODEL,
 } from '@/services/transcription';
-import { COMMON_TRANSLATION_TARGET_LANGUAGES, type TranslationEngine } from '@/types/settings';
+import {
+    COMMON_TRANSLATION_TARGET_LANGUAGES,
+    DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
+    type TranslationEngine,
+} from '@/types/settings';
 
 import {
     CARD_SUBTLE_DARK,
@@ -35,6 +39,7 @@ import {
     CARD_TEXT_LIGHT,
     OptionPill,
     SettingsCard,
+    formatNumberInput,
     settingsStyles,
     useSettingsForm,
 } from './shared';
@@ -66,6 +71,17 @@ export default function TranslationSettingsScreen() {
     isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
   ];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const resolveTemperature = (value: string, fallback: number) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return fallback;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 2) {
+      return fallback;
+    }
+    return parsed;
+  };
   const selectedTargetLanguageLabel = t(`settings.translation.languages.${settings.translationTargetLanguage}`, {
     defaultValue: settings.translationTargetLanguage,
   });
@@ -183,6 +199,36 @@ export default function TranslationSettingsScreen() {
                     autoCorrect={false}
                     style={baseInputStyle}
                     placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
+                    placeholderTextColor={placeholderTextColor}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <ThemedText
+                    style={[groupLabelStyle, styles.cardLabel]}
+                    lightColor={CARD_SUBTLE_LIGHT}
+                    darkColor={CARD_SUBTLE_DARK}>
+                    {t('settings.translation.labels.temperature')}
+                  </ThemedText>
+                  <TextInput
+                    value={formState.openaiTranslationTemperature}
+                    onChangeText={(text) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        openaiTranslationTemperature: formatNumberInput(text),
+                      }))
+                    }
+                    onBlur={() =>
+                      updateSettings({
+                        openaiTranslationTemperature: resolveTemperature(
+                          formState.openaiTranslationTemperature,
+                          DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
+                        ),
+                      })
+                    }
+                    keyboardType="decimal-pad"
+                    style={baseInputStyle}
+                    placeholder={`${DEFAULT_OPENAI_TRANSLATION_TEMPERATURE}`}
                     placeholderTextColor={placeholderTextColor}
                   />
                 </View>

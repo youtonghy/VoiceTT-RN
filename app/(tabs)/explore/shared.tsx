@@ -21,14 +21,22 @@ import {
 } from '@/services/transcription';
 import {
     AppSettings,
+    DEFAULT_ASSISTANT_PROMPT,
     DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+    DEFAULT_GEMINI_ASSISTANT_MODEL,
     DEFAULT_GEMINI_CONVERSATION_MODEL,
     DEFAULT_GEMINI_TITLE_MODEL,
     DEFAULT_GEMINI_TTS_MODEL,
+    DEFAULT_OPENAI_ASSISTANT_MODEL,
     DEFAULT_OPENAI_CONVERSATION_MODEL,
     DEFAULT_OPENAI_TITLE_MODEL,
     DEFAULT_OPENAI_TTS_MODEL,
     DEFAULT_OPENAI_TTS_VOICE,
+    DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
+    DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
+    DEFAULT_OPENAI_QA_TEMPERATURE,
+    DEFAULT_OPENAI_TITLE_TEMPERATURE,
+    DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
     DEFAULT_TRANSLATION_PROMPT_PREFIX,
 } from '@/types/settings';
 
@@ -53,6 +61,12 @@ export interface FormState {
   geminiTranslationPrompt: string;
   titleSummaryPrompt: string;
   conversationSummaryPrompt: string;
+  openaiTitleTemperature: string;
+  openaiConversationTemperature: string;
+  openaiAssistantTemperature: string;
+  openaiQaTemperature: string;
+  openaiTranslationTemperature: string;
+  assistantPrompt: string;
   qaPrompt: string;
   ttsPrompt: string;
   ttsVoice: string;
@@ -63,6 +77,7 @@ export interface FormState {
   openaiTtsModel: string;
   openaiTitleModel: string;
   openaiConversationModel: string;
+  openaiAssistantModel: string;
   openaiQaModel: string;
   geminiApiKey: string;
   geminiTranscriptionModel: string;
@@ -70,6 +85,7 @@ export interface FormState {
   geminiTtsModel: string;
   geminiTitleModel: string;
   geminiConversationModel: string;
+  geminiAssistantModel: string;
   geminiQaModel: string;
   sonioxApiKey: string;
   qwenApiKey: string;
@@ -99,6 +115,22 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   titleSummaryPrompt: settings.titleSummaryPrompt,
   conversationSummaryPrompt:
     settings.conversationSummaryPrompt || DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  openaiTitleTemperature: String(
+    settings.openaiTitleTemperature ?? DEFAULT_OPENAI_TITLE_TEMPERATURE
+  ),
+  openaiConversationTemperature: String(
+    settings.openaiConversationTemperature ?? DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
+  ),
+  openaiAssistantTemperature: String(
+    settings.openaiAssistantTemperature ?? DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
+  ),
+  openaiQaTemperature: String(
+    settings.openaiQaTemperature ?? DEFAULT_OPENAI_QA_TEMPERATURE
+  ),
+  openaiTranslationTemperature: String(
+    settings.openaiTranslationTemperature ?? DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
+  ),
+  assistantPrompt: settings.assistantPrompt || DEFAULT_ASSISTANT_PROMPT,
   qaPrompt: settings.qaPrompt,
   ttsPrompt: settings.ttsPrompt ?? '',
   ttsVoice: settings.ttsVoice ?? DEFAULT_OPENAI_TTS_VOICE,
@@ -113,6 +145,10 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.openaiTitleModel ?? DEFAULT_OPENAI_TITLE_MODEL,
   openaiConversationModel:
     settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
+  openaiAssistantModel:
+    settings.credentials.openaiAssistantModel ??
+    settings.credentials.openaiConversationModel ??
+    DEFAULT_OPENAI_ASSISTANT_MODEL,
   openaiQaModel: settings.credentials.openaiQaModel ?? settings.credentials.openaiConversationModel ?? DEFAULT_OPENAI_CONVERSATION_MODEL,
   geminiApiKey: settings.credentials.geminiApiKey ?? '',
   geminiTranscriptionModel:
@@ -124,6 +160,10 @@ export const initialFormState = (settings: AppSettings): FormState => ({
     settings.credentials.geminiTitleModel ?? DEFAULT_GEMINI_TITLE_MODEL,
   geminiConversationModel:
     settings.credentials.geminiConversationModel ?? DEFAULT_GEMINI_CONVERSATION_MODEL,
+  geminiAssistantModel:
+    settings.credentials.geminiAssistantModel ??
+    settings.credentials.geminiConversationModel ??
+    DEFAULT_GEMINI_ASSISTANT_MODEL,
   geminiQaModel: settings.credentials.geminiQaModel ?? settings.credentials.geminiConversationModel ?? DEFAULT_GEMINI_CONVERSATION_MODEL,
   sonioxApiKey: settings.credentials.sonioxApiKey ?? '',
   qwenApiKey: settings.credentials.qwenApiKey ?? '',

@@ -99,8 +99,8 @@
       "empty_title": "Nothing to export",
       "empty_body": "Start a recording to collect transcript or translation first.",
       "error_title": "Export failed",
-      "error_body": "Unable to share markdown right now. Please try again.",
-      "accessibility": "Export conversation as Markdown"
+      "error_body": "Unable to share the export right now. Please try again.",
+      "accessibility": "Export conversation"
     },
     "accessibility": {
       "stop_recording": "Stop recording",
@@ -211,6 +211,10 @@
       "translation": {
         "title": "Translation",
         "subtitle": "Toggle and pipeline"
+      },
+      "export": {
+        "title": "Export",
+        "subtitle": "Format and content"
       },
       "tts": {
         "title": "Text-to-speech",
@@ -381,6 +385,7 @@
         "select_language": "Select target language",
         "openai_model": "OpenAI translation model",
         "gemini_model": "Gemini translation model",
+        "temperature": "Temperature",
         "prompt": "Prompting (optional)",
         "prompt_placeholder": "e.g. Formal tone with industry terminology.",
         "prompt_hint": "The translate-only instruction is appended automatically.",
@@ -404,6 +409,24 @@
         "ru": "Russian",
         "ar": "Arabic",
         "hi": "Hindi"
+      }
+    },
+    "export": {
+      "labels": {
+        "format": "Format",
+        "content": "Content",
+        "include_transcript": "Transcript",
+        "include_translation": "Translation",
+        "timestamp": "Timestamps",
+        "include_time": "Include timestamps"
+      },
+      "formats": {
+        "markdown": "Markdown",
+        "pdf": "PDF"
+      },
+      "hints": {
+        "translation_on_demand": "If translation is disabled, export will translate on demand.",
+        "translation_unavailable": "Enable a translation engine to include translations."
       }
     },
     "tts": {
@@ -442,7 +465,8 @@
         },
         "openai_label": "OpenAI title model",
         "gemini_label": "Gemini title model",
-        "prompt_label": "Title prompt"
+        "prompt_label": "Title prompt",
+        "temperature_label": "Temperature"
       },
       "conversation_engine": {
         "title": "Conversation summarization engine",
@@ -452,7 +476,19 @@
         },
         "openai_label": "OpenAI conversation model",
         "gemini_label": "Gemini conversation model",
-        "prompt_label": "Conversation prompt"
+        "prompt_label": "Conversation prompt",
+        "temperature_label": "Temperature"
+      },
+      "assistant_engine": {
+        "title": "Conversation assistant engine",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI assistant model",
+        "gemini_label": "Gemini assistant model",
+        "prompt_label": "Assistant prompt",
+        "temperature_label": "Temperature"
       }
     },
     "qa": {
@@ -465,7 +501,8 @@
       },
       "openai_label": "OpenAI Q&A model",
       "gemini_label": "Gemini Q&A model",
-      "prompt_label": "Extraction prompt"
+      "prompt_label": "Extraction prompt",
+      "temperature_label": "Temperature"
     },
     "appearance": {
       "labels": {

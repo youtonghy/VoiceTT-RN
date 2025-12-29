@@ -69,6 +69,16 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
         ...parsedCredentials,
       },
     };
+    const normalizeTemperature = (value: unknown, fallback: number) => {
+      if (value === '' || value === null || value === undefined) {
+        return fallback;
+      }
+      const candidate = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(candidate) || candidate < 0 || candidate > 2) {
+        return fallback;
+      }
+      return candidate;
+    };
     const legacyPrompt = (parsed as { transcriptionPrompt?: unknown }).transcriptionPrompt;
     if (typeof legacyPrompt === 'string' && legacyPrompt.trim()) {
       if (!merged.openaiTranscriptionPrompt?.trim()) {
@@ -87,6 +97,26 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (!VALID_TRANSCRIPTION_ENGINES.has(merged.transcriptionEngine)) {
       merged.transcriptionEngine = defaultSettings.transcriptionEngine;
     }
+    merged.openaiTitleTemperature = normalizeTemperature(
+      merged.openaiTitleTemperature,
+      defaultSettings.openaiTitleTemperature
+    );
+    merged.openaiConversationTemperature = normalizeTemperature(
+      merged.openaiConversationTemperature,
+      defaultSettings.openaiConversationTemperature
+    );
+    merged.openaiAssistantTemperature = normalizeTemperature(
+      merged.openaiAssistantTemperature,
+      defaultSettings.openaiAssistantTemperature
+    );
+    merged.openaiQaTemperature = normalizeTemperature(
+      merged.openaiQaTemperature,
+      defaultSettings.openaiQaTemperature
+    );
+    merged.openaiTranslationTemperature = normalizeTemperature(
+      merged.openaiTranslationTemperature,
+      defaultSettings.openaiTranslationTemperature
+    );
     if (parsed.conversationSummaryEngine === undefined) {
       merged.conversationSummaryEngine = parsed.titleSummaryEngine ?? defaultSettings.titleSummaryEngine;
     }
@@ -95,6 +125,18 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     }
     if (parsedCredentials.geminiConversationModel === undefined && merged.credentials.geminiTitleModel) {
       merged.credentials.geminiConversationModel = merged.credentials.geminiTitleModel;
+    }
+    if (parsed.assistantEngine === undefined) {
+      merged.assistantEngine = merged.conversationSummaryEngine ?? defaultSettings.assistantEngine;
+    }
+    if (!merged.assistantPrompt?.trim()) {
+      merged.assistantPrompt = defaultSettings.assistantPrompt;
+    }
+    if (parsedCredentials.openaiAssistantModel === undefined && merged.credentials.openaiConversationModel) {
+      merged.credentials.openaiAssistantModel = merged.credentials.openaiConversationModel;
+    }
+    if (parsedCredentials.geminiAssistantModel === undefined && merged.credentials.geminiConversationModel) {
+      merged.credentials.geminiAssistantModel = merged.credentials.geminiConversationModel;
     }
     if (parsed.qaEngine === undefined) {
       merged.qaEngine = defaultSettings.qaEngine;

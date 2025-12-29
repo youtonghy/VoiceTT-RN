@@ -99,8 +99,8 @@
       "empty_title": "Nada para exportar",
       "empty_body": "Inicia una grabación para obtener transcripción o traducción.",
       "error_title": "Fallo al exportar",
-      "error_body": "No se puede compartir Markdown ahora. Inténtalo de nuevo.",
-      "accessibility": "Exportar conversación como Markdown"
+      "error_body": "No se puede compartir la exportación ahora. Inténtalo de nuevo.",
+      "accessibility": "Exportar conversación"
     },
     "accessibility": {
       "stop_recording": "Detener grabación",
@@ -211,6 +211,10 @@
       "translation": {
         "title": "Traducción",
         "subtitle": "Activación y canal"
+      },
+      "export": {
+        "title": "Exportación",
+        "subtitle": "Formato y contenido"
       },
       "tts": {
         "title": "Texto a voz",
@@ -381,6 +385,7 @@
         "select_language": "Seleccionar idioma de destino",
         "openai_model": "Modelo de traducción de OpenAI",
         "gemini_model": "Modelo de traducción de Gemini",
+        "temperature": "Temperatura",
         "prompt": "Prompt (opcional)",
         "prompt_placeholder": "p. ej. Tono formal con terminología de la industria.",
         "prompt_hint": "La instrucción de solo traducir se añade automáticamente.",
@@ -404,6 +409,24 @@
         "ru": "Ruso",
         "ar": "Árabe",
         "hi": "Hindi"
+      }
+    },
+    "export": {
+      "labels": {
+        "format": "Formato",
+        "content": "Contenido",
+        "include_transcript": "Transcripción",
+        "include_translation": "Traducción",
+        "timestamp": "Marcas de tiempo",
+        "include_time": "Incluir hora"
+      },
+      "formats": {
+        "markdown": "Markdown",
+        "pdf": "PDF"
+      },
+      "hints": {
+        "translation_on_demand": "Si la traducción está desactivada, se traducirá al exportar.",
+        "translation_unavailable": "Selecciona un motor de traducción para incluir traducciones."
       }
     },
     "tts": {
@@ -442,7 +465,8 @@
         },
         "openai_label": "Modelo de títulos de OpenAI",
         "gemini_label": "Modelo de títulos de Gemini",
-        "prompt_label": "Prompt de título"
+        "prompt_label": "Prompt de título",
+        "temperature_label": "Temperatura"
       },
       "conversation_engine": {
         "title": "Motor de resumen de conversaciones",
@@ -452,7 +476,19 @@
         },
         "openai_label": "Modelo de conversación de OpenAI",
         "gemini_label": "Modelo de conversación de Gemini",
-        "prompt_label": "Prompt de conversación"
+        "prompt_label": "Prompt de conversación",
+        "temperature_label": "Temperatura"
+      },
+      "assistant_engine": {
+        "title": "Motor de asistente de conversación",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "Modelo de asistente de OpenAI",
+        "gemini_label": "Modelo de asistente de Gemini",
+        "prompt_label": "Prompt del asistente",
+        "temperature_label": "Temperatura"
       }
     },
     "qa": {
@@ -465,7 +501,8 @@
       },
       "openai_label": "Modelo Q&A de OpenAI",
       "gemini_label": "Modelo Q&A de Gemini",
-      "prompt_label": "Prompt de extracción"
+      "prompt_label": "Prompt de extracción",
+      "temperature_label": "Temperatura"
     },
     "appearance": {
       "labels": {

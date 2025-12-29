@@ -99,8 +99,8 @@
       "empty_title": "내보낼 내용이 없습니다",
       "empty_body": "먼저 녹음을 시작해 전사 또는 번역을 받아주세요.",
       "error_title": "내보내기 실패",
-      "error_body": "지금은 Markdown을 공유할 수 없습니다. 잠시 후 다시 시도하세요.",
-      "accessibility": "대화를 Markdown으로 내보내기"
+      "error_body": "지금은 내보내기 내용을 공유할 수 없습니다. 잠시 후 다시 시도하세요.",
+      "accessibility": "대화 내보내기"
     },
     "accessibility": {
       "stop_recording": "녹음 중지",
@@ -211,6 +211,10 @@
       "translation": {
         "title": "번역",
         "subtitle": "토글 및 파이프라인"
+      },
+      "export": {
+        "title": "내보내기",
+        "subtitle": "형식과 내용"
       },
       "tts": {
         "title": "텍스트 음성 변환",
@@ -381,6 +385,7 @@
         "select_language": "대상 언어 선택",
         "openai_model": "OpenAI 번역 모델",
         "gemini_model": "Gemini 번역 모델",
+        "temperature": "온도",
         "prompt": "프롬프트(선택)",
         "prompt_placeholder": "예: 격식 있는 어조와 업계 용어.",
         "prompt_hint": "번역만 출력하라는 지시가 자동으로 추가됩니다.",
@@ -404,6 +409,24 @@
         "ru": "러시아어",
         "ar": "아랍어",
         "hi": "힌디어"
+      }
+    },
+    "export": {
+      "labels": {
+        "format": "형식",
+        "content": "내용",
+        "include_transcript": "원문",
+        "include_translation": "번역",
+        "timestamp": "타임스탬프",
+        "include_time": "시간 포함"
+      },
+      "formats": {
+        "markdown": "Markdown",
+        "pdf": "PDF"
+      },
+      "hints": {
+        "translation_on_demand": "번역이 꺼져 있어도 내보낼 때 즉시 번역합니다.",
+        "translation_unavailable": "번역 엔진을 선택한 뒤 번역 내용을 포함하세요."
       }
     },
     "tts": {
@@ -442,7 +465,8 @@
         },
         "openai_label": "OpenAI 제목 모델",
         "gemini_label": "Gemini 제목 모델",
-        "prompt_label": "제목 프롬프트"
+        "prompt_label": "제목 프롬프트",
+        "temperature_label": "온도"
       },
       "conversation_engine": {
         "title": "대화 요약 엔진",
@@ -452,7 +476,19 @@
         },
         "openai_label": "OpenAI 대화 모델",
         "gemini_label": "Gemini 대화 모델",
-        "prompt_label": "대화 프롬프트"
+        "prompt_label": "대화 프롬프트",
+        "temperature_label": "온도"
+      },
+      "assistant_engine": {
+        "title": "대화 어시스턴트 엔진",
+        "engines": {
+          "openai": "OpenAI",
+          "gemini": "Gemini"
+        },
+        "openai_label": "OpenAI 대화 어시스턴트 모델",
+        "gemini_label": "Gemini 대화 어시스턴트 모델",
+        "prompt_label": "어시스턴트 프롬프트",
+        "temperature_label": "온도"
       }
     },
     "qa": {
@@ -465,7 +501,8 @@
       },
       "openai_label": "OpenAI Q&A 모델",
       "gemini_label": "Gemini Q&A 모델",
-      "prompt_label": "추출 프롬프트"
+      "prompt_label": "추출 프롬프트",
+      "temperature_label": "온도"
     },
     "appearance": {
       "labels": {

@@ -3,17 +3,24 @@ import { EncodingType, getInfoAsync, readAsStringAsync } from 'expo-file-system/
 
 import {
   AppSettings,
+  DEFAULT_ASSISTANT_PROMPT,
   DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  DEFAULT_GEMINI_ASSISTANT_MODEL,
   DEFAULT_GEMINI_CONVERSATION_MODEL,
   DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
+  DEFAULT_OPENAI_ASSISTANT_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
   DEFAULT_OPENAI_CONVERSATION_MODEL,
+  DEFAULT_OPENAI_TITLE_TEMPERATURE,
   DEFAULT_OPENAI_TITLE_MODEL,
+  DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
   DEFAULT_TRANSLATION_PROMPT_PREFIX,
   resolveTranslationTargetLanguageEnglishName,
   DEFAULT_TITLE_SUMMARY_PROMPT,
 } from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
-import { validatePrompt } from '@/services/input-validation';
+import { validatePrompt, validateTemperature } from '@/services/input-validation';
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
@@ -85,6 +92,12 @@ export function resolveTranslationModel(settings: AppSettings): string {
     default:
       return DEFAULT_OPENAI_TRANSLATION_MODEL;
   }
+}
+
+function resolveTemperature(value: number | undefined, fallback: number): number {
+  const candidate = typeof value === 'number' ? value : Number(value);
+  const validation = validateTemperature(candidate);
+  return validation.valid ? candidate : fallback;
 }
 
 function collectGeminiText(data: any): string {
@@ -1270,7 +1283,10 @@ async function translateWithOpenAI(
         ],
       },
     ],
-    temperature: 0,
+    temperature: resolveTemperature(
+      settings.openaiTranslationTemperature,
+      DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
+    ),
     max_output_tokens: 1024,
     modalities: ['text'],
     response_format: {
@@ -1595,7 +1611,10 @@ async function generateTitleWithOpenAI(
         ],
       },
     ],
-    temperature: DEFAULT_TITLE_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiTitleTemperature,
+      DEFAULT_OPENAI_TITLE_TEMPERATURE
+    ),
     max_output_tokens: DEFAULT_TITLE_RESPONSE_MAX_TOKENS,
     modalities: ['text'],
     response_format: {
@@ -1751,7 +1770,10 @@ async function generateConversationSummaryWithOpenAI(
         ],
       },
     ],
-    temperature: DEFAULT_CONVERSATION_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiConversationTemperature,
+      DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
+    ),
     max_output_tokens: DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS,
     modalities: ['text'],
     response_format: {
@@ -1966,7 +1988,9 @@ async function generateAssistantReplyWithOpenAI({
   }
   const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
   const model =
-    settings.credentials.openaiConversationModel?.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL;
+    settings.credentials.openaiAssistantModel?.trim() ||
+    settings.credentials.openaiConversationModel?.trim() ||
+    DEFAULT_OPENAI_ASSISTANT_MODEL;
   const payload = {
     model,
     instructions,
@@ -1990,7 +2014,10 @@ async function generateAssistantReplyWithOpenAI({
         ],
       },
     ],
-    temperature: DEFAULT_ASSISTANT_RESPONSE_TEMPERATURE,
+    temperature: resolveTemperature(
+      settings.openaiAssistantTemperature,
+      DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
+    ),
     max_output_tokens: DEFAULT_ASSISTANT_RESPONSE_MAX_TOKENS,
     modalities: ['text'],
     response_format: { type: 'text' },
@@ -2031,7 +2058,9 @@ async function generateAssistantReplyWithGemini({
     throw new Error('Missing Gemini API key for conversation assistant');
   }
   const model =
-    settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
+    settings.credentials.geminiAssistantModel?.trim() ||
+    settings.credentials.geminiConversationModel?.trim() ||
+    DEFAULT_GEMINI_ASSISTANT_MODEL;
   // Note: Gemini API requires key as URL parameter - avoid logging the full URL
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const contents = history.map((message) => ({
@@ -2101,12 +2130,8 @@ export async function generateAssistantReply({
     .filter((item) => item.content.length > 0)
     .slice(-MAX_ASSISTANT_HISTORY_MESSAGES);
 
-  const instructionsParts = [
-    'You are a helpful conversation assistant who answers follow-up questions using the provided meeting context.',
-    'Ground responses in the transcript and avoid inventing details. If the answer is unknown, say you do not know.',
-    'Respond in the same language as the user whenever possible.',
-    'You can use Markdown formatting to structure your responses with headings, lists, code blocks, and emphasis where appropriate.',
-  ];
+  const basePrompt = (settings.assistantPrompt || '').trim() || DEFAULT_ASSISTANT_PROMPT;
+  const instructionsParts = [basePrompt];
   if (context) {
     instructionsParts.push('Conversation context:\n' + context);
   }
@@ -2120,7 +2145,8 @@ export async function generateAssistantReply({
     signal,
   };
 
-  if (settings.conversationSummaryEngine === 'gemini') {
+  const assistantEngine = settings.assistantEngine ?? settings.conversationSummaryEngine;
+  if (assistantEngine === 'gemini') {
     return generateAssistantReplyWithGemini(params);
   }
   return generateAssistantReplyWithOpenAI(params);

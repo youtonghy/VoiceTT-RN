@@ -123,6 +123,11 @@ export default function SettingsIndexScreen() {
         subtitle: t('settings.sections.translation.subtitle'),
       },
       {
+        route: '/explore/export' as RouteHref,
+        title: t('settings.sections.export.title'),
+        subtitle: t('settings.sections.export.subtitle'),
+      },
+      {
         route: '/explore/tts' as RouteHref,
         title: t('settings.sections.tts.title'),
         subtitle: t('settings.sections.tts.subtitle'),
