@@ -337,7 +337,7 @@ export default function TranscriptionScreen() {
   const { width } = useWindowDimensions();
   const isTablet = useIsTablet();
   const { settings } = useSettings();
-  const { messages, error, clearError, stopSession, replaceMessages, isSessionActive } = useTranscription();
+  const { messages, error, clearError, stopSession, replaceMessages, sessionState } = useTranscription();
   const isDesktopApp =
     Platform.OS === "web" &&
     typeof window !== "undefined" &&
@@ -375,7 +375,8 @@ export default function TranscriptionScreen() {
   const [autoSummaryTrigger, setAutoSummaryTrigger] = useState(0);
   const autoTitlePendingRef = useRef<{ conversationId: string } | null>(null);
   const autoSummaryPendingRef = useRef<{ conversationId: string } | null>(null);
-  const previousSessionActiveRef = useRef(isSessionActive);
+  const previousSessionStateRef = useRef(sessionState);
+  const suppressSessionStopEffectsRef = useRef(false);
   const autoTitleAbortRef = useRef<AbortController | null>(null);
   const autoSummaryAbortRef = useRef<AbortController | null>(null);
 
@@ -653,15 +654,19 @@ export default function TranscriptionScreen() {
   }, []);
 
   useEffect(() => {
-    const wasActive = previousSessionActiveRef.current;
-    previousSessionActiveRef.current = isSessionActive;
-    if (wasActive && !isSessionActive && activeConversationIdRef.current) {
+    const previousState = previousSessionStateRef.current;
+    previousSessionStateRef.current = sessionState;
+    if (previousState === 'stopping' && sessionState === 'idle' && activeConversationIdRef.current) {
+      if (suppressSessionStopEffectsRef.current) {
+        suppressSessionStopEffectsRef.current = false;
+        return;
+      }
       autoTitlePendingRef.current = { conversationId: activeConversationIdRef.current };
       setAutoTitleTrigger((prev) => prev + 1);
       autoSummaryPendingRef.current = { conversationId: activeConversationIdRef.current };
       setAutoSummaryTrigger((prev) => prev + 1);
     }
-  }, [isSessionActive]);
+  }, [sessionState]);
 
   useEffect(() => {
     const currentActiveId = activeConversationIdRef.current;
@@ -799,7 +804,8 @@ export default function TranscriptionScreen() {
     }: { skipStopSession?: boolean; suppressScroll?: boolean } = {}) => {
       if (!skipStopSession) {
         try {
-          await stopSession();
+          suppressSessionStopEffectsRef.current = true;
+          await stopSession({ discardCurrentSegment: true, cancelPendingTasks: true });
         } catch (sessionError) {
           console.warn(
             "[transcription] stopSession failed before adding conversation",
@@ -894,7 +900,8 @@ export default function TranscriptionScreen() {
       return;
     }
     try {
-      await stopSession();
+          suppressSessionStopEffectsRef.current = true;
+          await stopSession({ discardCurrentSegment: true, cancelPendingTasks: true });
     } catch (sessionError) {
       console.warn("[transcription] stopSession failed before switching conversation", sessionError);
     }
@@ -1354,7 +1361,8 @@ export default function TranscriptionScreen() {
       const confirmDelete = async () => {
         if (conversation.id === activeConversationId) {
           try {
-            await stopSession();
+          suppressSessionStopEffectsRef.current = true;
+          await stopSession({ discardCurrentSegment: true, cancelPendingTasks: true });
           } catch (sessionError) {
             console.warn(
               "[transcription] stopSession failed before deleting conversation",

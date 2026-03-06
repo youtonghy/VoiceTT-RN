@@ -62,12 +62,29 @@ interface SessionToggleOptions {
   qaAutoEnabled?: boolean;
 }
 
+export type SessionState = 'idle' | 'starting' | 'recording' | 'stopping' | 'failed';
+
+interface StopSessionOptions {
+  discardCurrentSegment?: boolean;
+  cancelPendingTasks?: boolean;
+  failureMessage?: string;
+}
+
+interface PendingTask {
+  token: string;
+  sessionId: string;
+  messageId: number;
+  transcriptionController: AbortController | null;
+  translationController: AbortController | null;
+}
+
 interface TranscriptionContextValue {
   messages: TranscriptionMessage[];
   isSessionActive: boolean;
   toggleSession: (options?: SessionToggleOptions) => Promise<void>;
-  stopSession: () => Promise<void>;
+  stopSession: (options?: StopSessionOptions) => Promise<void>;
   isRecording: boolean;
+  sessionState: SessionState;
   error: string | null;
   clearError: () => void;
   replaceMessages: (nextMessages: TranscriptionMessage[]) => void;
@@ -449,6 +466,8 @@ interface RecordingStatus {
   durationMillis: number;
   metering?: number;
   isDoneRecording: boolean;
+  canRecord?: boolean;
+  mediaServicesDidReset?: boolean;
 }
 
 function meteringToRms(value: number | undefined): number {
@@ -539,13 +558,6 @@ function createInitialMessage(messageId: number, qaAutoEnabled: boolean, t: TFun
   };
 }
 
-function computeNextMessageId(messages: TranscriptionMessage[]): number {
-  if (messages.length === 0) {
-    return 1;
-  }
-  return messages.reduce((maxId, item) => (item.id > maxId ? item.id : maxId), 0) + 1;
-}
-
 function applySettingsToSegment(segment: InternalSegmentState, settings: AppSettings, durationMs: number) {
   const preRoll = Math.max(0, settings.preRollDurationSec) * 1000;
   if (segment.candidateStartMs != null) {
@@ -581,8 +593,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const [messages, setMessages] = useState<TranscriptionMessage[]>([]);
   const messagesRef = useLatestRef(messages);
 
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const sessionActiveRef = useLatestRef(isSessionActive);
+  const [sessionState, setSessionState] = useState<SessionState>('idle');
+  const sessionStateRef = useLatestRef(sessionState);
+  const isSessionActive =
+    sessionState === 'starting' || sessionState === 'recording' || sessionState === 'stopping';
 
   const [qaAutoMode, setQaAutoMode] = useState(false);
   const qaAutoModeRef = useLatestRef(qaAutoMode);
@@ -599,13 +613,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   });
 
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
-  const nextMessageIdRef = useRef(1);
+  const nextMessageIdRef = useRef(Math.max(Date.now(), 1));
+  const nextSessionIdRef = useRef(1);
+  const sessionIdRef = useRef<string | null>(null);
+  const pendingTaskRegistryRef = useRef<Map<string, PendingTask>>(new Map());
   const segmentBaseMsRef = useRef(0);
   const desktopSegmentRecorderRef = useRef<MediaRecorder | null>(null);
   const desktopSegmentStreamRef = useRef<MediaStream | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const meteringSourceRef = useRef<'recorder' | 'desktop' | 'none'>('none');
-  const finalizeSegmentRef = useRef<((status: RecordingStatus | null) => Promise<void>) | null>(null);
+  const finalizeSegmentRef = useRef<((status: RecordingStatus | null, options?: { sessionId?: string }) => Promise<string | null>) | null>(null);
   const handleStatusUpdateRef = useRef<((status: RecordingStatus) => void) | null>(null);
   const meteringStaleSinceRef = useRef<number | null>(null);
 
@@ -621,7 +638,84 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     segmentStateRef.current = { ...initialSegmentState };
   }, []);
 
+  const createSessionId = useCallback(() => 'session-' + nextSessionIdRef.current++, []);
+
+  const allocateMessageId = useCallback(() => {
+    const candidate = Math.max(Date.now(), nextMessageIdRef.current + 1);
+    nextMessageIdRef.current = candidate;
+    return candidate;
+  }, []);
+
+  const isTaskCurrent = useCallback((taskToken: string) => {
+    return pendingTaskRegistryRef.current.has(taskToken);
+  }, []);
+
+  const cancelPendingTasks = useCallback((options?: {
+    sessionId?: string;
+    excludeTaskToken?: string | null;
+    markMessagesFailed?: boolean;
+    failureMessage?: string;
+  }) => {
+    const registry = pendingTaskRegistryRef.current;
+    if (!registry.size) {
+      return;
+    }
+    const failureMessage = options?.failureMessage || t('transcription.status.failed');
+    const tokensToCancel: string[] = [];
+    registry.forEach((task, token) => {
+      if (options?.excludeTaskToken && token === options.excludeTaskToken) {
+        return;
+      }
+      if (options?.sessionId && task.sessionId !== options.sessionId) {
+        return;
+      }
+      tokensToCancel.push(token);
+    });
+    if (!tokensToCancel.length) {
+      return;
+    }
+    if (options?.markMessagesFailed) {
+      const affectedMessageIds = new Set(
+        tokensToCancel
+          .map((token) => registry.get(token)?.messageId)
+          .filter((value): value is number => typeof value === 'number')
+      );
+      if (affectedMessageIds.size > 0) {
+        setMessagesAndRef((prev) =>
+          prev.map((msg) => {
+            if (!affectedMessageIds.has(msg.id)) {
+              return msg;
+            }
+            const nextMessage: TranscriptionMessage = {
+              ...msg,
+              updatedAt: Date.now(),
+            };
+            if (msg.status === 'pending' || msg.status === 'transcribing') {
+              nextMessage.status = 'failed';
+              nextMessage.error = failureMessage;
+            }
+            if (msg.translationStatus === 'pending') {
+              nextMessage.translationStatus = 'failed';
+              nextMessage.translationError = failureMessage;
+            }
+            return nextMessage;
+          })
+        );
+      }
+    }
+    tokensToCancel.forEach((token) => {
+      const task = registry.get(token);
+      if (!task) {
+        return;
+      }
+      task.transcriptionController?.abort();
+      task.translationController?.abort();
+      registry.delete(token);
+    });
+  }, [setMessagesAndRef, t]);
+
   const replaceMessages = useCallback((nextMessages: TranscriptionMessage[]) => {
+    cancelPendingTasks();
     const current = messagesRef.current;
     let hasDifference = current.length !== nextMessages.length;
     if (!hasDifference) {
@@ -651,13 +745,27 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     const normalized = nextMessages.map((msg) => ({ ...msg }));
+    const highestSeen = normalized.reduce(
+      (maxId, item) => (item.id > maxId ? item.id : maxId),
+      nextMessageIdRef.current
+    );
+    nextMessageIdRef.current = Math.max(nextMessageIdRef.current, highestSeen);
     setMessagesAndRef(() => normalized);
-    nextMessageIdRef.current = computeNextMessageId(normalized);
-  }, [messagesRef, setMessagesAndRef]);
-  const updateMessage = useCallback((messageId: number, updater: (msg: TranscriptionMessage) => TranscriptionMessage) => {
-    setMessagesAndRef((prev) => prev.map((msg) => (msg.id === messageId ? updater(msg) : msg)));
-  }, [setMessagesAndRef]);
+  }, [cancelPendingTasks, messagesRef, setMessagesAndRef]);
 
+  const updateMessage = useCallback((messageId: number, updater: (msg: TranscriptionMessage) => TranscriptionMessage) => {
+    let didUpdate = false;
+    setMessagesAndRef((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== messageId) {
+          return msg;
+        }
+        didUpdate = true;
+        return updater(msg);
+      })
+    );
+    return didUpdate;
+  }, [setMessagesAndRef]);
   const updateMessageQa = useCallback((messageId: number, payload: UpdateMessageQaPayload) => {
     const timestamp = Date.now();
     updateMessage(messageId, (msg) => {
@@ -695,13 +803,91 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
 
-  const finalizeSegment = useCallback(async (status: RecordingStatus | null) => {
+  const startNewRecording = useCallback(async () => {
+    console.log('[transcription] startNewRecording - preparing to record');
+    await recorder.prepareToRecordAsync();
+    console.log('[transcription] recorder prepared, starting record');
+    recorder.record();
+    console.log('[transcription] record() called');
+    segmentBaseMsRef.current = 0;
+    if (isElectronDesktop) {
+      const stream = resolveDesktopRecordingStream(recorder);
+      if (stream) {
+        desktopSegmentStreamRef.current = stream;
+        if (desktopSegmentRecorderRef.current) {
+          stopDesktopSegmentRecorder(desktopSegmentRecorderRef.current).catch((stopError) => {
+            console.warn('[transcription] Failed to stop existing desktop segment recorder', stopError);
+          });
+        }
+        const segmentRecorder = createDesktopSegmentRecorder(stream);
+        if (segmentRecorder) {
+          segmentRecorder.start();
+          desktopSegmentRecorderRef.current = segmentRecorder;
+          console.log('[transcription] Desktop segment recorder started');
+        } else {
+          desktopSegmentRecorderRef.current = null;
+        }
+      } else {
+        console.warn('[transcription] Desktop recording stream unavailable');
+      }
+    }
+
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+    }
+    statusIntervalRef.current = setInterval(() => {
+      const recorderStatus = recorder.getStatus();
+      const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
+      const metering =
+        typeof recorderStatus.metering === 'number' && Number.isFinite(recorderStatus.metering)
+          ? recorderStatus.metering
+          : fallbackMetering;
+      const nextSource: 'recorder' | 'desktop' | 'none' =
+        typeof recorderStatus.metering === 'number'
+          ? 'recorder'
+          : typeof fallbackMetering === 'number'
+          ? 'desktop'
+          : 'none';
+      if (meteringSourceRef.current !== nextSource) {
+        console.log('[transcription] Metering source', { source: nextSource });
+        meteringSourceRef.current = nextSource;
+      }
+      const status: RecordingStatus = {
+        isRecording: recorderStatus.isRecording,
+        durationMillis: recorderStatus.durationMillis,
+        metering,
+        isDoneRecording: false,
+        canRecord: recorderStatus.canRecord,
+        mediaServicesDidReset: recorderStatus.mediaServicesDidReset,
+      };
+      handleStatusUpdateRef.current?.(status);
+    }, 100);
+    console.log('[transcription] status interval started');
+  }, [recorder]);
+
+  const stopAndResetRecording = useCallback(async () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    const recorderStatus = recorder.getStatus();
+    if (recorderStatus.isRecording) {
+      try {
+        await recorder.stop();
+      } catch (stopError) {
+        console.warn('[transcription] Failed to stop recording', stopError);
+      }
+    }
+  }, [recorder]);
+
+  const finalizeSegment = useCallback(async (status: RecordingStatus | null, options?: { sessionId?: string }) => {
     const snapshot = { ...segmentStateRef.current };
     if (snapshot.messageId == null) {
-      return;
+      return null;
     }
     resetSegmentState();
     const currentMessageId = snapshot.messageId;
+    const taskSessionId = options?.sessionId ?? sessionIdRef.current;
     const absoluteDurationMs =
       status?.durationMillis ?? recorder.getStatus().durationMillis ?? recorder.currentTime * 1000;
     const segmentBaseMs = segmentBaseMsRef.current;
@@ -712,6 +898,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       messageId: currentMessageId,
       startOffsetMs,
       durationMs: endOffsetMs,
+      sessionId: taskSessionId ?? 'none',
     });
     const payload: TranscriptionSegmentPayload = {
       fileUri: '',
@@ -721,6 +908,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       messageId: currentMessageId,
     };
     let originalFileUri: string | null = null;
+    let taskToken: string | null = null;
     try {
       let normalizedUri: string | null = null;
       let useDesktopSegmenter = isElectronDesktop && desktopSegmentRecorderRef.current !== null;
@@ -736,21 +924,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           originalFileUri = blobUri;
           normalizedUri = blobUri;
           segmentBaseMsRef.current = absoluteDurationMs;
-          if (sessionActiveRef.current) {
+          if (sessionStateRef.current === 'recording' && taskSessionId && sessionIdRef.current === taskSessionId) {
             const stream =
               desktopSegmentStreamRef.current ?? resolveDesktopRecordingStream(recorder);
             if (stream) {
               desktopSegmentStreamRef.current = stream;
               const nextRecorder = createDesktopSegmentRecorder(stream);
               if (nextRecorder) {
-                try {
-                  nextRecorder.start();
-                  desktopSegmentRecorderRef.current = nextRecorder;
-                  console.log('[transcription] Desktop segment recorder restarted');
-                } catch (restartError) {
-                  console.warn('[transcription] Failed to restart desktop segment recorder', restartError);
-                  desktopSegmentRecorderRef.current = null;
-                }
+                nextRecorder.start();
+                desktopSegmentRecorderRef.current = nextRecorder;
+                console.log('[transcription] Desktop segment recorder restarted');
               }
             } else {
               console.warn('[transcription] Desktop recording stream unavailable for restart');
@@ -765,7 +948,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
 
       if (!useDesktopSegmenter) {
-        // Stop the current recording
         if (statusIntervalRef.current) {
           clearInterval(statusIntervalRef.current);
           statusIntervalRef.current = null;
@@ -793,10 +975,20 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       payload.fileUri = normalizedUri;
 
-      if (sessionActiveRef.current && !useDesktopSegmenter) {
-        startNewRecording().catch((restartError) => {
+      if (sessionStateRef.current === 'recording' && taskSessionId && sessionIdRef.current === taskSessionId && !useDesktopSegmenter) {
+        try {
+          await startNewRecording();
+        } catch (restartError) {
           console.error('[transcription] Failed to restart recording', restartError);
-        });
+          sessionIdRef.current = null;
+          setQaAutoMode(false);
+          setSessionState('failed');
+          setError(
+            t('transcription.errors.unable_to_start', {
+              message: (restartError as Error).message,
+            })
+          );
+        }
       }
 
       const segmentMetadata: SegmentMetadata = {
@@ -808,26 +1000,50 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         engine: settingsRef.current.transcriptionEngine,
         model: resolveTranscriptionModel(settingsRef.current),
       };
-      updateMessage(currentMessageId, (msg) => ({
+      const didMarkTranscribing = updateMessage(currentMessageId, (msg) => ({
         ...msg,
         status: 'transcribing',
         segment: segmentMetadata,
         updatedAt: Date.now(),
       }));
+      if (!didMarkTranscribing) {
+        return null;
+      }
 
-      const abortController = new AbortController();
+      taskToken = (taskSessionId ?? 'orphan') + ':' + currentMessageId;
+      pendingTaskRegistryRef.current.set(taskToken, {
+        token: taskToken,
+        sessionId: taskSessionId ?? 'orphan',
+        messageId: currentMessageId,
+        transcriptionController: new AbortController(),
+        translationController: null,
+      });
+      const task = pendingTaskRegistryRef.current.get(taskToken);
+      if (!task) {
+        return null;
+      }
+
       let transcription;
       try {
-        transcription = await transcribeSegment(payload, settingsRef.current, abortController.signal);
+        transcription = await transcribeSegment(payload, settingsRef.current, task.transcriptionController?.signal);
       } catch (transcribeError) {
         console.warn('[transcription] Transcription failed', transcribeError);
-        updateMessage(currentMessageId, (msg) => ({
-          ...msg,
-          status: 'failed',
-          error: (transcribeError as Error).message,
-          updatedAt: Date.now(),
-        }));
-        return;
+        if (taskToken && isTaskCurrent(taskToken)) {
+          updateMessage(currentMessageId, (msg) => ({
+            ...msg,
+            status: 'failed',
+            error: (transcribeError as Error).message,
+            updatedAt: Date.now(),
+          }));
+        }
+        return taskToken;
+      }
+      if (!taskToken || !isTaskCurrent(taskToken)) {
+        return taskToken;
+      }
+      const activeTask = pendingTaskRegistryRef.current.get(taskToken);
+      if (activeTask) {
+        activeTask.transcriptionController = null;
       }
       console.log('[transcription] Transcription completed', {
         messageId: currentMessageId,
@@ -835,9 +1051,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         language: transcription.language ?? 'auto',
       });
 
-      const shouldTranslate = settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none';
+      const shouldTranslate =
+        settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none';
 
-      updateMessage(currentMessageId, (msg) => ({
+      const didMarkCompleted = updateMessage(currentMessageId, (msg) => ({
         ...msg,
         status: 'completed',
         transcript: transcription.text,
@@ -845,15 +1062,25 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         translationStatus: shouldTranslate ? 'pending' : msg.translationStatus,
         updatedAt: Date.now(),
       }));
+      if (!didMarkCompleted) {
+        return taskToken;
+      }
 
-      if (shouldTranslate) {
+      if (shouldTranslate && taskToken && isTaskCurrent(taskToken)) {
         const translationController = new AbortController();
+        const pendingTask = pendingTaskRegistryRef.current.get(taskToken);
+        if (pendingTask) {
+          pendingTask.translationController = translationController;
+        }
         try {
           const translationResult = await withTimeout(
             translateText(transcription.text, settingsRef.current, translationController.signal),
             settingsRef.current.translationTimeoutSec * 1000,
             () => translationController.abort()
           );
+          if (!isTaskCurrent(taskToken)) {
+            return taskToken;
+          }
           const trimmed = translationResult.text?.trim();
           if (trimmed) {
             updateMessage(currentMessageId, (msg) => ({
@@ -871,14 +1098,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
             }));
           }
         } catch (translateError: any) {
-          updateMessage(currentMessageId, (msg) => ({
-            ...msg,
-            translationStatus: 'failed',
-            translationError: translateError?.message || t('translation.status.failed'),
-            updatedAt: Date.now(),
-          }));
+          if (isTaskCurrent(taskToken)) {
+            updateMessage(currentMessageId, (msg) => ({
+              ...msg,
+              translationStatus: 'failed',
+              translationError: translateError?.message || t('translation.status.failed'),
+              updatedAt: Date.now(),
+            }));
+          }
         }
       }
+      return taskToken;
     } catch (segmentError) {
       updateMessage(currentMessageId, (msg) => ({
         ...msg,
@@ -889,7 +1119,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           msg.translationStatus === 'pending' ? (segmentError as Error).message : msg.translationError,
         updatedAt: Date.now(),
       }));
+      return taskToken;
     } finally {
+      if (taskToken && isTaskCurrent(taskToken)) {
+        pendingTaskRegistryRef.current.delete(taskToken);
+      }
       if (payload.fileUri) {
         cleanupRecordingFile(payload.fileUri);
       }
@@ -897,169 +1131,116 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         cleanupRecordingFile(originalFileUri);
       }
     }
-  }, [cleanupRecordingFile, recorder, resetSegmentState, segmentBaseMsRef, sessionActiveRef, settingsRef, t, updateMessage]);
+  }, [cleanupRecordingFile, isTaskCurrent, recorder, resetSegmentState, settingsRef, startNewRecording, t, updateMessage]);
 
-  // Update the ref when finalizeSegment changes
   useEffect(() => {
     finalizeSegmentRef.current = finalizeSegment;
   }, [finalizeSegment]);
 
-  const startNewRecording = useCallback(async () => {
-    console.log('[transcription] startNewRecording - preparing to record');
-    try {
-      await recorder.prepareToRecordAsync();
-      console.log('[transcription] recorder prepared, starting record');
-      recorder.record();
-      console.log('[transcription] record() called');
-      segmentBaseMsRef.current = 0;
-      if (isElectronDesktop) {
-        const stream = resolveDesktopRecordingStream(recorder);
-        if (stream) {
-          desktopSegmentStreamRef.current = stream;
-          if (desktopSegmentRecorderRef.current) {
-            stopDesktopSegmentRecorder(desktopSegmentRecorderRef.current).catch((stopError) => {
-              console.warn('[transcription] Failed to stop existing desktop segment recorder', stopError);
-            });
-          }
-          const segmentRecorder = createDesktopSegmentRecorder(stream);
-          if (segmentRecorder) {
-            try {
-              segmentRecorder.start();
-              desktopSegmentRecorderRef.current = segmentRecorder;
-              console.log('[transcription] Desktop segment recorder started');
-            } catch (segmentError) {
-              console.warn('[transcription] Failed to start desktop segment recorder', segmentError);
-              desktopSegmentRecorderRef.current = null;
-            }
-          } else {
-            desktopSegmentRecorderRef.current = null;
-          }
-        } else {
-          console.warn('[transcription] Desktop recording stream unavailable');
-        }
-      }
-
-      // Poll recording status periodically for metering and duration
-      if (statusIntervalRef.current) {
-        clearInterval(statusIntervalRef.current);
-      }
-      statusIntervalRef.current = setInterval(() => {
-        const recorderStatus = recorder.getStatus();
-        const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
-        const metering =
-          typeof recorderStatus.metering === 'number' && Number.isFinite(recorderStatus.metering)
-            ? recorderStatus.metering
-            : fallbackMetering;
-        const nextSource: 'recorder' | 'desktop' | 'none' =
-          typeof recorderStatus.metering === 'number'
-            ? 'recorder'
-            : typeof fallbackMetering === 'number'
-            ? 'desktop'
-            : 'none';
-        if (meteringSourceRef.current !== nextSource) {
-          console.log('[transcription] Metering source', { source: nextSource });
-          meteringSourceRef.current = nextSource;
-        }
-        const status: RecordingStatus = {
-          isRecording: recorderStatus.isRecording,
-          durationMillis: recorderStatus.durationMillis,
-          metering,
-          isDoneRecording: false,
-        };
-        handleStatusUpdateRef.current?.(status);
-      }, 100);
-      console.log('[transcription] status interval started');
-    } catch (startError) {
-      console.error('[transcription] Failed to start recording', startError);
-      setError(t('transcription.errors.unable_to_start', { message: (startError as Error).message }));
-    }
-  }, [recorder, segmentBaseMsRef, t]);
-
-  const stopAndResetRecording = useCallback(async () => {
-    if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current);
-      statusIntervalRef.current = null;
-    }
-    if (recorder.isRecording) {
-      try {
-        await recorder.stop();
-      } catch (stopError) {
-        console.warn('[transcription] Failed to stop recording', stopError);
-      }
-    }
-  }, [recorder]);
-
   const startSession = useCallback(async (options?: SessionToggleOptions) => {
     console.log('[transcription] startSession called');
-    if (sessionActiveRef.current) {
+    if (sessionStateRef.current === 'starting' || sessionStateRef.current === 'recording' || sessionStateRef.current === 'stopping') {
       console.log('[transcription] session already active, returning');
       return;
     }
+    const nextSessionId = createSessionId();
+    sessionIdRef.current = nextSessionId;
+    resetSegmentState();
+    setError(null);
+    setQaAutoMode(options?.qaAutoEnabled ?? false);
+    setSessionState('starting');
     try {
-      console.log('[transcription] checking existing permissions');
       let permission = await getRecordingPermissionsAsync();
-      console.log('[transcription] existing permission status:', permission);
-
       if (!permission.granted) {
-        console.log('[transcription] requesting recording permissions');
         permission = await requestRecordingPermissionsAsync();
-        console.log('[transcription] permission result:', permission);
         if (!permission.granted) {
-          console.log('[transcription] permission denied');
           Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
-          setError(t('transcription.errors.permission_denied'));
-          return;
+          throw new Error(t('transcription.errors.permission_denied'));
         }
-      } else {
-        console.log('[transcription] permission already granted, skipping request');
       }
-      console.log('[transcription] setting audio mode');
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
         shouldPlayInBackground: true,
         interruptionModeAndroid: 'duckOthers',
       });
-      console.log('[transcription] audio mode set, resetting segment state');
-      resetSegmentState();
-      setQaAutoMode(options?.qaAutoEnabled ?? false);
-      setIsSessionActive(true);
-      console.log('[transcription] starting new recording');
       await startNewRecording();
+      if (sessionIdRef.current !== nextSessionId) {
+        await stopAndResetRecording();
+        return;
+      }
+      setSessionState('recording');
       console.log('[transcription] recording started successfully');
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
-      setError(t('transcription.errors.start_failed', { message: (startError as Error).message }));
+      if (sessionIdRef.current === nextSessionId) {
+        sessionIdRef.current = null;
+      }
       setQaAutoMode(false);
-      setIsSessionActive(false);
+      await stopAndResetRecording();
+      resetSegmentState();
+      desktopSegmentStreamRef.current = null;
+      setSessionState('failed');
+      setError(
+        startError instanceof Error && startError.message === t('transcription.errors.permission_denied')
+          ? startError.message
+          : t('transcription.errors.start_failed', { message: (startError as Error).message })
+      );
     }
-  }, [resetSegmentState, sessionActiveRef, startNewRecording, t]);
+  }, [createSessionId, resetSegmentState, sessionStateRef, startNewRecording, stopAndResetRecording, t]);
 
-  const stopSession = useCallback(async () => {
-    if (!sessionActiveRef.current) {
+  const stopSession = useCallback(async (options?: StopSessionOptions) => {
+    const currentSessionId = sessionIdRef.current;
+    const currentState = sessionStateRef.current;
+    const shouldHandle =
+      currentSessionId != null || currentState === 'starting' || currentState === 'recording' || currentState === 'stopping';
+    if (!shouldHandle) {
       return;
     }
 
-    setIsSessionActive(false);
-    setQaAutoMode(false);
+    const failureMessage = options?.failureMessage || t('transcription.status.failed');
+    const shouldCancelPendingTasks = options?.cancelPendingTasks !== false;
+    const shouldDiscardCurrentSegment = options?.discardCurrentSegment === true;
+    const activeMessageId = segmentStateRef.current.messageId;
+    const hasActiveSegment = segmentStateRef.current.isActive && activeMessageId != null;
 
-    const hasActiveSegment = segmentStateRef.current.isActive && segmentStateRef.current.messageId != null;
+    setQaAutoMode(false);
+    sessionIdRef.current = null;
+    if (currentState !== 'failed') {
+      setSessionState('stopping');
+    }
 
     if (statusIntervalRef.current) {
       clearInterval(statusIntervalRef.current);
       statusIntervalRef.current = null;
     }
 
-    if (hasActiveSegment && finalizeSegmentRef.current) {
-      sessionActiveRef.current = false;
+    if (shouldDiscardCurrentSegment && activeMessageId != null) {
+      updateMessage(activeMessageId, (msg) => ({
+        ...msg,
+        status: 'failed',
+        error: failureMessage,
+        updatedAt: Date.now(),
+      }));
+    }
+
+    if (currentSessionId && shouldCancelPendingTasks) {
+      cancelPendingTasks({
+        sessionId: currentSessionId,
+        markMessagesFailed: true,
+        failureMessage,
+      });
+    }
+
+    if (!shouldDiscardCurrentSegment && hasActiveSegment && finalizeSegmentRef.current) {
       try {
-        await finalizeSegmentRef.current(null);
+        await finalizeSegmentRef.current(null, { sessionId: currentSessionId ?? undefined });
       } catch (finalizeError) {
         console.warn('[transcription] Failed to finalize active segment on stop', finalizeError);
       }
     }
 
-    if (!hasActiveSegment && desktopSegmentRecorderRef.current) {
+    if ((shouldDiscardCurrentSegment || !hasActiveSegment) && desktopSegmentRecorderRef.current) {
       const segmentRecorder = desktopSegmentRecorderRef.current;
       desktopSegmentRecorderRef.current = null;
       try {
@@ -1073,18 +1254,47 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     resetSegmentState();
     segmentBaseMsRef.current = 0;
     desktopSegmentStreamRef.current = null;
-  }, [resetSegmentState, segmentBaseMsRef, sessionActiveRef, stopAndResetRecording]);
+
+    if (options?.failureMessage) {
+      setSessionState('failed');
+      setError(options.failureMessage);
+      return;
+    }
+    setSessionState('idle');
+  }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, t, updateMessage]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
-    console.log('[transcription] toggleSession called, isActive:', sessionActiveRef.current);
-    if (sessionActiveRef.current) {
+    console.log('[transcription] toggleSession called, state:', sessionStateRef.current);
+    if (sessionStateRef.current === 'starting' || sessionStateRef.current === 'stopping') {
+      return;
+    }
+    if (sessionStateRef.current === 'recording') {
       await stopSession();
     } else {
       await startSession(options);
     }
-  }, [sessionActiveRef, startSession, stopSession]);
-
+  }, [sessionStateRef, startSession, stopSession]);
   const handleStatusUpdate = useCallback((status: RecordingStatus) => {
+    if (sessionStateRef.current !== 'recording') {
+      return;
+    }
+    if (status.mediaServicesDidReset) {
+      void stopSession({
+        discardCurrentSegment: true,
+        cancelPendingTasks: true,
+        failureMessage: t('transcription.errors.start_failed', { message: 'mediaServicesDidReset' }),
+      });
+      return;
+    }
+    if (status.canRecord === false) {
+      void stopSession({
+        discardCurrentSegment: true,
+        cancelPendingTasks: true,
+        failureMessage: t('transcription.errors.start_failed', { message: 'canRecord=false' }),
+      });
+      return;
+    }
+
     const durationMs = status.durationMillis ?? 0;
     if (!status.isRecording && !status.isDoneRecording && durationMs <= 0) {
       console.log('[transcription] handleStatusUpdate - skipping (not recording and duration=0)');
@@ -1107,7 +1317,8 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       meteringStaleSinceRef.current != null ? now - meteringStaleSinceRef.current : 0;
     const threshold = currentSettings.activationThreshold;
     const activationDurationMs = currentSettings.activationDurationSec * 1000;
-    const shouldForceActivation = normalizedMetering === undefined && meteringUnavailableMs >= activationDurationMs;
+    const shouldForceActivation =
+      normalizedMetering === undefined && meteringUnavailableMs >= activationDurationMs;
     const rms = shouldForceActivation ? threshold + 0.05 : meteringToRms(normalizedMetering);
 
     console.log('[transcription] rms:', rms, 'threshold:', threshold, 'segment.isActive:', segment.isActive);
@@ -1123,7 +1334,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         if (elapsedAbove >= activationDurationMs) {
           console.log('[transcription] ACTIVATING SEGMENT');
           segment.isActive = true;
-          const messageId = nextMessageIdRef.current++;
+          const messageId = allocateMessageId();
           segment.messageId = messageId;
           applySettingsToSegment(segment, currentSettings, durationMs);
           const newMessage = createInitialMessage(messageId, qaAutoModeRef.current, t);
@@ -1137,36 +1348,38 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       } else {
         segment.candidateStartMs = null;
       }
-    } else {
-      const isBelowThreshold = normalizedMetering === undefined ? false : rms < threshold;
-      if (isBelowThreshold) {
-        if (segment.belowThresholdStartMs == null) {
-          segment.belowThresholdStartMs = durationMs;
-        }
-        const silenceElapsed = durationMs - (segment.belowThresholdStartMs ?? durationMs);
-        if (silenceElapsed >= currentSettings.silenceDurationSec * 1000) {
-          finalizeSegmentRef.current?.(status);
-        }
-      } else {
-        segment.belowThresholdStartMs = null;
+      return;
+    }
+
+    const isBelowThreshold = normalizedMetering === undefined ? false : rms < threshold;
+    if (isBelowThreshold) {
+      if (segment.belowThresholdStartMs == null) {
+        segment.belowThresholdStartMs = durationMs;
       }
-      if (currentSettings.maxSegmentDurationSec > 0) {
-        const startMs = segment.confirmedStartMs ?? 0;
-        const segmentElapsed = durationMs - startMs;
-        if (segmentElapsed >= currentSettings.maxSegmentDurationSec * 1000) {
-          finalizeSegmentRef.current?.(status);
-        }
+      const silenceElapsed = durationMs - (segment.belowThresholdStartMs ?? durationMs);
+      if (silenceElapsed >= currentSettings.silenceDurationSec * 1000) {
+        void finalizeSegmentRef.current?.(status);
+      }
+    } else {
+      segment.belowThresholdStartMs = null;
+    }
+
+    if (currentSettings.maxSegmentDurationSec > 0) {
+      const startMs = segment.confirmedStartMs ?? 0;
+      const segmentElapsed = durationMs - startMs;
+      if (segmentElapsed >= currentSettings.maxSegmentDurationSec * 1000) {
+        void finalizeSegmentRef.current?.(status);
       }
     }
-  }, [qaAutoModeRef, setMessagesAndRef, settingsRef, t]);
+  }, [allocateMessageId, qaAutoModeRef, sessionStateRef, setMessagesAndRef, settingsRef, stopSession, t]);
 
-  // Update the ref when handleStatusUpdate changes
   useEffect(() => {
     handleStatusUpdateRef.current = handleStatusUpdate;
   }, [handleStatusUpdate]);
 
   useEffect(() => {
     return () => {
+      cancelPendingTasks({ markMessagesFailed: false });
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
       }
@@ -1175,10 +1388,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         desktopSegmentRecorderRef.current = null;
         stopDesktopSegmentRecorder(segmentRecorder).catch(() => undefined);
       }
+      stopDesktopMetering();
       stopAndResetRecording();
       desktopSegmentStreamRef.current = null;
     };
-  }, [stopAndResetRecording]);
+  }, [cancelPendingTasks, stopAndResetRecording]);
 
   const value = useMemo<TranscriptionContextValue>(() => ({
     messages,
@@ -1188,10 +1402,15 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     replaceMessages,
     updateMessageQa,
     isRecording,
+    sessionState,
     error,
-    clearError: () => setError(null),
-  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, updateMessageQa, isRecording, error]);
-
+    clearError: () => {
+      setError(null);
+      if (sessionStateRef.current === 'failed') {
+        setSessionState('idle');
+      }
+    },
+  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, updateMessageQa, isRecording, sessionState, error, sessionStateRef]);
   return <TranscriptionContext.Provider value={value}>{children}</TranscriptionContext.Provider>;
 }
 

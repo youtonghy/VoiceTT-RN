@@ -22,7 +22,7 @@ type RecordingToggleProps = {
 };
 
 export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
-  const { isSessionActive, toggleSession, isRecording } = useTranscription();
+  const { isSessionActive, toggleSession, sessionState } = useTranscription();
   const { t } = useTranslation();
   const shimmerProgress = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
@@ -73,22 +73,26 @@ export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: Rec
     ? t('transcription.accessibility.stop_recording')
     : t('transcription.accessibility.start_recording');
 
-  const label = isSessionActive
-    ? isRecording
-      ? t('transcription.status.recording')
-      : t('transcription.status.processing')
+  const label = sessionState === 'recording'
+    ? t('transcription.status.recording')
+    : sessionState === 'starting' || sessionState === 'stopping'
+    ? t('transcription.status.processing')
+    : sessionState === 'failed'
+    ? t('transcription.status.failed')
     : t('transcription.controls.start');
 
   const isFull = variant === 'full';
+  const isBusy = sessionState === 'starting' || sessionState === 'stopping';
 
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel}
+      disabled={isBusy}
       onPress={() => {
         console.log('[RecordingToggle] Button pressed');
         void toggleSession({ qaAutoEnabled });
       }}
-      style={[styles.recordButtonWrapper, isFull && styles.recordButtonWrapperFull]}>
+      style={[styles.recordButtonWrapper, isFull && styles.recordButtonWrapperFull, isBusy && styles.recordButtonWrapperDisabled]}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }}
@@ -96,7 +100,7 @@ export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: Rec
         style={[styles.recordButton, isFull && styles.recordButtonFull]}>
         <View style={[styles.recordButtonContent, isFull && styles.recordButtonContentFull]}>
           <Ionicons
-            name={isSessionActive ? "stop" : "mic"}
+            name={isSessionActive ? 'stop' : 'mic'}
             size={24}
             color="#fff"
           />
@@ -135,6 +139,9 @@ const styles = StyleSheet.create({
   },
   recordButtonWrapperFull: {
     width: '100%',
+  },
+  recordButtonWrapperDisabled: {
+    opacity: 0.75,
   },
   recordButton: {
     width: 60,
