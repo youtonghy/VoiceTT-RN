@@ -1,7 +1,7 @@
 /**
- * 页面名称：标签页布局 (Tabs Layout)
- * 文件路径：app/(tabs)/_layout.tsx
- * 功能描述：配置主界面的标签页导航，支持手机端的底部标签栏和平板端的侧边导航栏。
+ * Screen: tabs layout
+ * Path: app/(tabs)/_layout.tsx
+ * Purpose: configure bottom tabs for phones and side navigation for tablets.
  */
 
 import { Stack, Tabs } from 'expo-router';
@@ -24,7 +24,6 @@ export default function TabLayout() {
   const { settings } = useSettings();
   const hiddenTabItemStyle = { display: 'none' } as const;
 
-  // 标签页标题国际化
   const tabs = {
     transcription: t('navigation.tabs.transcription'),
     qa: t('navigation.tabs.qa'),
@@ -32,7 +31,6 @@ export default function TabLayout() {
     settings: t('navigation.tabs.settings'),
   };
 
-  // 平板端布局：侧边栏 + 堆栈导航
   if (isTablet) {
     return (
       <View style={styles.tabletRoot}>
@@ -49,7 +47,6 @@ export default function TabLayout() {
     );
   }
 
-  // 手机端布局：底部标签栏
   return (
     <Tabs
       screenOptions={{
@@ -57,8 +54,6 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
-
-      {/* 转录页面标签 */}
       <Tabs.Screen
         name="transcription"
         options={{
@@ -66,7 +61,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="waveform" color={color} />,
         }}
       />
-      {/* 问答页面标签 */}
       <Tabs.Screen
         name="conversation-qa"
         options={{
@@ -75,7 +69,6 @@ export default function TabLayout() {
           tabBarItemStyle: settings.showQaTab ? undefined : hiddenTabItemStyle,
         }}
       />
-      {/* 阅读/朗读页面标签 */}
       <Tabs.Screen
         name="text-to-speech"
         options={{
@@ -84,7 +77,6 @@ export default function TabLayout() {
           tabBarItemStyle: settings.showReadingTab ? undefined : hiddenTabItemStyle,
         }}
       />
-      {/* 设置/探索页面标签 */}
       <Tabs.Screen
         name="settings"
         options={{
@@ -92,11 +84,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
         }}
       />
+      {/* Legacy alias routes must stay hidden or Expo Router will auto-inject them into the tab bar. */}
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="qa" options={{ href: null }} />
+      <Tabs.Screen name="reading" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }
 
-// 样式定义
 const styles = StyleSheet.create({
   tabletRoot: {
     flex: 1,
