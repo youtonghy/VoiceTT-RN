@@ -39,10 +39,10 @@ export default function TabLayout() {
         <SideTabRail showQaTab={settings.showQaTab} showReadingTab={settings.showReadingTab} />
         <View style={styles.tabletContent}>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="qa" />
-            <Stack.Screen name="reading" />
-            <Stack.Screen name="explore" />
+            <Stack.Screen name="transcription" />
+            <Stack.Screen name="conversation-qa" />
+            <Stack.Screen name="text-to-speech" />
+            <Stack.Screen name="settings" />
           </Stack>
         </View>
       </View>
@@ -60,7 +60,7 @@ export default function TabLayout() {
 
       {/* 转录页面标签 */}
       <Tabs.Screen
-        name="index"
+        name="transcription"
         options={{
           title: tabs.transcription,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="waveform" color={color} />,
@@ -68,7 +68,7 @@ export default function TabLayout() {
       />
       {/* 问答页面标签 */}
       <Tabs.Screen
-        name="qa"
+        name="conversation-qa"
         options={{
           title: tabs.qa,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
@@ -77,7 +77,7 @@ export default function TabLayout() {
       />
       {/* 阅读/朗读页面标签 */}
       <Tabs.Screen
-        name="reading"
+        name="text-to-speech"
         options={{
           title: tabs.reading,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="speaker.wave.2.fill" color={color} />,
@@ -86,7 +86,7 @@ export default function TabLayout() {
       />
       {/* 设置/探索页面标签 */}
       <Tabs.Screen
-        name="explore"
+        name="settings"
         options={{
           title: tabs.settings,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,

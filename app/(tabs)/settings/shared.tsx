@@ -1,6 +1,6 @@
 /**
  * 页面名称：设置共享组件与工具 (Settings Shared Components & Utils)
- * 文件路径：app/(tabs)/explore/shared.tsx
+ * 文件路径：app/(tabs)/settings/shared.tsx
  * 功能描述：提供设置页面通用的样式定义、UI 组件（如 SettingsCard, OptionPill）以及表单状态管理 Hook。
  */
 

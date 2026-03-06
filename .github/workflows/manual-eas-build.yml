@@ -36,6 +36,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,18 +51,72 @@ jobs:
           VERSION=$(node -e "const fs = require('fs'); const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo || {}; const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); console.log(app.version || pkg.version);")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Find previous stable release tag
+        id: previous_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_TAG: v${{ steps.version.outputs.version }}
+        run: |
+          PREVIOUS_TAG=$(gh release list --exclude-drafts --limit 100 --json tagName,isPrerelease,publishedAt | node -e '
+            const fs = require("fs");
+            const releases = JSON.parse(fs.readFileSync(0, "utf8"));
+            const currentTag = process.env.CURRENT_TAG;
+            const stable = releases
+              .filter((item) => !item.isPrerelease && item.tagName !== currentTag)
+              .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+            process.stdout.write(stable[0]?.tagName || "");
+          ')
+          echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "Using previous stable release tag: $PREVIOUS_TAG"
+          else
+            echo "No previous stable release found."
+          fi
+
+      - name: Generate release notes from commit subjects
+        id: release_notes
+        env:
+          PREVIOUS_TAG: ${{ steps.previous_release.outputs.previous_tag }}
+        run: |
+          NOTES_FILE="release_notes.md"
+          if [ -n "$PREVIOUS_TAG" ]; then
+            COMMITS=$(git log --pretty=format:'- %s (%h)' "${PREVIOUS_TAG}..HEAD")
+          else
+            COMMITS=$(git log --pretty=format:'- %s (%h)' HEAD)
+          fi
+
+          {
+            echo "## Changes"
+            echo
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "Since $PREVIOUS_TAG:"
+              echo
+            fi
+            if [ -n "$COMMITS" ]; then
+              echo "$COMMITS"
+            else
+              echo "- No new commits since last release."
+            fi
+          } > "$NOTES_FILE"
+
+          NOTES_COUNT=$(printf "%s" "$COMMITS" | sed '/^$/d' | wc -l | tr -d ' ')
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          echo "notes_count=$NOTES_COUNT" >> "$GITHUB_OUTPUT"
+
       - name: Ensure draft release exists
         id: release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
+          NOTES_FILE: ${{ steps.release_notes.outputs.notes_file }}
         run: |
           TAG="v${VERSION}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists, reusing it."
+            echo "Release $TAG already exists, updating title and notes."
+            gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES_FILE"
           else
-            gh release create "$TAG" --draft --title "$TAG" --notes "Automated build for $TAG"
+            gh release create "$TAG" --draft --title "$TAG" --notes-file "$NOTES_FILE"
           fi
 
   android:

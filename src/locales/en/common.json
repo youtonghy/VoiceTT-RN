@@ -200,6 +200,10 @@
         "title": "Recording detection",
         "subtitle": "Sensitivity and silence detection"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "Desktop voice typing recommendation"
+      },
       "voice_input": {
         "title": "Voice input",
         "subtitle": "Keyboard microphone engine"
@@ -253,6 +257,40 @@
         "powered": "Powered by Tokisantike Network",
         "location": "Assembled in Melbourne"
       }
+    },
+    "keyboard": {
+      "title": "Recommended: VoiceTT-Keyboard",
+      "subtitle": "A desktop-first voice typing assistant with global hotkeys, instant transcription, and AI-powered text actions.",
+      "free_badge": "Completely free, no ads",
+      "free_description": "VoiceTT-Keyboard is fully free to use and does not contain advertising content.",
+      "overview_title": "What it does",
+      "overview_body": "Press and hold your shortcut in any app, speak, and release to transcribe and insert text directly at the current cursor position.",
+      "features_title": "Highlights",
+      "features": {
+        "global_input": {
+          "title": "Global shortcut voice input",
+          "body": "Use it in editors, chat apps, docs, and terminals without switching windows."
+        },
+        "multi_engine": {
+          "title": "Multi-engine transcription",
+          "body": "Supports multiple recognition backends so you can choose speed, quality, and privacy profile."
+        },
+        "ai_cards": {
+          "title": "AI trigger cards",
+          "body": "Apply voice commands to run prompt templates and insert polished output automatically."
+        }
+      },
+      "links_title": "Links",
+      "links": {
+        "website": {
+          "label": "Official website"
+        },
+        "repository": {
+          "label": "GitHub repository"
+        }
+      },
+      "open_link_error_title": "Unable to open link",
+      "open_link_error_body": "Please try again later."
     },
     "credentials": {
       "sections": {

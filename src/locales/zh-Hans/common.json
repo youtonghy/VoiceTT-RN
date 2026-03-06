@@ -200,6 +200,10 @@
         "title": "录音检测",
         "subtitle": "灵敏度与静音判定"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "桌面语音输入推荐"
+      },
       "voice_input": {
         "title": "语音输入",
         "subtitle": "键盘录音使用的引擎"
@@ -253,6 +257,40 @@
         "powered": "Powered by Tokisantike Network",
         "location": "Assembled in Melbourne"
       }
+    },
+    "keyboard": {
+      "title": "推荐使用 VoiceTT-Keyboard",
+      "subtitle": "一个以桌面场景为核心的语音输入助手，支持全局快捷键、即刻转写和 AI 文本处理。",
+      "free_badge": "完全免费无广告",
+      "free_description": "VoiceTT-Keyboard 可免费使用，不包含广告内容。",
+      "overview_title": "它能做什么",
+      "overview_body": "在任意应用中按住快捷键说话，松开后即可完成转写，并把文本直接插入当前光标位置。",
+      "features_title": "核心亮点",
+      "features": {
+        "global_input": {
+          "title": "全局快捷键语音输入",
+          "body": "无需切换窗口，可直接在编辑器、聊天软件、文档和终端里使用。"
+        },
+        "multi_engine": {
+          "title": "多引擎转写支持",
+          "body": "支持多种识别后端，便于按速度、质量和隐私诉求灵活切换。"
+        },
+        "ai_cards": {
+          "title": "AI 触发卡片",
+          "body": "通过语音指令触发 Prompt 模板，自动处理并回填结果。"
+        }
+      },
+      "links_title": "相关链接",
+      "links": {
+        "website": {
+          "label": "官方网站"
+        },
+        "repository": {
+          "label": "GitHub 仓库"
+        }
+      },
+      "open_link_error_title": "无法打开链接",
+      "open_link_error_body": "请稍后再试。"
     },
     "credentials": {
       "sections": {

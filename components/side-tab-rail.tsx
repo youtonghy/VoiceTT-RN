@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 
 type RailItem = {
   key: 'transcription' | 'qa' | 'reading' | 'settings';
-  href: '/' | '/qa' | '/reading' | '/explore';
+  href: '/transcription' | '/conversation-qa' | '/text-to-speech' | '/settings';
   label: string;
   icon: Parameters<typeof IconSymbol>[0]['name'];
   isActive: (pathname: string) => boolean;
@@ -34,31 +34,31 @@ export function SideTabRail({
     const next: RailItem[] = [
       {
         key: 'transcription',
-        href: '/',
+        href: '/transcription',
         label: t('navigation.tabs.transcription'),
         icon: 'waveform',
-        isActive: (path) => path === '/' || path === '',
+        isActive: (path) => path === '/transcription' || path === '/' || path === '',
       },
       {
         key: 'qa',
-        href: '/qa',
+        href: '/conversation-qa',
         label: t('navigation.tabs.qa'),
         icon: 'bubble.left.and.bubble.right.fill',
-        isActive: (path) => path === '/qa' || path.startsWith('/qa/'),
+        isActive: (path) => path === '/conversation-qa' || path.startsWith('/conversation-qa/'),
       },
       {
         key: 'reading',
-        href: '/reading',
+        href: '/text-to-speech',
         label: t('navigation.tabs.reading'),
         icon: 'speaker.wave.2.fill',
-        isActive: (path) => path === '/reading' || path.startsWith('/reading/'),
+        isActive: (path) => path === '/text-to-speech' || path.startsWith('/text-to-speech/'),
       },
       {
         key: 'settings',
-        href: '/explore',
+        href: '/settings',
         label: t('navigation.tabs.settings'),
         icon: 'gearshape.fill',
-        isActive: (path) => path === '/explore' || path.startsWith('/explore/'),
+        isActive: (path) => path === '/settings' || path.startsWith('/settings/'),
       },
     ];
 

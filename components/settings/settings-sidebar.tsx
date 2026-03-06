@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { settingsStyles } from '@/app/(tabs)/explore/shared';
+import { settingsStyles } from '@/app/(tabs)/settings/shared';
 import { getProStatus } from '@/services/pro';
 
 type RouteHref = Extract<Href, string>;
@@ -28,7 +28,7 @@ export function SettingsSidebar() {
   const [isPro, setIsPro] = useState(false);
 
   const sidebarWidth = Math.min(320, Math.max(240, Math.round(width * 0.28)));
-  const isProRoute = pathname === '/explore/pro' || pathname.startsWith('/explore/pro/');
+  const isProRoute = pathname === '/settings/pro' || pathname.startsWith('/settings/pro/');
 
   useEffect(() => {
     let isActive = true;
@@ -49,47 +49,52 @@ export function SettingsSidebar() {
   const entries: SettingsEntry[] = useMemo(
     () => [
       {
-        route: '/explore/recording' as RouteHref,
+        route: '/settings/recording' as RouteHref,
         title: t('settings.sections.recording.title'),
         subtitle: t('settings.sections.recording.subtitle'),
       },
       {
-        route: '/explore/transcription' as RouteHref,
+        route: '/settings/keyboard' as RouteHref,
+        title: t('settings.sections.keyboard.title'),
+        subtitle: t('settings.sections.keyboard.subtitle'),
+      },
+      {
+        route: '/settings/transcription' as RouteHref,
         title: t('settings.sections.transcription.title'),
         subtitle: t('settings.sections.transcription.subtitle'),
       },
       {
-        route: '/explore/translation' as RouteHref,
+        route: '/settings/translation' as RouteHref,
         title: t('settings.sections.translation.title'),
         subtitle: t('settings.sections.translation.subtitle'),
       },
       {
-        route: '/explore/export' as RouteHref,
+        route: '/settings/export' as RouteHref,
         title: t('settings.sections.export.title'),
         subtitle: t('settings.sections.export.subtitle'),
       },
       {
-        route: '/explore/tts' as RouteHref,
+        route: '/settings/tts' as RouteHref,
         title: t('settings.sections.tts.title'),
         subtitle: t('settings.sections.tts.subtitle'),
       },
       {
-        route: '/explore/summary' as RouteHref,
+        route: '/settings/summary' as RouteHref,
         title: t('settings.sections.summary.title'),
         subtitle: t('settings.sections.summary.subtitle'),
       },
       {
-        route: '/explore/qa' as RouteHref,
+        route: '/settings/qa' as RouteHref,
         title: t('settings.sections.qa.title'),
         subtitle: t('settings.sections.qa.subtitle'),
       },
       {
-        route: '/explore/appearance' as RouteHref,
+        route: '/settings/appearance' as RouteHref,
         title: t('settings.sections.appearance.title'),
         subtitle: t('settings.sections.appearance.subtitle'),
       },
       {
-        route: '/explore/credentials' as RouteHref,
+        route: '/settings/credentials' as RouteHref,
         title: t('settings.sections.credentials.title'),
         subtitle: t('settings.sections.credentials.subtitle'),
       },
@@ -136,7 +141,7 @@ export function SettingsSidebar() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('settings.pro.title')}
-          onPress={() => router.replace('/explore/pro' as RouteHref)}
+          onPress={() => router.replace('/settings/pro' as RouteHref)}
           style={({ pressed }) => [
             styles.proCardPressable,
             { shadowColor: proCardTheme.shadow },
