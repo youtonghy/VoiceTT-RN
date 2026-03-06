@@ -51,3 +51,7 @@ app-example
 
 # Active licenses
 licenses.txt
+# local tool caches
+/.codex/
+/.npm-cache/
+
