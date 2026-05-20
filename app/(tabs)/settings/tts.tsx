@@ -1,9 +1,3 @@
-/**
- * 页面名称：语音合成设置 (TTS Settings)
- * 文件路径：app/(tabs)/settings/tts.tsx
- * 功能描述：配置文本转语音 (TTS) 引擎、模型、音色以及自定义提示词。
- */
-
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -44,12 +38,10 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量定义 ---
 const OPENAI_TTS_DOCS_URL = 'https://platform.openai.com/docs/guides/text-to-speech#custom-voices';
 const GEMINI_TTS_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/speech-generation';
 const ttsEngines: TtsEngine[] = ['openai', 'gemini'];
 
-// --- 主组件 ---
 export default function TtsSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();

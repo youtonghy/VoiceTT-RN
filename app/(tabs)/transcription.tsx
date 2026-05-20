@@ -1,9 +1,3 @@
-/**
- * 页面名称：转录与对话主页 (Transcription & Conversation Home)
- * 文件路径：app/(tabs)/transcription.tsx
- * 功能描述：实时语音转录、对话历史管理、AI 助手交互以及语音合成 (TTS) 的核心页面。
- */
-
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer } from "expo-audio";
@@ -51,7 +45,6 @@ import { synthesizeSpeech } from "@/services/tts";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
 
-// --- 常量与类型定义 ---
 const CARD_BOTTOM_MARGIN = 24;
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -96,11 +89,6 @@ const HISTORY_SEED = createHistorySeed();
 const HISTORY_STORAGE_KEY = "@agents/history-conversations";
 const HISTORY_STORAGE_VERSION = 2;
 
-// --- 辅助函数 ---
-
-/**
- * 将 ArrayBuffer 转换为 Base64 字符串
- */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let result = "";
@@ -265,9 +253,6 @@ function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
   return sanitized;
 }
 
-/**
- * 获取下一个历史记录 ID
- */
 function deriveNextHistoryId(
   conversations: HistoryConversation[],
   fallback: number = 1
@@ -289,11 +274,9 @@ function deriveNextHistoryId(
   return next;
 }
 
-// --- 主组件 ---
 export default function TranscriptionScreen() {
   const { t, i18n } = useTranslation();
-  
-  // --- 颜色与样式配置 ---
+
   const cardLight = "#f8fafc";
   const cardDark = "#0f172a";
   const backgroundColor = useThemeColor({}, "background");
@@ -333,7 +316,6 @@ export default function TranscriptionScreen() {
     "text"
   );
 
-  // --- 状态与引用 Hook ---
   const { width } = useWindowDimensions();
   const isTablet = useIsTablet();
   const { settings } = useSettings();
@@ -380,9 +362,6 @@ export default function TranscriptionScreen() {
   const autoTitleAbortRef = useRef<AbortController | null>(null);
   const autoSummaryAbortRef = useRef<AbortController | null>(null);
 
-  // --- 副作用 (Effects) ---
-
-  // 恢复历史记录
   useEffect(() => {
     let isMounted = true;
 

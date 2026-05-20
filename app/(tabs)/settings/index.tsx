@@ -1,9 +1,3 @@
-/**
- * 页面名称：设置主页 (Settings Index)
- * 文件路径：app/(tabs)/settings/index.tsx
- * 功能描述：展示设置选项列表，包括录音、语音输入、转录、翻译、TTS、摘要、QA、凭据和外观设置。
- */
-
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useRouter, type Href } from 'expo-router';
@@ -20,7 +14,6 @@ import { getProStatus } from '@/services/pro';
 
 import { settingsStyles } from './shared';
 
-// --- 类型与常量定义 ---
 type RouteHref = Extract<Href, string>;
 
 interface SettingsEntry {
@@ -34,7 +27,6 @@ const REPOSITORY_URL = 'https://github.com/youtonghy/VoiceTT';
 
 const aboutIconSource = require('../../../assets/images/icon.png');
 
-// --- 主组件 ---
 export default function SettingsIndexScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -53,7 +45,6 @@ export default function SettingsIndexScreen() {
     }
   }, [isTablet, router]);
 
-  // --- 处理函数 ---
   const openExternalLink = useCallback((url: string) => {
     Linking.openURL(url).catch((error) => {
       console.warn('[settings] Failed to open link', url, error);
@@ -89,7 +80,6 @@ export default function SettingsIndexScreen() {
     };
   }, []);
 
-  // --- 版本信息 ---
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? 'dev';
   const buildVersion =
     Constants.nativeBuildVersion ??
@@ -104,7 +94,6 @@ export default function SettingsIndexScreen() {
     return [versionText, buildText].filter(Boolean) as string[];
   }, [appVersion, buildVersion, t]);
 
-  // --- 设置项列表配置 ---
   const entryItems: SettingsEntry[] = useMemo(
     () => [
       {

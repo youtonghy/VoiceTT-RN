@@ -1,14 +1,26 @@
 import { useEffect } from 'react';
 
-import { syncTrustedTime } from '@/services/pro';
+import { getStoredLicense, syncTrustedTime } from '@/services/pro';
 
 export function ProTrustedTimeSync() {
   useEffect(() => {
-    syncTrustedTime().catch((error) => {
-      if (__DEV__) {
-        console.warn('[pro] Failed to sync trusted time on startup', error);
+    let isMounted = true;
+
+    async function refreshTrustedTime() {
+      const storedLicense = await getStoredLicense();
+      if (!storedLicense || !isMounted) {
+        return;
       }
+      await syncTrustedTime();
+    }
+
+    refreshTrustedTime().catch(() => {
+      // Offline or blocked startup sync is handled by the Pro status screen.
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return null;

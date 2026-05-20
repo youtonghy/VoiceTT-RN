@@ -1,9 +1,3 @@
-/**
- * 页面名称：问答设置 (QA Settings)
- * 文件路径：app/(tabs)/settings/qa.tsx
- * 功能描述：配置问答引擎（OpenAI, Gemini）、模型选择以及自定义提示词 (Prompt)。
- */
-
 import { useTranslation } from 'react-i18next';
 import {
     KeyboardAvoidingView,
@@ -38,10 +32,8 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量定义 ---
 const qaEngines: QaEngine[] = ['openai', 'gemini'];
 
-// --- 主组件 ---
 export default function QaSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -50,7 +42,6 @@ export default function QaSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,

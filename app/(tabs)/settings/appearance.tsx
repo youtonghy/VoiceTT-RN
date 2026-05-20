@@ -1,9 +1,3 @@
-/**
- * 页面名称：外观设置 (Appearance Settings)
- * 文件路径：app/(tabs)/settings/appearance.tsx
- * 功能描述：允许用户配置应用程序的主题模式（自动、浅色、深色）和语言设置。
- */
-
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,11 +16,9 @@ import {
     settingsStyles,
 } from './shared';
 
-// --- 常量定义 ---
 const themeModes: ThemeMode[] = ['automatic', 'light', 'dark'];
 const languageModes: AppLanguageMode[] = ['system', 'en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'es'];
 
-// --- 主组件 ---
 export default function AppearanceSettingsScreen() {
   const { t, i18n } = useTranslation();
   const { settings, updateSettings } = useSettings();
@@ -41,15 +33,14 @@ export default function AppearanceSettingsScreen() {
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
   const languageLabels: Record<AppLanguageMode, string> = {
     system: t('settings.appearance.languages.system'),
-    en: 'English',
-    'zh-Hans': '简体中文',
-    'zh-Hant': '繁體中文',
-    ja: '日本語',
-    ko: '한국어',
-    es: 'Español',
+    en: t('settings.appearance.languages.en'),
+    'zh-Hans': t('settings.appearance.languages.zh-Hans'),
+    'zh-Hant': t('settings.appearance.languages.zh-Hant'),
+    ja: t('settings.appearance.languages.ja'),
+    ko: t('settings.appearance.languages.ko'),
+    es: t('settings.appearance.languages.es'),
   };
 
-  // --- 处理函数 ---
   const applyLanguageMode = (mode: AppLanguageMode) => {
     updateSettings({ languageMode: mode });
     const target = mode === 'system' ? resolveDeviceLanguage() : mode;
@@ -62,7 +53,6 @@ export default function AppearanceSettingsScreen() {
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
-      {/* 键盘避让视图 */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={settingsStyles.flex}>

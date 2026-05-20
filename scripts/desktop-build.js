@@ -3,8 +3,14 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const bunxCommand = process.platform === 'win32' ? 'bunx.cmd' : 'bunx';
 const useShell = process.platform === 'win32';
+const expoCommand = path.join(
+  rootDir,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'expo.cmd' : 'expo'
+);
 
 const stubDir = path.join(rootDir, 'node_modules', 'fsevents');
 let createdStub = false;
@@ -64,7 +70,7 @@ function runCommand(command, args, options = {}) {
 async function main() {
   ensureFseventsStub();
   try {
-    await runCommand(npxCommand, ['expo', 'export', '--platform', 'web', '--output-dir', 'web-build'], {
+    await runCommand(expoCommand, ['export', '--platform', 'web', '--output-dir', 'web-build'], {
       cwd: rootDir,
     });
 
@@ -73,7 +79,7 @@ async function main() {
       env.ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES = 'true';
     }
 
-    await runCommand(npxCommand, ['electron-builder'], {
+    await runCommand(bunxCommand, ['electron-builder'], {
       cwd: rootDir,
       env,
     });

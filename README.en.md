@@ -36,8 +36,8 @@ Before using it, make sure you have consent to record/process audio and comply w
 ### Getting Started
 
 ```bash
-npm install
-npx expo start
+bun install
+bunx expo start
 ```
 
 Configure engine API keys / base URLs / model names in Settings -> Credentials.
@@ -49,15 +49,15 @@ This repo uses the Expo web build as the Electron renderer.
 Dev mode (Expo Web + Electron):
 
 ```bash
-npm install
-npm run desktop:dev
+bun install
+bun run desktop:dev
 ```
 
 Static build + preview:
 
 ```bash
-npm run desktop:build
-npm run desktop:start
+bun run desktop:build
+bun run desktop:start
 ```
 
 Set `EXPO_WEB_PORT` to override the dev server port (default 19006).

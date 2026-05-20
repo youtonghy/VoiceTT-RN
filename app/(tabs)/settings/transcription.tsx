@@ -1,9 +1,3 @@
-/**
- * 页面名称：转录设置 (Transcription Settings)
- * 文件路径：app/(tabs)/settings/transcription.tsx
- * 功能描述：配置语音转文字 (STT) 引擎、模型、语言以及自定义提示词。
- */
-
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,12 +33,10 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量定义 ---
 const transcriptionEngines: TranscriptionEngine[] = ['openai', 'gemini', 'qwen3', 'soniox', 'doubao', 'glm'];
 const OPENAI_STT_DOCS_URL = 'https://platform.openai.com/docs/guides/speech-to-text';
 const GEMINI_STT_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/audio#javascript';
 
-// --- 主组件 ---
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -53,7 +45,6 @@ export default function TranscriptionSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,

@@ -1,9 +1,3 @@
-/**
- * 页面名称：朗读页面 (Reading Screen)
- * 文件路径：app/(tabs)/text-to-speech.tsx
- * 功能描述：提供文本转语音 (TTS) 功能，允许用户输入文本并将其转换为语音播放，同时管理朗读历史。
- */
-
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,7 +25,6 @@ import { synthesizeSpeech } from '@/services/tts';
 import type { TranscriptionMessage } from '@/types/transcription';
 import type { TextToSpeechFormat, TtsMessage } from '@/types/tts';
 
-// --- 常量与类型定义 ---
 const HISTORY_STORAGE_KEY = '@agents/history-conversations';
 const HISTORY_STORAGE_VERSION = 2;
 const DEFAULT_AUDIO_FORMAT: TextToSpeechFormat = 'mp3';
@@ -74,25 +67,14 @@ type ContextMenuState = {
   anchor?: ContextMenuAnchor;
 };
 
-// --- 辅助函数 ---
-
-/**
- * 创建助手消息 ID
- */
 function createAssistantMessageId(role: 'user' | 'assistant'): string {
   return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/**
- * 创建 TTS 消息 ID
- */
 function createTtsMessageId(): string {
   return `tts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/**
- * 将 ArrayBuffer 转换为 Base64
- */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let result = '';
@@ -122,9 +104,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return result;
 }
 
-/**
- * 清洗助手消息数据
- */
 function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
   if (!Array.isArray(raw)) {
     return [];

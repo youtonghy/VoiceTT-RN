@@ -1,9 +1,3 @@
-/**
- * 页面名称：问答页面 (QA Screen)
- * 文件路径：app/(tabs)/conversation-qa.tsx
- * 功能描述：基于转录内容自动生成问答对，帮助用户快速回顾和理解对话内容。
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -22,7 +16,6 @@ import { extractTranscriptQuestions } from '@/services/qa';
 import type { AppSettings } from '@/types/settings';
 import { TranscriptionMessage, TranscriptQaItem } from '@/types/transcription';
 
-// --- 类型定义 ---
 type QaStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 interface MessageQaState {
@@ -34,19 +27,11 @@ interface MessageQaState {
   updatedAt: number;
 }
 
-// --- 辅助函数 ---
-
-/**
- * 解析消息标题
- */
 function resolveMessageTitle(message: TranscriptionMessage, fallback: string): string {
   const trimmed = typeof message.title === 'string' ? message.title.trim() : '';
   return trimmed || fallback;
 }
 
-/**
- * 字符串哈希函数
- */
 function hashString(value: string): string {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -57,9 +42,6 @@ function hashString(value: string): string {
   return hash.toString(16);
 }
 
-/**
- * 创建设置签名，用于缓存失效
- */
 function createSettingsSignature(settings: AppSettings): string {
   const prompt = (settings.qaPrompt || '').trim();
   const openaiModel = settings.credentials.openaiQaModel?.trim() || '';
@@ -77,16 +59,10 @@ type CachedQaEntry = {
   updatedAt: number;
 };
 
-/**
- * 构建 QA 缓存键
- */
 function buildQaCacheKey(message: TranscriptionMessage, signature: string): string {
   return `${signature}:${message.createdAt}:${message.id}`;
 }
 
-/**
- * 合并 QA 条目
- */
 function mergeQaItems(existing: TranscriptQaItem[], incoming: TranscriptQaItem[]): TranscriptQaItem[] {
   if (incoming.length === 0) {
     return existing;
@@ -120,7 +96,6 @@ function mergeQaItems(existing: TranscriptQaItem[], incoming: TranscriptQaItem[]
   return merged;
 }
 
-// --- 主组件 ---
 export default function QaScreen() {
   const { t } = useTranslation();
   const { settings } = useSettings();
@@ -765,5 +740,4 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-
 

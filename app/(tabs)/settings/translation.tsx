@@ -1,9 +1,3 @@
-/**
- * 页面名称：翻译设置 (Translation Settings)
- * 文件路径：app/(tabs)/settings/translation.tsx
- * 功能描述：配置实时翻译引擎、目标语言、模型以及自定义翻译提示词。
- */
-
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -44,10 +38,8 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量定义 ---
 const translationEngines: TranslationEngine[] = ['openai', 'gemini', 'none'];
 
-// --- 主组件 ---
 export default function TranslationSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -57,7 +49,6 @@ export default function TranslationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  // --- 样式配置 ---
   const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [

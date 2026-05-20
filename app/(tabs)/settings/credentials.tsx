@@ -1,9 +1,3 @@
-/**
- * 页面名称：凭据设置 (Credential Settings)
- * 文件路径：app/(tabs)/settings/credentials.tsx
- * 功能描述：管理各种 AI 服务的 API 密钥和配置，包括 OpenAI, Gemini, Soniox, Groq 等。
- */
-
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
@@ -34,7 +28,6 @@ import {
   useSettingsForm,
 } from './shared';
 
-// --- 主组件 ---
 export default function CredentialSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateCredentials } = useSettings();
@@ -43,7 +36,6 @@ export default function CredentialSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  // --- 样式配置 ---
   const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
   const credentialLabelStyle = [
     settingsStyles.cardLabel,

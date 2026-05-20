@@ -1,9 +1,3 @@
-/**
- * 页面名称：录音设置 (Recording Settings)
- * 文件路径：app/(tabs)/settings/recording.tsx
- * 功能描述：配置录音参数，包括采样率、声道、比特率、静音检测以及录音预设。
- */
-
 import {
     getRecordingPermissionsAsync,
     requestRecordingPermissionsAsync,
@@ -43,7 +37,6 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量与配置 ---
 const METERING_RECORDING_OPTIONS: RecordingOptions = {
   isMeteringEnabled: true,
   extension: '.m4a',

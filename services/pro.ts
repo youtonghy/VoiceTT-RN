@@ -5,8 +5,21 @@ import * as Crypto from 'expo-crypto';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ed25519 from '@noble/ed25519';
-import { concatBytes, utf8ToBytes } from '@noble/hashes/utils';
 import { toByteArray, fromByteArray } from 'base64-js';
+
+function utf8ToBytes(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
+
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(arrays.reduce((sum, item) => sum + item.length, 0));
+  let offset = 0;
+  for (const item of arrays) {
+    result.set(item, offset);
+    offset += item.length;
+  }
+  return result;
+}
 
 function normalizeBytes(value: unknown): Uint8Array {
   if (value instanceof Uint8Array) {
@@ -76,7 +89,7 @@ async function storageDelete(key: string): Promise<void> {
 
 ed25519.etc.sha512Async = async (...messages) => {
   const data = concatBytes(...messages.map((item) => ensureBytes(item, 'sha512 input')));
-  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA512, data);
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA512, Uint8Array.from(data));
   return new Uint8Array(digest);
 };
 
@@ -336,6 +349,20 @@ async function trustedNowFromCache(): Promise<number> {
   return state.serverTimeMs + age;
 }
 
+async function trustedNowForActivation(): Promise<number> {
+  try {
+    return await trustedNowFromCache();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message === 'NO_TRUSTED_TIME' || error.message === 'TRUSTED_TIME_STALE')
+    ) {
+      return syncTrustedTime();
+    }
+    throw error;
+  }
+}
+
 export async function getDeviceUid(): Promise<string> {
   const existing = await storageGet(DEVICE_UID_KEY);
   if (existing) {
@@ -349,7 +376,7 @@ export async function getDeviceUid(): Promise<string> {
 
 export async function activateProLicense(code: string): Promise<StoredLicense> {
   const deviceUid = await getDeviceUid();
-  const trustedNow = await trustedNowFromCache();
+  const trustedNow = await trustedNowForActivation();
 
   const { payloadSegment, signatureSegment } = parseLicense(code);
   await verifySignature(payloadSegment, signatureSegment);
@@ -433,7 +460,7 @@ export async function getProStatus(): Promise<ProStatus> {
 
   const deviceUid = await getDeviceUid();
   if (stored.payload.deviceUid !== deviceUid) {
-    return { isActive: false, reason: 'device_mismatch', payload: stored.payload, expiresAtMs: expMs };
+    return { isActive: false, reason: 'device_mismatch', payload: stored.payload, expiresAtMs: expMs ?? undefined };
   }
 
   return {

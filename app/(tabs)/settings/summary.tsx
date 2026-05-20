@@ -1,9 +1,3 @@
-/**
- * 页面名称：摘要设置 (Summary Settings)
- * 文件路径：app/(tabs)/settings/summary.tsx
- * 功能描述：配置标题总结、对话总结与智能对话的引擎、模型以及提示词。
- */
-
 import { useTranslation } from 'react-i18next';
 import {
     KeyboardAvoidingView,
@@ -48,12 +42,10 @@ import {
     useSettingsForm,
 } from './shared';
 
-// --- 常量定义 ---
 const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
 const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
 const assistantEngines: AssistantEngine[] = ['openai', 'gemini'];
 
-// --- 主组件 ---
 export default function SummarySettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
@@ -62,7 +54,6 @@ export default function SummarySettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
-  // --- 样式配置 ---
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,

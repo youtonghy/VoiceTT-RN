@@ -1,9 +1,3 @@
-/**
- * 页面名称：设置共享组件与工具 (Settings Shared Components & Utils)
- * 文件路径：app/(tabs)/settings/shared.tsx
- * 功能描述：提供设置页面通用的样式定义、UI 组件（如 SettingsCard, OptionPill）以及表单状态管理 Hook。
- */
-
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
@@ -40,7 +34,6 @@ import {
     DEFAULT_TRANSLATION_PROMPT_PREFIX,
 } from '@/types/settings';
 
-// --- 类型定义 ---
 export type NumericSettingKey =
   | 'activationThreshold'
   | 'activationDurationSec'

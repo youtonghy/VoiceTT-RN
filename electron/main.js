@@ -128,7 +128,7 @@ function resolveStaticFilePath(requestUrl) {
 
 function registerAppProtocol() {
   if (!fs.existsSync(staticIndex)) {
-    throw new Error('Missing web build. Run `npm run desktop:build` first.');
+    throw new Error('Missing web build. Run `bun run desktop:build` first.');
   }
   protocol.registerFileProtocol(APP_PROTOCOL, (request, callback) => {
     try {

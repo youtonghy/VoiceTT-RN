@@ -6,7 +6,7 @@ const { spawn } = require('child_process');
 const rootDir = path.resolve(__dirname, '..');
 const electronEntry = path.join(rootDir, 'electron', 'main.js');
 const port = Number(process.env.EXPO_WEB_PORT || 19006);
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const bunxCommand = process.platform === 'win32' ? 'bunx.cmd' : 'bunx';
 
 function spawnCommand(command, args, options = {}) {
   return spawn(command, args, {
@@ -15,8 +15,14 @@ function spawnCommand(command, args, options = {}) {
   });
 }
 
-const expoArgs = ['expo', 'start', '--web', '--port', String(port)];
-const expoProcess = spawnCommand(npxCommand, expoArgs, {
+const expoCommand = path.join(
+  rootDir,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'expo.cmd' : 'expo'
+);
+const expoArgs = ['start', '--web', '--port', String(port)];
+const expoProcess = spawnCommand(expoCommand, expoArgs, {
   cwd: rootDir,
   stdio: 'inherit',
   env: process.env,
@@ -35,7 +41,7 @@ function resolveElectronCommand() {
   if (fs.existsSync(localElectron)) {
     return { command: localElectron, args: [electronEntry] };
   }
-  return { command: npxCommand, args: ['electron', electronEntry] };
+  return { command: bunxCommand, args: ['electron', electronEntry] };
 }
 
 function waitForServer({ retries = 240, delayMs = 500 } = {}) {

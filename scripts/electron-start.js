@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const rootDir = path.resolve(__dirname, '..');
 const electronEntry = path.join(rootDir, 'electron', 'main.js');
 const webBuildIndex = path.join(rootDir, 'web-build', 'index.html');
-const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const bunxCommand = process.platform === 'win32' ? 'bunx.cmd' : 'bunx';
 
 function spawnCommand(command, args, options = {}) {
   return spawn(command, args, {
@@ -15,7 +15,7 @@ function spawnCommand(command, args, options = {}) {
 }
 
 if (!fs.existsSync(webBuildIndex)) {
-  console.error('[electron-start] Missing web build. Run `npm run desktop:build` first.');
+  console.error('[electron-start] Missing web build. Run `bun run desktop:build` first.');
   process.exit(1);
 }
 
@@ -27,7 +27,7 @@ const localElectron = path.join(
 );
 
 const useLocal = fs.existsSync(localElectron);
-const command = useLocal ? localElectron : npxCommand;
+const command = useLocal ? localElectron : bunxCommand;
 const args = useLocal ? [electronEntry] : ['electron', electronEntry];
 
 const electronProcess = spawnCommand(command, args, {

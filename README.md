@@ -36,8 +36,8 @@ VoiceTT 是一个「转写优先」的跨平台语音助手应用（Expo / React
 ### 快速开始
 
 ```bash
-npm install
-npx expo start
+bun install
+bunx expo start
 ```
 
 在应用内进入 Settings → Credentials 配置各类引擎所需的 API Key / Base URL / 模型名。
@@ -49,15 +49,15 @@ npx expo start
 开发模式（启动 Expo Web + Electron）：
 
 ```bash
-npm install
-npm run desktop:dev
+bun install
+bun run desktop:dev
 ```
 
 静态构建与预览：
 
 ```bash
-npm run desktop:build
-npm run desktop:start
+bun run desktop:build
+bun run desktop:start
 ```
 
 如需自定义端口，可设置 `EXPO_WEB_PORT`（默认 19006）。
