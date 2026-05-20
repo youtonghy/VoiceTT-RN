@@ -1,7 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { HeroUINativeProvider, type HeroUINativeConfig } from 'heroui-native';
 import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { I18nextProvider } from 'react-i18next';
 
@@ -14,6 +16,28 @@ import i18n from '@/i18n';
 
 export const unstable_settings = {
   anchor: '(tabs)',
+};
+
+const heroUIConfig: HeroUINativeConfig = {
+  textProps: {
+    allowFontScaling: true,
+    maxFontSizeMultiplier: 1.5,
+    minimumFontScale: 0.5,
+  },
+  toast: {
+    defaultProps: {
+      variant: 'default',
+      placement: 'top',
+      isSwipeable: true,
+    },
+    insets: {
+      top: 0,
+      bottom: 6,
+      left: 12,
+      right: 12,
+    },
+    maxVisibleToasts: 3,
+  },
 };
 
 function RootLayoutNav() {
@@ -32,14 +56,18 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <I18nextProvider i18n={i18n}>
-      <SettingsProvider>
-        <I18nSettingsSync />
-        <ProTrustedTimeSync />
-        <TranscriptionProvider>
-          <RootLayoutNav />
-        </TranscriptionProvider>
-      </SettingsProvider>
-    </I18nextProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <HeroUINativeProvider config={heroUIConfig}>
+        <I18nextProvider i18n={i18n}>
+          <SettingsProvider>
+            <I18nSettingsSync />
+            <ProTrustedTimeSync />
+            <TranscriptionProvider>
+              <RootLayoutNav />
+            </TranscriptionProvider>
+          </SettingsProvider>
+        </I18nextProvider>
+      </HeroUINativeProvider>
+    </GestureHandlerRootView>
   );
 }
