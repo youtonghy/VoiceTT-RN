@@ -1,6 +1,5 @@
 import {
   useAudioRecorder,
-  useAudioRecorderState,
   RecordingOptions,
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
@@ -471,11 +470,34 @@ interface RecordingStatus {
   mediaServicesDidReset?: boolean;
 }
 
-function getRecorderStatusSafe(recorder: AudioRecorder): RecorderState | null {
+function getRecorderStatusSafe(
+  recorder: AudioRecorder,
+  options: { warn?: boolean } = {},
+): RecorderState | null {
   try {
     return recorder.getStatus();
   } catch (error) {
-    console.warn('[transcription] Recorder status unavailable', error);
+    if (options.warn !== false) {
+      console.warn('[transcription] Recorder status unavailable', error);
+    }
+    return null;
+  }
+}
+
+function getRecorderCurrentTimeMillisSafe(
+  recorder: AudioRecorder,
+  options: { warn?: boolean } = {},
+): number | null {
+  try {
+    const currentTime = recorder.currentTime;
+    if (typeof currentTime !== 'number' || !Number.isFinite(currentTime)) {
+      return null;
+    }
+    return Math.max(0, currentTime * 1000);
+  } catch (error) {
+    if (options.warn !== false) {
+      console.warn('[transcription] Recorder current time unavailable', error);
+    }
     return null;
   }
 }
@@ -568,6 +590,20 @@ function createInitialMessage(messageId: number, qaAutoEnabled: boolean, t: TFun
   };
 }
 
+function createRecordingStatusFromRecorderStatus(
+  recorderStatus: RecorderState,
+  metering?: number,
+): RecordingStatus {
+  return {
+    isRecording: recorderStatus.isRecording,
+    durationMillis: recorderStatus.durationMillis,
+    metering,
+    isDoneRecording: false,
+    canRecord: recorderStatus.canRecord,
+    mediaServicesDidReset: recorderStatus.mediaServicesDidReset,
+  };
+}
+
 function applySettingsToSegment(segment: InternalSegmentState, settings: AppSettings, durationMs: number) {
   const preRoll = Math.max(0, settings.preRollDurationSec) * 1000;
   if (segment.candidateStartMs != null) {
@@ -613,8 +649,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
 
   const [error, setError] = useState<string | null>(null);
   const recorder = useAudioRecorder(buildRecordingOptions());
-  const recorderState = useAudioRecorderState(recorder);
-  const isRecording = recorderState.isRecording;
+  const isRecording = isSessionActive;
 
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(Math.max(Date.now(), 1));
@@ -629,6 +664,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null, options?: { sessionId?: string }) => Promise<string | null>) | null>(null);
   const handleStatusUpdateRef = useRef<((status: RecordingStatus) => void) | null>(null);
   const meteringStaleSinceRef = useRef<number | null>(null);
+  const lastRecorderStatusRef = useRef<RecorderState | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const statusPollFailureCountRef = useRef(0);
 
   const setMessagesAndRef = useCallback((updater: (prev: TranscriptionMessage[]) => TranscriptionMessage[]) => {
     setMessages((prev) => {
@@ -640,6 +678,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
 
   const resetSegmentState = useCallback(() => {
     segmentStateRef.current = { ...initialSegmentState };
+    meteringStaleSinceRef.current = null;
   }, []);
 
   const createSessionId = useCallback(() => 'session-' + nextSessionIdRef.current++, []);
@@ -807,6 +846,40 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
   }, []);
 
+  const getBestKnownDurationMs = useCallback(() => {
+    const durations: number[] = [];
+    const statusDuration = lastRecorderStatusRef.current?.durationMillis;
+    if (typeof statusDuration === 'number' && Number.isFinite(statusDuration)) {
+      durations.push(statusDuration);
+    }
+    const currentTimeDuration = getRecorderCurrentTimeMillisSafe(recorder, { warn: false });
+    if (currentTimeDuration != null) {
+      durations.push(currentTimeDuration);
+    }
+    const startedAt = recordingStartedAtRef.current;
+    if (startedAt != null) {
+      durations.push(Date.now() - startedAt);
+    }
+    return Math.max(0, ...durations);
+  }, [recorder]);
+
+  const buildFallbackRecordingStatus = useCallback((): RecordingStatus => {
+    const lastStatus = lastRecorderStatusRef.current;
+    const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
+    const metering =
+      typeof lastStatus?.metering === 'number' && Number.isFinite(lastStatus.metering)
+        ? lastStatus.metering
+        : fallbackMetering;
+    return {
+      isRecording: true,
+      durationMillis: getBestKnownDurationMs(),
+      metering,
+      isDoneRecording: false,
+      canRecord: lastStatus?.canRecord ?? true,
+      mediaServicesDidReset: lastStatus?.mediaServicesDidReset ?? false,
+    };
+  }, [getBestKnownDurationMs]);
+
   const startNewRecording = useCallback(async () => {
     console.log('[transcription] startNewRecording - preparing to record');
     await recorder.prepareToRecordAsync();
@@ -814,6 +887,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     recorder.record();
     console.log('[transcription] record() called');
     segmentBaseMsRef.current = 0;
+    recordingStartedAtRef.current = Date.now();
+    lastRecorderStatusRef.current = null;
+    statusPollFailureCountRef.current = 0;
     if (isElectronDesktop) {
       const stream = resolveDesktopRecordingStream(recorder);
       if (stream) {
@@ -840,14 +916,29 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       clearInterval(statusIntervalRef.current);
     }
     statusIntervalRef.current = setInterval(() => {
-      const recorderStatus = getRecorderStatusSafe(recorder);
+      const recorderStatus = getRecorderStatusSafe(recorder, {
+        warn: statusPollFailureCountRef.current === 0,
+      });
       if (!recorderStatus) {
+        statusPollFailureCountRef.current += 1;
+        if (sessionStateRef.current === 'starting' || sessionStateRef.current === 'recording') {
+          if (statusPollFailureCountRef.current === 1 || statusPollFailureCountRef.current % 20 === 0) {
+            console.warn('[transcription] Recorder status unavailable during active session, using fallback status', {
+              failures: statusPollFailureCountRef.current,
+            });
+          }
+          handleStatusUpdateRef.current?.(buildFallbackRecordingStatus());
+          return;
+        }
         if (statusIntervalRef.current) {
           clearInterval(statusIntervalRef.current);
           statusIntervalRef.current = null;
         }
+        recordingStartedAtRef.current = null;
         return;
       }
+      statusPollFailureCountRef.current = 0;
+      lastRecorderStatusRef.current = recorderStatus;
       const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
       const metering =
         typeof recorderStatus.metering === 'number' && Number.isFinite(recorderStatus.metering)
@@ -863,18 +954,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         console.log('[transcription] Metering source', { source: nextSource });
         meteringSourceRef.current = nextSource;
       }
-      const status: RecordingStatus = {
-        isRecording: recorderStatus.isRecording,
-        durationMillis: recorderStatus.durationMillis,
-        metering,
-        isDoneRecording: false,
-        canRecord: recorderStatus.canRecord,
-        mediaServicesDidReset: recorderStatus.mediaServicesDidReset,
-      };
+      const status = createRecordingStatusFromRecorderStatus(recorderStatus, metering);
       handleStatusUpdateRef.current?.(status);
     }, 100);
     console.log('[transcription] status interval started');
-  }, [recorder]);
+  }, [buildFallbackRecordingStatus, recorder, sessionStateRef]);
 
   const stopAndResetRecording = useCallback(async () => {
     if (statusIntervalRef.current) {
@@ -883,8 +967,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
     const recorderStatus = getRecorderStatusSafe(recorder);
     if (!recorderStatus) {
+      recordingStartedAtRef.current = null;
+      statusPollFailureCountRef.current = 0;
       return;
     }
+    lastRecorderStatusRef.current = recorderStatus;
     if (recorderStatus.isRecording) {
       try {
         await recorder.stop();
@@ -892,6 +979,8 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         console.warn('[transcription] Failed to stop recording', stopError);
       }
     }
+    recordingStartedAtRef.current = null;
+    statusPollFailureCountRef.current = 0;
   }, [recorder]);
 
   const finalizeSegment = useCallback(async (status: RecordingStatus | null, options?: { sessionId?: string }) => {
@@ -903,8 +992,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const currentMessageId = snapshot.messageId;
     const taskSessionId = options?.sessionId ?? sessionIdRef.current;
     const recorderStatus = status ? null : getRecorderStatusSafe(recorder);
+    if (recorderStatus) {
+      lastRecorderStatusRef.current = recorderStatus;
+    }
     const absoluteDurationMs =
-      status?.durationMillis ?? recorderStatus?.durationMillis ?? recorder.currentTime * 1000;
+      status?.durationMillis ?? recorderStatus?.durationMillis ?? getBestKnownDurationMs();
     const segmentBaseMs = segmentBaseMsRef.current;
     const endOffsetMs = Math.max(0, absoluteDurationMs - segmentBaseMs);
     const rawStartOffsetMs = (snapshot.confirmedStartMs ?? segmentBaseMs) - segmentBaseMs;
@@ -925,6 +1017,21 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     let originalFileUri: string | null = null;
     let taskToken: string | null = null;
     try {
+      const segmentMetadata: SegmentMetadata = {
+        fileUri: '',
+        startOffsetMs,
+        endOffsetMs,
+        durationMs: endOffsetMs,
+        createdAt: Date.now(),
+        engine: settingsRef.current.transcriptionEngine,
+        model: resolveTranscriptionModel(settingsRef.current),
+      };
+      updateMessage(currentMessageId, (msg) => ({
+        ...msg,
+        status: 'transcribing',
+        segment: segmentMetadata,
+        updatedAt: Date.now(),
+      }));
       let normalizedUri: string | null = null;
       let useDesktopSegmenter = isElectronDesktop && desktopSegmentRecorderRef.current !== null;
       if (useDesktopSegmenter) {
@@ -967,8 +1074,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           clearInterval(statusIntervalRef.current);
           statusIntervalRef.current = null;
         }
-        await recorder.stop();
-        const fileUri = recorder.uri;
+        try {
+          await recorder.stop();
+        } catch (stopError) {
+          console.warn('[transcription] Failed to stop segment recorder', stopError);
+        }
+        let fileUri: string | null = null;
+        try {
+          fileUri = recorder.uri;
+        } catch (uriError) {
+          console.warn('[transcription] Failed to read segment recorder URI', uriError);
+        }
         if (!fileUri) {
           throw new Error(t('transcription.errors.empty_recording'));
         }
@@ -989,6 +1105,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         console.warn('[transcription] Failed to normalize audio segment', normalizeError);
       }
       payload.fileUri = normalizedUri;
+      segmentMetadata.fileUri = normalizedUri;
 
       if (sessionStateRef.current === 'recording' && taskSessionId && sessionIdRef.current === taskSessionId && !useDesktopSegmenter) {
         try {
@@ -1006,22 +1123,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         }
       }
 
-      const segmentMetadata: SegmentMetadata = {
-        fileUri: normalizedUri,
-        startOffsetMs,
-        endOffsetMs,
-        durationMs: endOffsetMs,
-        createdAt: Date.now(),
-        engine: settingsRef.current.transcriptionEngine,
-        model: resolveTranscriptionModel(settingsRef.current),
-      };
-      const didMarkTranscribing = updateMessage(currentMessageId, (msg) => ({
+      const didUpdateSegment = updateMessage(currentMessageId, (msg) => ({
         ...msg,
         status: 'transcribing',
         segment: segmentMetadata,
         updatedAt: Date.now(),
       }));
-      if (!didMarkTranscribing) {
+      if (!didUpdateSegment) {
         return null;
       }
 
@@ -1146,7 +1254,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         cleanupRecordingFile(originalFileUri);
       }
     }
-  }, [cleanupRecordingFile, isTaskCurrent, recorder, resetSegmentState, settingsRef, startNewRecording, t, updateMessage]);
+  }, [cleanupRecordingFile, getBestKnownDurationMs, isTaskCurrent, recorder, resetSegmentState, settingsRef, startNewRecording, t, updateMessage]);
 
   useEffect(() => {
     finalizeSegmentRef.current = finalizeSegment;
