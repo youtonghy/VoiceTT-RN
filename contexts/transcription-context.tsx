@@ -6,6 +6,7 @@ import {
   requestRecordingPermissionsAsync,
   getRecordingPermissionsAsync,
   type AudioRecorder,
+  type RecorderState,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, {
@@ -470,6 +471,15 @@ interface RecordingStatus {
   mediaServicesDidReset?: boolean;
 }
 
+function getRecorderStatusSafe(recorder: AudioRecorder): RecorderState | null {
+  try {
+    return recorder.getStatus();
+  } catch (error) {
+    console.warn('[transcription] Recorder status unavailable', error);
+    return null;
+  }
+}
+
 function meteringToRms(value: number | undefined): number {
   if (typeof value !== 'number') {
     return 0;
@@ -830,7 +840,14 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       clearInterval(statusIntervalRef.current);
     }
     statusIntervalRef.current = setInterval(() => {
-      const recorderStatus = recorder.getStatus();
+      const recorderStatus = getRecorderStatusSafe(recorder);
+      if (!recorderStatus) {
+        if (statusIntervalRef.current) {
+          clearInterval(statusIntervalRef.current);
+          statusIntervalRef.current = null;
+        }
+        return;
+      }
       const fallbackMetering = isElectronDesktop ? readDesktopMeteringDb() : undefined;
       const metering =
         typeof recorderStatus.metering === 'number' && Number.isFinite(recorderStatus.metering)
@@ -864,7 +881,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       clearInterval(statusIntervalRef.current);
       statusIntervalRef.current = null;
     }
-    const recorderStatus = recorder.getStatus();
+    const recorderStatus = getRecorderStatusSafe(recorder);
+    if (!recorderStatus) {
+      return;
+    }
     if (recorderStatus.isRecording) {
       try {
         await recorder.stop();
@@ -882,8 +902,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     resetSegmentState();
     const currentMessageId = snapshot.messageId;
     const taskSessionId = options?.sessionId ?? sessionIdRef.current;
+    const recorderStatus = status ? null : getRecorderStatusSafe(recorder);
     const absoluteDurationMs =
-      status?.durationMillis ?? recorder.getStatus().durationMillis ?? recorder.currentTime * 1000;
+      status?.durationMillis ?? recorderStatus?.durationMillis ?? recorder.currentTime * 1000;
     const segmentBaseMs = segmentBaseMsRef.current;
     const endOffsetMs = Math.max(0, absoluteDurationMs - segmentBaseMs);
     const rawStartOffsetMs = (snapshot.confirmedStartMs ?? segmentBaseMs) - segmentBaseMs;

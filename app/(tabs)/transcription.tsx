@@ -38,27 +38,28 @@ import {
     type AssistantConversationTurn,
 } from "@/services/transcription";
 import { synthesizeSpeech } from "@/services/tts";
+import {
+    DEFAULT_GEMINI_ASSISTANT_MODEL,
+    DEFAULT_OPENAI_ASSISTANT_MODEL,
+    type AssistantEngine,
+} from "@/types/settings";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
-import { Button, Card, Input, SearchField, Surface, Text } from "heroui-native";
-import { ProgressButton, Segment, SlideButton, Stepper, TrendChip } from "heroui-native-pro";
+import { Button, Card, Input, Radio, SearchField, Surface, Text, useThemeColor } from "heroui-native";
+import { RadioButtonGroup, Segment } from "heroui-native-pro";
 
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 type StudioIconName =
   | 'box-archive'
-  | 'circle-dot'
-  | 'circle-stop'
   | 'clock-rotate-left'
   | 'comments'
-  | 'file-export'
   | 'microphone'
   | 'magnifying-glass'
   | 'paper-plane'
   | 'radio'
   | 'robot'
-  | 'share-nodes'
   | 'wand-magic-sparkles'
   | 'wave-square';
 const StudioIcon = withUniwind(FontAwesome6);
@@ -293,7 +294,8 @@ export default function TranscriptionScreen() {
 
   const { width } = useWindowDimensions();
   const isTablet = useIsTablet();
-  const { settings } = useSettings();
+  const [dangerForeground] = useThemeColor(['danger-foreground']);
+  const { settings, updateSettings } = useSettings();
   const {
     messages,
     error,
@@ -324,6 +326,7 @@ export default function TranscriptionScreen() {
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [assistantModelMenuOpen, setAssistantModelMenuOpen] = useState(false);
   const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
@@ -1336,42 +1339,6 @@ export default function TranscriptionScreen() {
     [activeConversationId, setHistoryItems, stopSession]
   );
 
-  const handleHistoryLongPress = useCallback(
-    (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
-      historyLongPressRef.current = conversation.id;
-      setContextMenu({
-        title: t('transcription.history.actions.title'),
-        actions: [
-          {
-            label: t('transcription.history.actions.rename'),
-            onPress: () => {
-              openRenameDialog(conversation);
-            },
-          },
-          {
-            label: t('transcription.history.actions.generate_title'),
-            onPress: () => {
-              void handleHistoryGenerateTitle(conversation.id);
-            },
-          },
-          {
-            label: t('transcription.history.actions.delete'),
-            variant: 'destructive',
-            onPress: () => {
-              handleDeleteConversation(conversation);
-            },
-          },
-          {
-            label: t('common.actions.cancel'),
-            variant: 'cancel',
-          },
-        ],
-        anchor,
-      });
-    },
-    [handleDeleteConversation, handleHistoryGenerateTitle, openRenameDialog, t]
-  );
-
   const handleAssistantSummaryMenu = useCallback(
     (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
       setContextMenu({
@@ -1425,32 +1392,47 @@ export default function TranscriptionScreen() {
   const assistantSummaryPlaceholder = assistantSummaryHidden
     ? t('assistant.placeholders.summary_hidden')
     : t('assistant.placeholders.summary');
-
-  const workflowStep = useMemo(() => {
-    if (
-      sessionState === 'starting' ||
-      sessionState === 'recording' ||
-      sessionState === 'stopping'
-    ) {
-      return 0;
-    }
-    if (
-      messages.some((item) => item.status === 'pending' || item.status === 'transcribing') ||
-      messages.some((item) => item.translationStatus === 'pending')
-    ) {
-      return 1;
-    }
-    if (assistantSending || autoSummaryAbortRef.current || autoSummaryPendingRef.current) {
-      return 2;
-    }
-    if (assistantMessages.length > 0 || assistantSummary.length > 0) {
-      return 2;
-    }
-    if (messages.some((item) => item.transcript?.trim())) {
-      return 1;
-    }
-    return 0;
-  }, [assistantMessages.length, assistantSending, assistantSummary.length, messages, sessionState]);
+  const assistantEngine = settings.assistantEngine ?? 'openai';
+  const assistantModelOptions = useMemo(
+    () => [
+      {
+        value: 'openai' as const,
+        label: t('settings.summary.assistant_engine.engines.openai'),
+        model:
+          settings.credentials.openaiAssistantModel?.trim() ||
+          settings.credentials.openaiConversationModel?.trim() ||
+          DEFAULT_OPENAI_ASSISTANT_MODEL,
+      },
+      {
+        value: 'gemini' as const,
+        label: t('settings.summary.assistant_engine.engines.gemini'),
+        model:
+          settings.credentials.geminiAssistantModel?.trim() ||
+          settings.credentials.geminiConversationModel?.trim() ||
+          DEFAULT_GEMINI_ASSISTANT_MODEL,
+      },
+    ],
+    [
+      settings.credentials.geminiAssistantModel,
+      settings.credentials.geminiConversationModel,
+      settings.credentials.openaiAssistantModel,
+      settings.credentials.openaiConversationModel,
+      t,
+    ]
+  );
+  const activeAssistantModel =
+    assistantModelOptions.find((option) => option.value === assistantEngine)?.model ??
+    assistantModelOptions[0].model;
+  const handleAssistantModelChange = useCallback(
+    (next: string) => {
+      if (next !== 'openai' && next !== 'gemini') {
+        return;
+      }
+      updateSettings({ assistantEngine: next as AssistantEngine });
+      setAssistantModelMenuOpen(false);
+    },
+    [updateSettings]
+  );
 
   const tabletHistoryWidth = useMemo(() => {
     if (!isTablet) {
@@ -1465,7 +1447,7 @@ export default function TranscriptionScreen() {
     }
   }, [isTablet]);
 
-  const handleExportConversation = useCallback(async () => {
+  const handleShareConversation = useCallback(async (conversation: HistoryConversation) => {
     const includeTranscript = settings.exportIncludeTranscript;
     const includeTranslation = settings.exportIncludeTranslation;
     const includeTime = settings.exportIncludeTime;
@@ -1476,7 +1458,7 @@ export default function TranscriptionScreen() {
       return;
     }
 
-    const exportableMessages = messages.filter((item) => {
+    const exportableMessages = conversation.messages.filter((item) => {
       const transcript = item.transcript?.trim();
       const translation = item.translation?.trim();
       if (includeTranscript && transcript) {
@@ -1494,7 +1476,7 @@ export default function TranscriptionScreen() {
     }
 
     const headerLines = [
-      `# ${t('transcription.export.share_title')}`,
+      `# ${conversation.title || t('transcription.export.share_title')}`,
       '',
       t('transcription.export.generated_at', { time: formatRecordTime(Date.now(), i18n.language) }),
       '',
@@ -1552,7 +1534,7 @@ export default function TranscriptionScreen() {
       if (exportFormat === 'markdown') {
         await Share.share({
           message: exportText,
-          title: t('transcription.export.share_title'),
+          title: conversation.title || t('transcription.export.share_title'),
         });
         return;
       }
@@ -1572,7 +1554,7 @@ export default function TranscriptionScreen() {
       } else {
         await Share.share({
           url: uri,
-          title: t('transcription.export.share_title'),
+          title: conversation.title || t('transcription.export.share_title'),
           message: exportText,
         });
       }
@@ -1581,40 +1563,104 @@ export default function TranscriptionScreen() {
       Alert.alert(t('transcription.export.error_title'), t('transcription.export.error_body'));
     }
   }, [
-    messages,
     settings,
     t,
     i18n.language,
   ]);
 
+  const handleCopyConversation = useCallback(
+    (conversation: HistoryConversation) => {
+      const lines: string[] = [];
+      conversation.messages.forEach((message) => {
+        const transcript = message.transcript?.trim();
+        const translation = message.translation?.trim();
+        if (!transcript && !translation) {
+          return;
+        }
+        lines.push(`[${formatExportTimestamp(message.createdAt)}]`);
+        if (transcript) {
+          lines.push(transcript);
+        }
+        if (translation) {
+          lines.push(translation);
+        }
+        lines.push('');
+      });
+
+      const text = lines.join('\n').trim();
+      if (!text) {
+        Alert.alert(t('transcription.export.empty_title'), t('transcription.export.empty_body'));
+        return;
+      }
+
+      void Clipboard.setStringAsync(text);
+    },
+    [t]
+  );
+
+  const handleHistoryLongPress = useCallback(
+    (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
+      historyLongPressRef.current = conversation.id;
+      setContextMenu({
+        title: t('transcription.history.actions.title'),
+        actions: [
+          {
+            label: t('transcription.history.actions.share'),
+            onPress: () => {
+              void handleShareConversation(conversation);
+            },
+          },
+          {
+            label: t('transcription.history.actions.copy'),
+            onPress: () => {
+              handleCopyConversation(conversation);
+            },
+          },
+          {
+            label: t('transcription.history.actions.rename'),
+            onPress: () => {
+              openRenameDialog(conversation);
+            },
+          },
+          {
+            label: t('transcription.history.actions.generate_title'),
+            onPress: () => {
+              void handleHistoryGenerateTitle(conversation.id);
+            },
+          },
+          {
+            label: t('transcription.history.actions.delete'),
+            variant: 'destructive',
+            onPress: () => {
+              handleDeleteConversation(conversation);
+            },
+          },
+          {
+            label: t('common.actions.cancel'),
+            variant: 'cancel',
+          },
+        ],
+        anchor,
+      });
+    },
+    [
+      handleCopyConversation,
+      handleDeleteConversation,
+      handleHistoryGenerateTitle,
+      handleShareConversation,
+      openRenameDialog,
+      t,
+    ]
+  );
+
   const activeMobilePane = activeCarouselIndex === 0 ? 'live' : activeCarouselIndex === 2 ? 'assistant' : 'history';
-  const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeMobilePane === 'assistant';
   const activeConversationTitle = activeConversation?.title ?? t('transcription.history.new_conversation', { id: historyIdCounter.current });
   const isSessionBusy = sessionState === 'starting' || sessionState === 'stopping';
   const recordLabel = isSessionActive
     ? t('transcription.accessibility.stop_recording')
     : t('transcription.accessibility.start_recording');
-  const workflowStatusLabel =
-    sessionState === 'recording'
-      ? t('transcription.status.recording')
-      : isSessionBusy
-      ? t('transcription.status.processing')
-      : sessionState === 'failed'
-      ? t('transcription.status.failed')
-      : workflowStep === 2
-      ? t('assistant.section.summary_title')
-      : workflowStep === 1
-      ? t('transcription.status.transcribing')
-      : t('transcription.controls.start');
-  const workflowMetaLabel = settings.enableTranslation && settings.translationEngine !== 'none'
-    ? t(`settings.translation.engines.${settings.translationEngine}`, {
-        defaultValue: settings.translationEngine.toUpperCase(),
-      })
-    : t('settings.translation.engines.none');
-  const transcriptionMetaLabel = `${settings.transcriptionEngine.toUpperCase()} / ${workflowMetaLabel}`;
+  const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeMobilePane === 'assistant';
   const historyCountLabel = String(historyItems.length);
-  const transcriptCountLabel = String(messages.length);
-  const assistantCountLabel = String(assistantMessages.length);
 
   const assistantBubbleMaxWidth = useMemo(
     () => Math.max(220, Math.round(width * (isTablet ? 0.42 : 0.76))),
@@ -1657,117 +1703,6 @@ export default function TranscriptionScreen() {
     />
   );
 
-  const WorkflowStepper = (
-    <View className="rounded-2xl bg-surface-secondary px-2 py-1.5" style={styles.workflowStepperFrame}>
-      <Stepper currentStep={workflowStep} orientation="horizontal" animation="disable-all">
-        <Stepper.Step disabled className="min-w-0 flex-1">
-          <Stepper.Rail />
-          <Stepper.Content className="min-w-0">
-            <Stepper.Title numberOfLines={1}>{t('transcription.controls.start')}</Stepper.Title>
-          </Stepper.Content>
-        </Stepper.Step>
-        <Stepper.Step disabled className="min-w-0 flex-1">
-          <Stepper.Rail />
-          <Stepper.Content className="min-w-0">
-            <Stepper.Title numberOfLines={1}>{t('transcription.status.transcribing')}</Stepper.Title>
-          </Stepper.Content>
-        </Stepper.Step>
-        <Stepper.Step disabled className="min-w-0 flex-1">
-          <Stepper.Rail />
-          <Stepper.Content className="min-w-0">
-            <Stepper.Title numberOfLines={1}>{t('assistant.section.title')}</Stepper.Title>
-          </Stepper.Content>
-        </Stepper.Step>
-      </Stepper>
-    </View>
-  );
-
-  const StudioHeader = (
-    <Surface variant="default" className="rounded-3xl border border-border px-4 py-3" style={styles.headerSurface}>
-      <View className="flex-row items-center gap-3">
-        <View className="size-11 items-center justify-center rounded-2xl bg-accent">
-          <StudioIcon name="wave-square" size={21} className="text-accent-foreground" solid />
-        </View>
-        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
-          <Text.Heading type={isTablet ? 'h2' : 'h3'} numberOfLines={1}>
-            {activeConversationTitle}
-          </Text.Heading>
-          <Text type="body-sm" color="muted" numberOfLines={1}>
-            {transcriptionMetaLabel}
-          </Text>
-        </View>
-        <Button
-          accessibilityLabel={t('transcription.export.accessibility')}
-          isIconOnly
-          size="sm"
-          variant="tertiary"
-          onPress={() => {
-            void handleExportConversation();
-          }}>
-          <StudioIcon name="file-export" size={17} className="text-foreground" />
-        </Button>
-      </View>
-    </Surface>
-  );
-
-  const RecordingDock = (
-    <Surface variant="default" className="gap-3 rounded-3xl border border-border p-3" style={styles.recordingDock}>
-      <View className="flex-row items-center justify-between gap-3">
-        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
-          <View className="flex-row items-center gap-2">
-            <TrendChip
-              size="sm"
-              trend={sessionState === 'failed' ? 'down' : sessionState === 'recording' ? 'up' : 'neutral'}>
-              {workflowStatusLabel}
-            </TrendChip>
-            <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
-              {t('transcription.sections.live_content')} {transcriptCountLabel}
-            </Text>
-          </View>
-          <Text type="body-xs" color="muted" numberOfLines={1}>
-            {transcriptionMetaLabel}
-          </Text>
-        </View>
-        <View className="flex-row items-center gap-2" style={styles.metricStrip}>
-          <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
-            {t('transcription.sections.history_title')} {historyCountLabel}
-          </Text>
-          <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
-            {t('assistant.section.title')} {assistantCountLabel}
-          </Text>
-        </View>
-      </View>
-      {WorkflowStepper}
-      <View className="flex-row items-center gap-3">
-        <Button
-          accessibilityLabel={recordLabel}
-          className="flex-1"
-          isDisabled={isSessionBusy}
-          onPress={handleToggleRecording}
-          size="lg"
-          variant={isSessionActive ? 'danger' : 'primary'}>
-          <StudioIcon
-            name={isSessionActive ? 'circle-stop' : 'circle-dot'}
-            size={19}
-            className="text-white"
-            solid
-          />
-          <Button.Label numberOfLines={1}>{recordLabel}</Button.Label>
-        </Button>
-        <Button
-          accessibilityLabel={t('transcription.export.accessibility')}
-          isIconOnly
-          size="lg"
-          variant="secondary"
-          onPress={() => {
-            void handleExportConversation();
-          }}>
-          <StudioIcon name="share-nodes" size={19} className="text-foreground" />
-        </Button>
-      </View>
-    </Surface>
-  );
-
   const LivePane = ({ showTabs = false }: { showTabs?: boolean }) => (
     <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
       {showTabs ? DetailSegment : null}
@@ -1777,13 +1712,22 @@ export default function TranscriptionScreen() {
             <Text type="body-sm" weight="bold" numberOfLines={1}>
               {t('transcription.sections.live_content')}
             </Text>
-            <Text type="body-xs" color="muted" numberOfLines={1}>
-              {workflowStatusLabel}
-            </Text>
           </View>
-          <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
-            <StudioIcon name="radio" size={17} className="text-accent" solid />
-          </View>
+          <Button
+            accessibilityLabel={recordLabel}
+            isDisabled={isSessionBusy}
+            isIconOnly
+            onPress={handleToggleRecording}
+            size="md"
+            variant={isSessionActive ? 'danger' : 'secondary'}>
+            <StudioIcon
+              name="radio"
+              size={17}
+              color={isSessionActive ? dangerForeground : undefined}
+              className={isSessionActive ? undefined : 'text-accent'}
+              solid
+            />
+          </Button>
         </View>
         <ScrollView
           ref={scrollRef}
@@ -1937,21 +1881,18 @@ export default function TranscriptionScreen() {
           )}
         </ScrollView>
         <View className="border-t border-border p-3">
-          <SlideButton
-            variant="accent"
-            autoReset
-            autoResetDelay={900}
-            onComplete={() => {
+          <Button
+            accessibilityLabel={t('transcription.history.accessibility.add')}
+            onPress={() => {
               void handleAddConversation();
-            }}>
-            <SlideButton.UnderlayContent>
-              <SlideButton.Label>{t('transcription.history.accessibility.add')}</SlideButton.Label>
-            </SlideButton.UnderlayContent>
-            <SlideButton.OverlayContent>
-              <SlideButton.Label>{t('transcription.history.new_conversation', { id: historyIdCounter.current })}</SlideButton.Label>
-            </SlideButton.OverlayContent>
-            <SlideButton.Thumb />
-          </SlideButton>
+            }}
+            size="lg"
+            variant="primary">
+            <StudioIcon name="comments" size={18} className="text-accent-foreground" />
+            <Button.Label numberOfLines={1}>
+              {t('transcription.history.new_conversation', { id: historyIdCounter.current })}
+            </Button.Label>
+          </Button>
         </View>
       </Surface>
     </View>
@@ -1970,9 +1911,15 @@ export default function TranscriptionScreen() {
               {activeConversationTitle}
             </Text>
           </View>
-          <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
+          <Button
+            accessibilityLabel={t('assistant.accessibility.switch_model')}
+            accessibilityState={{ expanded: assistantModelMenuOpen }}
+            isIconOnly
+            onPress={() => setAssistantModelMenuOpen(true)}
+            size="md"
+            variant="secondary">
             <StudioIcon name="robot" size={17} className="text-accent" solid />
-          </View>
+          </Button>
         </View>
         <ScrollView
           ref={assistantScrollRef}
@@ -2072,7 +2019,8 @@ export default function TranscriptionScreen() {
           )}
         </ScrollView>
         {showAssistantComposer ? (
-          <View className="flex-row items-end gap-2 border-t border-border p-3">
+          <View className="flex-row items-center gap-2 border-t border-border p-3">
+            <VoiceInputButton style={styles.assistantActionButton} onInsert={handleVoiceInputInsert} />
             <Input
               ref={assistantInputRef}
               className="min-h-11 flex-1"
@@ -2089,22 +2037,16 @@ export default function TranscriptionScreen() {
               }}
               variant="secondary"
             />
-            <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
-            <View style={styles.assistantSendButtonFrame}>
-              <ProgressButton
-                accessibilityLabel={t('assistant.accessibility.send_input')}
-                autoReset
-                autoResetDelay={800}
-                holdDuration={650}
-                isDisabled={!assistantCanSend || assistantSending}
-                onComplete={handleAssistantSend}
-                variant="accent">
-                <ProgressButton.Label numberOfLines={1}>{t('assistant.accessibility.send_input')}</ProgressButton.Label>
-                <ProgressButton.Overlay>
-                  <ProgressButton.MaskLabel numberOfLines={1}>{t('assistant.accessibility.send_input')}</ProgressButton.MaskLabel>
-                </ProgressButton.Overlay>
-              </ProgressButton>
-            </View>
+            <Button
+              accessibilityLabel={t('assistant.accessibility.send_input')}
+              isDisabled={!assistantCanSend || assistantSending}
+              isIconOnly
+              onPress={handleAssistantSend}
+              size="lg"
+              style={styles.assistantActionButton}
+              variant="primary">
+              <StudioIcon name="paper-plane" size={17} className="text-accent-foreground" solid />
+            </Button>
           </View>
         ) : null}
       </Surface>
@@ -2113,20 +2055,17 @@ export default function TranscriptionScreen() {
 
   const MobileContent = (
     <View className="min-h-0 flex-1 gap-3" style={styles.screenRoot}>
-      {StudioHeader}
       {MobileModeSegment}
       <View className="min-h-0 flex-1" style={styles.mobilePaneFrame}>
         {activeMobilePane === 'live' ? <LivePane /> : null}
         {activeMobilePane === 'history' ? <HistoryPane /> : null}
         {activeMobilePane === 'assistant' ? <AssistantPane /> : null}
       </View>
-      {activeMobilePane === 'live' ? RecordingDock : null}
     </View>
   );
 
   const TabletContent = (
     <View className="min-h-0 flex-1 gap-4" style={styles.screenRoot}>
-      {StudioHeader}
       <View className="min-h-0 flex-1 flex-row gap-4" style={styles.tabletContentRow}>
         <View
           style={[styles.tabletHistoryFrame, { width: tabletHistoryWidth }]}
@@ -2137,7 +2076,6 @@ export default function TranscriptionScreen() {
           {tabletDetail === "assistant" ? <AssistantPane showTabs /> : <LivePane showTabs />}
         </View>
       </View>
-      {tabletDetail === 'live' ? RecordingDock : null}
     </View>
   );
 
@@ -2152,6 +2090,55 @@ export default function TranscriptionScreen() {
         anchor={contextMenu?.anchor}
         onRequestClose={handleDismissContextMenu}
       />
+      <Modal
+        animationType="fade"
+        transparent
+        visible={assistantModelMenuOpen}
+        onRequestClose={() => setAssistantModelMenuOpen(false)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          style={styles.renameBackdrop}
+          onPress={() => setAssistantModelMenuOpen(false)}>
+          <Pressable
+            style={[
+              styles.modelMenuPressable,
+              { width: Math.min(320, Math.max(260, width - 32)) },
+            ]}
+            onPress={() => {}}>
+            <Surface variant="default" className="gap-3 rounded-2xl border border-border p-3">
+              <View className="gap-1 px-1">
+                <Text weight="bold">{t('assistant.model_menu.title')}</Text>
+                <Text type="body-xs" color="muted" numberOfLines={1}>
+                  {activeAssistantModel}
+                </Text>
+              </View>
+              <RadioButtonGroup
+                className="gap-2"
+                onValueChange={handleAssistantModelChange}
+                value={assistantEngine}
+                variant="secondary">
+                {assistantModelOptions.map((option) => (
+                  <RadioButtonGroup.Item
+                    key={option.value}
+                    className="items-center gap-3 rounded-xl px-3 py-3"
+                    value={option.value}>
+                    <RadioButtonGroup.ItemContent className="min-w-0 flex-1 gap-0.5">
+                      <Text weight="semibold" numberOfLines={1}>
+                        {option.label}
+                      </Text>
+                      <Text type="body-xs" color="muted" numberOfLines={1}>
+                        {option.model}
+                      </Text>
+                    </RadioButtonGroup.ItemContent>
+                    <Radio />
+                  </RadioButtonGroup.Item>
+                ))}
+              </RadioButtonGroup>
+            </Surface>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {renameDialog ? (
         <Modal
           transparent
@@ -2195,10 +2182,6 @@ const styles = StyleSheet.create({
     minHeight: 0,
     minWidth: 0,
   },
-  headerSurface: {
-    flexShrink: 0,
-    minWidth: 0,
-  },
   mobilePaneFrame: {
     flex: 1,
     minHeight: 0,
@@ -2219,18 +2202,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
   },
-  recordingDock: {
-    flexShrink: 0,
-    minWidth: 0,
-  },
-  workflowStepperFrame: {
-    flexShrink: 0,
-    minWidth: 0,
-  },
-  metricStrip: {
-    flexShrink: 1,
-    minWidth: 0,
-  },
   tabletContentRow: {
     flex: 1,
     flexDirection: 'row',
@@ -2242,9 +2213,6 @@ const styles = StyleSheet.create({
     minHeight: 0,
     minWidth: 0,
     borderRadius: 18,
-  },
-  assistantSendButtonFrame: {
-    width: 112,
   },
   assistantSummaryText: {
     fontSize: 16,
@@ -2260,9 +2228,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  assistantVoiceButton: {
-    width: 36,
-    height: 36,
+  assistantActionButton: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
   },
   dialogueContent: {
     gap: 12,
@@ -2325,6 +2294,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   renameCardPressable: {
+    borderRadius: 20,
+  },
+  modelMenuPressable: {
+    alignSelf: "flex-end",
     borderRadius: 20,
   },
 });

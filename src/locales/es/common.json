@@ -76,6 +76,8 @@
       "new_conversation": "Nueva conversación {{id}}",
       "actions": {
         "title": "Acciones de conversación",
+        "share": "Compartir",
+        "copy": "Copiar",
         "rename": "Renombrar",
         "generate_title": "Generar título",
         "delete": "Eliminar"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "Esperando respuesta…"
     },
+    "model_menu": {
+      "title": "Modelo del asistente"
+    },
     "errors": {
       "send_failed": "Error al enviar"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "Ocultar resumen para esta conversación"
     },
     "accessibility": {
-      "send_input": "Enviar entrada"
+      "send_input": "Enviar entrada",
+      "switch_model": "Cambiar modelo del asistente"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "Envía un mensaje para escucharlo en voz alta."
     },
     "input": {
+      "title": "Texto de lectura",
       "placeholder": "Escribe algo para leer en voz alta"
     },
     "status": {
@@ -281,9 +288,27 @@
         "transcription_model": "Modelo de transcripción",
         "translation_model": "Modelo de traducción",
         "tts_model": "Modelo de texto a voz",
+        "title_model": "Modelo de título",
+        "conversation_model": "Modelo de resumen",
+        "assistant_model": "Modelo de asistente",
+        "qa_model": "Modelo de preguntas y respuestas",
         "doubao_app_id": "Doubao App ID",
         "doubao_token": "Doubao Token",
         "doubao_cluster": "Doubao Cluster"
+      },
+      "models": {
+        "title": "Modelos",
+        "placeholder": "Seleccionar modelo",
+        "refresh": "Actualizar modelos",
+        "loading": "Cargando",
+        "ready": "{{count}} modelos",
+        "defaults": "Predeterminados",
+        "missing_key": "Agrega una clave API",
+        "using_cached": "Usando lista guardada",
+        "fetch_failed": "No se pudo obtener la lista de modelos. Revisa la clave API o la URL base.",
+        "catalog_hint": "Obtén modelos compatibles del proveedor cuando haya credenciales.",
+        "local_hint": "Elige entre los modelos conocidos de este proveedor.",
+        "credentials_only": "Este proveedor solo necesita credenciales aquí."
       }
     },
     "recording": {

@@ -76,6 +76,8 @@
       "new_conversation": "New conversation {{id}}",
       "actions": {
         "title": "Conversation actions",
+        "share": "Share",
+        "copy": "Copy",
         "rename": "Rename",
         "generate_title": "Generate title",
         "delete": "Delete"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "Waiting for reply…"
     },
+    "model_menu": {
+      "title": "Assistant model"
+    },
     "errors": {
       "send_failed": "Failed to send"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "Hide summary for this conversation"
     },
     "accessibility": {
-      "send_input": "Send input"
+      "send_input": "Send input",
+      "switch_model": "Switch assistant model"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "Send a message to hear it spoken."
     },
     "input": {
+      "title": "Read aloud text",
       "placeholder": "Type something to read aloud"
     },
     "status": {
@@ -319,9 +326,27 @@
         "transcription_model": "Transcription model",
         "translation_model": "Translation model",
         "tts_model": "Text-to-speech model",
+        "title_model": "Title model",
+        "conversation_model": "Summary model",
+        "assistant_model": "Assistant model",
+        "qa_model": "Q&A model",
         "doubao_app_id": "Doubao App ID",
         "doubao_token": "Doubao Token",
         "doubao_cluster": "Doubao Cluster"
+      },
+      "models": {
+        "title": "Models",
+        "placeholder": "Select a model",
+        "refresh": "Refresh models",
+        "loading": "Loading",
+        "ready": "{{count}} models",
+        "defaults": "Defaults",
+        "missing_key": "Add API key",
+        "using_cached": "Using saved list",
+        "fetch_failed": "Unable to fetch the model list. Check the API key or base URL.",
+        "catalog_hint": "Fetch supported models from this provider when credentials are available.",
+        "local_hint": "Choose from the known model candidates for this provider.",
+        "credentials_only": "This provider only needs credentials here."
       }
     },
     "recording": {

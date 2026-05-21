@@ -3,6 +3,7 @@ import {
     requestRecordingPermissionsAsync,
     setAudioModeAsync,
     useAudioRecorder,
+    useAudioRecorderState,
     type RecordingOptions,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
@@ -77,6 +78,8 @@ export default function RecordingSettingsScreen() {
   const insets = useSafeAreaInsets();
   const [presetName, setPresetName] = useState('');
   const recorder = useAudioRecorder(METERING_RECORDING_OPTIONS);
+  const recorderState = useAudioRecorderState(recorder, 100);
+  const recorderStateRef = useRef(recorderState);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [meteringDb, setMeteringDb] = useState<number | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -201,6 +204,18 @@ export default function RecordingSettingsScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    recorderStateRef.current = recorderState;
+  }, [recorderState]);
+
+  const shouldIgnoreReleasedRecorderError = (error: unknown) => {
+    const message =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message ?? '')
+        : String(error ?? '');
+    return message.includes('already released') || message.includes('Cannot use shared object');
+  };
+
   const cleanupRecordingFile = useCallback(async (uri?: string | null) => {
     if (!uri) {
       return;
@@ -239,16 +254,26 @@ export default function RecordingSettingsScreen() {
       webMeteringRef.current.context = null;
     }
     webMeteringRef.current.analyser = null;
-    if (recorder.isRecording) {
+    const state = recorderStateRef.current;
+    if (state.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
-        if (__DEV__) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
           console.warn('[recording-settings] Failed to stop metering recorder', error);
         }
       }
     }
-    const currentUri = recorder.uri;
+    let currentUri = state.url;
+    if (!currentUri) {
+      try {
+        currentUri = recorder.uri;
+      } catch (error) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+          console.warn('[recording-settings] Failed to read metering recorder URI', error);
+        }
+      }
+    }
     await cleanupRecordingFile(currentUri);
   }, [cleanupRecordingFile, clearStatusInterval, recorder]);
 
@@ -531,7 +556,7 @@ export default function RecordingSettingsScreen() {
         return;
       }
 
-      if (recorder.isRecording) {
+      if (recorderStateRef.current.isRecording) {
         return;
       }
 
@@ -560,7 +585,18 @@ export default function RecordingSettingsScreen() {
 
       clearStatusInterval();
       statusIntervalRef.current = setInterval(() => {
-        const status = recorder.getStatus();
+        let status;
+        try {
+          status = recorder.getStatus();
+        } catch (error) {
+          clearStatusInterval();
+          if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+            console.warn('[recording-settings] Failed to read metering recorder status', error);
+          }
+          setIsMonitoring(false);
+          setMeteringDb(null);
+          return;
+        }
         const normalized =
           typeof status.metering === 'number' && Number.isFinite(status.metering)
             ? status.metering
@@ -602,16 +638,26 @@ export default function RecordingSettingsScreen() {
       webMeteringRef.current.context = null;
     }
     webMeteringRef.current.analyser = null;
-    if (recorder.isRecording) {
+    const state = recorderStateRef.current;
+    if (state.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
-        if (__DEV__) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
           console.warn('[recording-settings] Failed to stop metering recorder', error);
         }
       }
     }
-    const currentUri = recorder.uri;
+    let currentUri = state.url;
+    if (!currentUri) {
+      try {
+        currentUri = recorder.uri;
+      } catch (error) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+          console.warn('[recording-settings] Failed to read metering recorder URI', error);
+        }
+      }
+    }
     await cleanupRecordingFile(currentUri);
     setIsMonitoring(false);
     setMeteringDb(null);

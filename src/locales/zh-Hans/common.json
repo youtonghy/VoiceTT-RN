@@ -76,6 +76,8 @@
       "new_conversation": "新对话{{id}}",
       "actions": {
         "title": "对话操作",
+        "share": "分享",
+        "copy": "复制",
         "rename": "重命名",
         "generate_title": "生成标题",
         "delete": "删除"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "等待回复…"
     },
+    "model_menu": {
+      "title": "智能对话模型"
+    },
     "errors": {
       "send_failed": "发送失败"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "不显示（此对话不显示）"
     },
     "accessibility": {
-      "send_input": "发送输入"
+      "send_input": "发送输入",
+      "switch_model": "切换智能对话模型"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "发送一条消息即可生成并朗读。"
     },
     "input": {
+      "title": "朗读文本",
       "placeholder": "输入要朗读的内容"
     },
     "status": {
@@ -319,9 +326,27 @@
         "transcription_model": "转写模型",
         "translation_model": "翻译模型",
         "tts_model": "TTS 模型",
+        "title_model": "标题模型",
+        "conversation_model": "总结模型",
+        "assistant_model": "助手模型",
+        "qa_model": "问答模型",
         "doubao_app_id": "App ID",
         "doubao_token": "Token",
         "doubao_cluster": "Cluster"
+      },
+      "models": {
+        "title": "模型",
+        "placeholder": "选择模型",
+        "refresh": "刷新模型",
+        "loading": "加载中",
+        "ready": "{{count}} 个模型",
+        "defaults": "默认候选",
+        "missing_key": "先填写 API 密钥",
+        "using_cached": "使用已保存列表",
+        "fetch_failed": "无法获取模型列表，请检查 API 密钥或基础 URL。",
+        "catalog_hint": "填写凭证后，可从服务商自动获取可用模型。",
+        "local_hint": "从该服务商的常用模型候选中选择。",
+        "credentials_only": "该服务商当前只需在这里填写凭证。"
       }
     },
     "recording": {

@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button, Card } from 'heroui-native';
 import {
     DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
     DEFAULT_GEMINI_TRANSLATION_MODEL,
@@ -196,26 +195,13 @@ export function OptionPill({
   disabled?: boolean;
 }) {
   return (
-    <Pressable
-      disabled={disabled}
+    <Button
+      isDisabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [settingsStyles.optionPressable, pressed && !disabled && settingsStyles.optionPressed]}>
-      <ThemedView
-        lightColor={active ? '#2563eb' : '#e2e8f0'}
-        darkColor={active ? '#3b82f6' : '#334155'}
-        style={[
-          settingsStyles.optionPill,
-          active && settingsStyles.optionPillActive,
-          disabled && settingsStyles.optionPillDisabled,
-        ]}>
-        <ThemedText
-          style={settingsStyles.optionPillText}
-          lightColor={active ? '#ffffff' : '#1e293b'}
-          darkColor={active ? '#ffffff' : '#e2e8f0'}>
-          {label}
-        </ThemedText>
-      </ThemedView>
-    </Pressable>
+      size="sm"
+      variant={active ? 'primary' : 'secondary'}>
+      <Button.Label numberOfLines={1}>{label}</Button.Label>
+    </Button>
   );
 }
 
@@ -224,18 +210,18 @@ export const settingsStyles = StyleSheet.create({
     flex: 1,
   },
   safeAreaLight: {
-    backgroundColor: '#eef2f7',
+    backgroundColor: '#fbfaf7',
   },
   safeAreaDark: {
-    backgroundColor: '#0b1224',
+    backgroundColor: '#1f1a16',
   },
   flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    gap: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 14,
   },
   sectionTitle: {
     fontSize: 20,
@@ -273,31 +259,6 @@ export const settingsStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     flexWrap: 'wrap',
-  },
-  optionPressable: {
-    borderRadius: 999,
-  },
-  optionPressed: {
-    opacity: 0.8,
-  },
-  optionPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  optionPillActive: {
-    shadowColor: 'rgba(15, 23, 42, 0.18)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  optionPillDisabled: {
-    opacity: 0.4,
-  },
-  optionPillText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   groupLabel: {
     fontSize: 14,
@@ -342,14 +303,11 @@ export const SETTINGS_CARD_GRADIENTS = {
 
 export type SettingsCardVariant = keyof typeof SETTINGS_CARD_GRADIENTS;
 
-export const CARD_BG_LIGHT = '#F3F4F6';
-export const CARD_BG_DARK = '#1E293B';
+export const CARD_TEXT_LIGHT = '#29231d';
+export const CARD_TEXT_DARK = '#f7f2eb';
 
-export const CARD_TEXT_LIGHT = '#111827';
-export const CARD_TEXT_DARK = '#F8FAFC';
-
-export const CARD_SUBTLE_LIGHT = '#4B5563';
-export const CARD_SUBTLE_DARK = '#94A3B8';
+export const CARD_SUBTLE_LIGHT = '#6f6256';
+export const CARD_SUBTLE_DARK = '#c5b8aa';
 
 export function SettingsCard({
   variant = 'interaction',
@@ -364,36 +322,28 @@ export function SettingsCard({
 }) {
   void variant;
   return (
-    <ThemedView
-      lightColor={CARD_BG_LIGHT}
-      darkColor={CARD_BG_DARK}
-      style={[cardStyles.surface, style]}>
-      <ThemedView
-        lightColor="transparent"
-        darkColor="transparent"
-        style={[cardStyles.content, contentStyle]}>
+    <Card className="border border-border bg-surface" style={[cardStyles.surface, style]}>
+      <Card.Body style={[cardStyles.content, contentStyle]}>
         {children}
-      </ThemedView>
-    </ThemedView>
+      </Card.Body>
+    </Card>
   );
 }
 
 const cardStyles = StyleSheet.create({
   surface: {
-    borderRadius: 28,
-    padding: 18,
+    borderRadius: 16,
+    padding: 0,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.18)',
-    shadowColor: 'rgba(15, 23, 42, 0.12)',
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 5,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   content: {
-    borderRadius: 20,
     gap: 14,
+    padding: 16,
   },
 });
 

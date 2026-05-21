@@ -76,6 +76,8 @@
       "new_conversation": "새 대화 {{id}}",
       "actions": {
         "title": "대화 작업",
+        "share": "공유",
+        "copy": "복사",
         "rename": "이름 변경",
         "generate_title": "제목 생성",
         "delete": "삭제"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "답변 대기 중…"
     },
+    "model_menu": {
+      "title": "어시스턴트 모델"
+    },
     "errors": {
       "send_failed": "전송 실패"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "이 대화의 요약 숨기기"
     },
     "accessibility": {
-      "send_input": "입력 전송"
+      "send_input": "입력 전송",
+      "switch_model": "어시스턴트 모델 전환"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "메시지를 보내면 읽어줍니다."
     },
     "input": {
+      "title": "낭독 텍스트",
       "placeholder": "읽어줄 내용을 입력"
     },
     "status": {
@@ -281,9 +288,27 @@
         "transcription_model": "전사 모델",
         "translation_model": "번역 모델",
         "tts_model": "텍스트 음성 모델",
+        "title_model": "제목 모델",
+        "conversation_model": "요약 모델",
+        "assistant_model": "어시스턴트 모델",
+        "qa_model": "Q&A 모델",
         "doubao_app_id": "Doubao App ID",
         "doubao_token": "Doubao Token",
         "doubao_cluster": "Doubao Cluster"
+      },
+      "models": {
+        "title": "모델",
+        "placeholder": "모델 선택",
+        "refresh": "모델 새로고침",
+        "loading": "불러오는 중",
+        "ready": "{{count}}개 모델",
+        "defaults": "기본 후보",
+        "missing_key": "API 키를 입력하세요",
+        "using_cached": "저장된 목록 사용 중",
+        "fetch_failed": "모델 목록을 가져올 수 없습니다. API 키 또는 기본 URL을 확인하세요.",
+        "catalog_hint": "자격 증명이 있으면 제공업체에서 지원 모델을 가져옵니다.",
+        "local_hint": "이 제공업체의 알려진 모델 후보 중에서 선택합니다.",
+        "credentials_only": "이 제공업체는 여기에서 자격 증명만 필요합니다."
       }
     },
     "recording": {

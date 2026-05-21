@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Surface, Text } from 'heroui-native';
 
 import { MarkdownText } from '@/components/markdown-text';
 import { RecordingToggle } from '@/components/recording-toggle';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
 import { useTranscription } from '@/contexts/transcription-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { extractTranscriptQuestions } from '@/services/qa';
 import type { AppSettings } from '@/types/settings';
 import { TranscriptionMessage, TranscriptQaItem } from '@/types/transcription';
@@ -100,13 +96,6 @@ export default function QaScreen() {
   const { t } = useTranslation();
   const { settings } = useSettings();
   const { messages, updateMessageQa } = useTranscription();
-  const backgroundColor = useThemeColor({}, 'background');
-  const cardLight = '#f8fafc';
-  const cardDark = '#0f172a';
-  const indicatorColor = useThemeColor({ light: '#0f172a', dark: '#e2e8f0' }, 'text');
-  const manualButtonBg = useThemeColor({ light: '#0f172a', dark: '#1f2937' }, 'background');
-  const manualButtonPressedBg = useThemeColor({ light: '#1d4ed8', dark: '#2563eb' }, 'tint');
-  const manualButtonIconColor = useThemeColor({ light: '#f8fafc', dark: '#e2e8f0' }, 'text');
 
   const [manualRunVersion, setManualRunVersion] = useState(0);
   const manualTargetsRef = useRef<Set<number>>(new Set());
@@ -470,62 +459,53 @@ export default function QaScreen() {
 
   }, [manualRunVersion, messages, settings, settingsSignature, updateMessageQa]);
 
-  const safeAreaStyle = [styles.safeArea, { backgroundColor }];
-
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.headerTitle} lightColor="#0f172a" darkColor="#e2e8f0">
-            {t('qa.title')}
-          </ThemedText>
-          <ThemedText style={styles.headerCaption} lightColor="#475569" darkColor="#94a3b8">
-            {t('qa.subtitle')}
-          </ThemedText>
-        </View>
-        <View style={styles.toggleContainer}>
-          <View style={styles.toggleRow}>
-            <View style={styles.togglePrimary}>
+    <AppScreen title={t('qa.title')} subtitle={t('qa.subtitle')} scroll={false}>
+      <View className="min-h-0 flex-1 gap-4">
+        <AppCard className="flex-shrink-0" bodyClassName="gap-3">
+          <View className="flex-row items-center gap-3">
+            <View className="min-w-0 flex-1">
               <RecordingToggle qaAutoEnabled variant="full" />
             </View>
-            <View style={styles.manualButtonGroup}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('qa.manual_button.accessibility')}
-                onPress={handleManualRun}
-                style={({ pressed }) => [
-                  styles.manualButton,
-                  { backgroundColor: pressed ? manualButtonPressedBg : manualButtonBg },
-                ]}
-              >
-                <Ionicons name="help" size={20} color={manualButtonIconColor} />
-              </Pressable>
-            </View>
+            <Button
+              accessibilityLabel={t('qa.manual_button.accessibility')}
+              isDisabled={qaEntries.length === 0 || anyLoading}
+              onPress={handleManualRun}
+              size="lg"
+              variant="secondary">
+              <AppIcon name="circle-question" size={17} className="text-foreground" />
+              <Button.Label numberOfLines={1}>{t('qa.manual_button.label')}</Button.Label>
+            </Button>
           </View>
-        </View>
-        {anyLoading ? (
-          <View style={styles.statusRow}>
-            <ActivityIndicator size="small" color={indicatorColor} style={styles.statusSpinner} />
-            <ThemedText style={styles.statusText} lightColor="#1e293b" darkColor="#e2e8f0">
+          {anyLoading ? (
+            <View className="flex-row items-center gap-2 rounded-xl bg-surface-secondary px-3 py-2">
+              <ActivityIndicator size="small" />
+              <Text type="body-sm" color="muted" weight="semibold">
               {t('qa.status.analyzing')}
-            </ThemedText>
-          </View>
-        ) : null}
+              </Text>
+            </View>
+          ) : null}
+        </AppCard>
         <ScrollView
           ref={scrollRef}
+          className="min-h-0 flex-1"
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
           {qaEntries.length === 0
             ? (
-              <ThemedView lightColor="rgba(148, 163, 184, 0.12)" darkColor="rgba(15, 23, 42, 0.7)" style={styles.emptyCard}>
-                <ThemedText style={styles.emptyTitle} lightColor="#0f172a" darkColor="#e2e8f0">
+              <View className="flex-1 items-center justify-center gap-3 px-8 py-12">
+                <View className="size-14 items-center justify-center rounded-2xl bg-surface-secondary">
+                  <AppIcon name="circle-question" size={24} className="text-muted" />
+                </View>
+                <Text weight="semibold" align="center">
                   {t('qa.empty.title')}
-                </ThemedText>
-                <ThemedText style={styles.emptyBody} lightColor="#475569" darkColor="#94a3b8">
+                </Text>
+                <Text type="body-sm" color="muted" align="center">
                   {t('qa.empty.body')}
-                </ThemedText>
-              </ThemedView>
+                </Text>
+              </View>
             )
             : qaEntries.map(({ message, state }) => {
                 const hasState = !!state;
@@ -538,51 +518,56 @@ export default function QaScreen() {
                 );
                 const cardKey = String(message.id);
                 return (
-                  <ThemedView
+                  <Surface
                     key={cardKey}
-                    lightColor={cardLight}
-                    darkColor={cardDark}
-                    style={styles.entryCard}>
-                    <ThemedText style={styles.entryTitle} lightColor="#0f172a" darkColor="#e2e8f0">
-                      {t('qa.entry.label', { title: segmentTitle })}
-                    </ThemedText>
-                    {!hasState || status === 'loading' ? (
-                      <View style={styles.entryRow}>
-                        <ActivityIndicator size="small" color={indicatorColor} />
-                        <ThemedText style={styles.entryStatus} lightColor="#1e293b" darkColor="#e2e8f0">
-                          {t('qa.status.analyzing')}
-                        </ThemedText>
+                    variant="default"
+                    className="gap-3 rounded-2xl border border-border p-4">
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View className="min-w-0 flex-1 gap-1">
+                        <Text weight="semibold" numberOfLines={1}>
+                          {segmentTitle}
+                        </Text>
                       </View>
+                      {status === 'loading' ? <ActivityIndicator size="small" /> : null}
+                    </View>
+                    {!hasState || status === 'loading' ? (
+                      <Text type="body-sm" color="muted">
+                          {t('qa.status.analyzing')}
+                      </Text>
                     ) : null}
                     {hasState && status === 'failed' && state?.error ? (
-                      <ThemedText style={styles.entryError} lightColor="#b91c1c" darkColor="#f87171">
+                      <Text type="body-sm" className="text-danger">
                         {t('qa.entry.error', { message: state.error })}
-                      </ThemedText>
+                      </Text>
                     ) : null}
                     {hasState && status === 'idle' && !autoQaEnabled ? (
-                      <ThemedText style={styles.manualHint} lightColor="#475569" darkColor="#94a3b8">
+                      <Text type="body-sm" color="muted">
                         {t('qa.entry.manual_hint')}
-                      </ThemedText>
+                      </Text>
                     ) : null}
                     {hasState && status === 'ready' && items.length === 0 ? (
-                      <ThemedText style={styles.entryPlaceholder} lightColor="#475569" darkColor="#94a3b8">
+                      <Text type="body-sm" color="muted">
                         {t('qa.entry.no_questions')}
-                      </ThemedText>
+                      </Text>
                     ) : null}
                     {items.map((item, index) => (
-                      <View key={cardKey + '-' + index} style={styles.qaItem}>
-                        <View style={styles.qaRow}>
-                          <ThemedText style={styles.qaLabel} lightColor="#0284c7" darkColor="#38bdf8">
+                      <View key={cardKey + '-' + index} className="gap-3 rounded-xl bg-surface-secondary p-3">
+                        <View className="flex-row items-start gap-3">
+                          <View className="size-7 items-center justify-center rounded-lg bg-background">
+                            <Text type="body-xs" weight="bold" className="text-accent">
                             {t('qa.labels.question')}
-                          </ThemedText>
-                          <ThemedText style={styles.qaContent} lightColor="#0f172a" darkColor="#e2e8f0">
+                            </Text>
+                          </View>
+                          <Text style={styles.qaContent}>
                             {item.question}
-                          </ThemedText>
+                          </Text>
                         </View>
-                        <View style={styles.qaRow}>
-                          <ThemedText style={styles.qaLabel} lightColor="#16a34a" darkColor="#4ade80">
+                        <View className="flex-row items-start gap-3">
+                          <View className="size-7 items-center justify-center rounded-lg bg-background">
+                            <Text type="body-xs" weight="bold" className="text-success">
                             {t('qa.labels.answer')}
-                          </ThemedText>
+                            </Text>
+                          </View>
                           <MarkdownText
                             style={styles.qaContent}
                             lightColor="#0f172a"
@@ -593,146 +578,23 @@ export default function QaScreen() {
                         </View>
                       </View>
                     ))}
-                  </ThemedView>
+                  </Surface>
                 );
               })}
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    gap: 16,
-  },
-  header: {
-    paddingTop: 12,
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  headerCaption: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  toggleContainer: {
-    paddingVertical: 12,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  togglePrimary: {
-    flex: 1,
-  },
-  manualButtonGroup: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  manualButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-  manualHint: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusSpinner: {
-    marginRight: 4,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 36,
-    gap: 16,
-  },
-  emptyCard: {
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  emptyBody: {
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  entryCard: {
-    borderRadius: 24,
-    padding: 20,
-    gap: 12,
-  },
-  entryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
-  },
-  entryStatus: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  entryError: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  entryPlaceholder: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  qaItem: {
-    gap: 10,
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: 'rgba(148, 163, 184, 0.12)',
-  },
-  qaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  qaLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
   },
   qaContent: {
     flex: 1,
@@ -740,4 +602,3 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-
