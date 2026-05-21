@@ -1,16 +1,14 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Modal,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
     Platform,
     Pressable,
     ScrollView,
@@ -20,20 +18,18 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-import KeyboardStickyInput from "@/KeyboardStickyInput";
+import { withUniwind } from "uniwind";
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from "@/components/context-menu";
 import { MarkdownText } from "@/components/markdown-text";
-import { RecordingToggle } from "@/components/recording-toggle";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
 import VoiceInputButton from "@/components/voice-input-button";
+import {
+    AppScreen,
+    FormInput,
+} from "@/components/native/app-shell";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { useIsTablet } from "@/hooks/use-is-tablet";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import {
     generateAssistantReply,
     generateConversationSummary,
@@ -44,10 +40,28 @@ import {
 import { synthesizeSpeech } from "@/services/tts";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
+import { Button, Card, Input, SearchField, Surface, Text } from "heroui-native";
+import { ProgressButton, Segment, SlideButton, Stepper, TrendChip } from "heroui-native-pro";
 
-const CARD_BOTTOM_MARGIN = 24;
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+type StudioIconName =
+  | 'box-archive'
+  | 'circle-dot'
+  | 'circle-stop'
+  | 'clock-rotate-left'
+  | 'comments'
+  | 'file-export'
+  | 'microphone'
+  | 'magnifying-glass'
+  | 'paper-plane'
+  | 'radio'
+  | 'robot'
+  | 'share-nodes'
+  | 'wand-magic-sparkles'
+  | 'wave-square';
+const StudioIcon = withUniwind(FontAwesome6);
 
 type AssistantMessageStatus = "pending" | "succeeded" | "failed";
 
@@ -277,54 +291,23 @@ function deriveNextHistoryId(
 export default function TranscriptionScreen() {
   const { t, i18n } = useTranslation();
 
-  const cardLight = "#f8fafc";
-  const cardDark = "#0f172a";
-  const backgroundColor = useThemeColor({}, "background");
-  const searchInputColor = useThemeColor({ light: "#1f2937", dark: "#f8fafc" }, "text");
-  const assistantAssistantBubbleColor = useThemeColor(
-    { light: "rgba(15, 23, 42, 0.06)", dark: "rgba(148, 163, 184, 0.18)" },
-    "background"
-  );
-  const assistantMetaColor = useThemeColor({ light: "#64748b", dark: "#94a3b8" }, "text");
-  const assistantComposerBackground = useThemeColor(
-    { light: "#ffffff", dark: "rgba(15, 23, 42, 0.92)" },
-    "background"
-  );
-  const assistantComposerBorder = useThemeColor(
-    { light: "rgba(148, 163, 184, 0.28)", dark: "rgba(148, 163, 184, 0.32)" },
-    "background"
-  );
-  const assistantPlaceholderColor = useThemeColor(
-    { light: "rgba(148, 163, 184, 0.7)", dark: "rgba(148, 163, 184, 0.5)" },
-    "text"
-  );
-  const tabletTabsBg = useThemeColor(
-    { light: "rgba(148, 163, 184, 0.12)", dark: "rgba(15, 23, 42, 0.55)" },
-    "background"
-  );
-  const tabletTabsBorder = useThemeColor(
-    { light: "rgba(148, 163, 184, 0.25)", dark: "rgba(148, 163, 184, 0.22)" },
-    "background"
-  );
-  const tabletTabsActiveBg = useThemeColor(
-    { light: "rgba(37, 99, 235, 0.18)", dark: "rgba(37, 99, 235, 0.28)" },
-    "background"
-  );
-  const tabletTabsActiveText = useThemeColor({ light: "#2563eb", dark: "#93c5fd" }, "text");
-  const tabletTabsText = useThemeColor(
-    { light: "rgba(15, 23, 42, 0.7)", dark: "rgba(226, 232, 240, 0.75)" },
-    "text"
-  );
-
   const { width } = useWindowDimensions();
   const isTablet = useIsTablet();
   const { settings } = useSettings();
-  const { messages, error, clearError, stopSession, replaceMessages, sessionState } = useTranscription();
+  const {
+    messages,
+    error,
+    clearError,
+    isSessionActive,
+    toggleSession,
+    stopSession,
+    replaceMessages,
+    sessionState,
+  } = useTranscription();
   const isDesktopApp =
     Platform.OS === "web" &&
     typeof window !== "undefined" &&
     Boolean((window as { electron?: unknown }).electron);
-  const carouselRef = useRef<ScrollView | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
@@ -338,7 +321,7 @@ export default function TranscriptionScreen() {
   const [searchTerm, setSearchTerm] = useState("");
   const [assistantDraft, setAssistantDraft] = useState("");
   const [assistantSending, setAssistantSending] = useState(false);
-  const [activeCarouselIndex, setActiveCarouselIndex] = useState(1);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
@@ -346,7 +329,6 @@ export default function TranscriptionScreen() {
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
   const assistantAbortRef = useRef<AbortController | null>(null);
   const manualTitleAbortRef = useRef<AbortController | null>(null);
-  const initialCarouselPositionedRef = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
     HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
   );
@@ -868,11 +850,8 @@ export default function TranscriptionScreen() {
     if (!historyItems.some((item) => item.id === conversationId)) {
       return;
     }
-    const targetCarousel = carouselRef.current;
     const scrollToTranscription = () => {
-      targetCarousel?.scrollTo({ x: 0, animated: true });
       setActiveCarouselIndex(0);
-      initialCarouselPositionedRef.current = true;
     };
     if (conversationId === activeConversationId) {
       scrollToTranscription();
@@ -1447,7 +1426,32 @@ export default function TranscriptionScreen() {
     ? t('assistant.placeholders.summary_hidden')
     : t('assistant.placeholders.summary');
 
-  const pageWidth = width;
+  const workflowStep = useMemo(() => {
+    if (
+      sessionState === 'starting' ||
+      sessionState === 'recording' ||
+      sessionState === 'stopping'
+    ) {
+      return 0;
+    }
+    if (
+      messages.some((item) => item.status === 'pending' || item.status === 'transcribing') ||
+      messages.some((item) => item.translationStatus === 'pending')
+    ) {
+      return 1;
+    }
+    if (assistantSending || autoSummaryAbortRef.current || autoSummaryPendingRef.current) {
+      return 2;
+    }
+    if (assistantMessages.length > 0 || assistantSummary.length > 0) {
+      return 2;
+    }
+    if (messages.some((item) => item.transcript?.trim())) {
+      return 1;
+    }
+    return 0;
+  }, [assistantMessages.length, assistantSending, assistantSummary.length, messages, sessionState]);
+
   const tabletHistoryWidth = useMemo(() => {
     if (!isTablet) {
       return 0;
@@ -1583,108 +1587,207 @@ export default function TranscriptionScreen() {
     i18n.language,
   ]);
 
+  const activeMobilePane = activeCarouselIndex === 0 ? 'live' : activeCarouselIndex === 2 ? 'assistant' : 'history';
+  const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeMobilePane === 'assistant';
+  const activeConversationTitle = activeConversation?.title ?? t('transcription.history.new_conversation', { id: historyIdCounter.current });
+  const isSessionBusy = sessionState === 'starting' || sessionState === 'stopping';
+  const recordLabel = isSessionActive
+    ? t('transcription.accessibility.stop_recording')
+    : t('transcription.accessibility.start_recording');
+  const workflowStatusLabel =
+    sessionState === 'recording'
+      ? t('transcription.status.recording')
+      : isSessionBusy
+      ? t('transcription.status.processing')
+      : sessionState === 'failed'
+      ? t('transcription.status.failed')
+      : workflowStep === 2
+      ? t('assistant.section.summary_title')
+      : workflowStep === 1
+      ? t('transcription.status.transcribing')
+      : t('transcription.controls.start');
+  const workflowMetaLabel = settings.enableTranslation && settings.translationEngine !== 'none'
+    ? t(`settings.translation.engines.${settings.translationEngine}`, {
+        defaultValue: settings.translationEngine.toUpperCase(),
+      })
+    : t('settings.translation.engines.none');
+  const transcriptionMetaLabel = `${settings.transcriptionEngine.toUpperCase()} / ${workflowMetaLabel}`;
+  const historyCountLabel = String(historyItems.length);
+  const transcriptCountLabel = String(messages.length);
+  const assistantCountLabel = String(assistantMessages.length);
 
-  useEffect(() => {
-    if (initialCarouselPositionedRef.current) {
-      return;
-    }
-    if (isTablet) {
-      return;
-    }
-    if (pageWidth <= 0) {
-      return;
-    }
-    const target = carouselRef.current;
-    if (!target) {
-      return;
-    }
-    const scrollToHistory = () => {
-      target.scrollTo({ x: pageWidth, animated: false });
-      setActiveCarouselIndex(1);
-      initialCarouselPositionedRef.current = true;
-    };
-    if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(scrollToHistory);
-    } else {
-      setTimeout(scrollToHistory, 0);
-    }
-  }, [isTablet, pageWidth]);
-
-  const handleCarouselMomentumEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (pageWidth <= 0) {
-        return;
-      }
-      const nextIndex = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
-      setActiveCarouselIndex(nextIndex);
-    },
-    [pageWidth]
+  const assistantBubbleMaxWidth = useMemo(
+    () => Math.max(220, Math.round(width * (isTablet ? 0.42 : 0.76))),
+    [isTablet, width]
   );
 
-  const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeCarouselIndex === 2;
-  const topBarTitle = t('transcription.sections.live_title');
+  const handleToggleRecording = useCallback(() => {
+    void toggleSession();
+  }, [toggleSession]);
 
-  const TabletDetailTabs = (
-    <View style={[styles.tabletTabs, { backgroundColor: tabletTabsBg, borderColor: tabletTabsBorder }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: tabletDetail === "live" }}
-        accessibilityLabel={t('transcription.sections.live_content')}
-        onPress={() => setTabletDetail("live")}
-        style={({ pressed }) => [
-          styles.tabletTab,
-          tabletDetail === "live" && { backgroundColor: tabletTabsActiveBg, borderColor: tabletTabsBorder },
-          pressed && styles.tabletTabPressed,
-        ]}>
-        <ThemedText style={[styles.tabletTabText, { color: tabletDetail === "live" ? tabletTabsActiveText : tabletTabsText }]}>
-          {t('transcription.sections.live_content')}
-        </ThemedText>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: tabletDetail === "assistant" }}
-        accessibilityLabel={t('assistant.section.title')}
-        onPress={() => setTabletDetail("assistant")}
-        style={({ pressed }) => [
-          styles.tabletTab,
-          tabletDetail === "assistant" && { backgroundColor: tabletTabsActiveBg, borderColor: tabletTabsBorder },
-          pressed && styles.tabletTabPressed,
-        ]}>
-        <ThemedText
-          style={[
-            styles.tabletTabText,
-            { color: tabletDetail === "assistant" ? tabletTabsActiveText : tabletTabsText },
-          ]}>
-          {t('assistant.section.title')}
-        </ThemedText>
-      </Pressable>
+  const DetailSegment = (
+    <NativeSegment
+      value={tabletDetail}
+      onValueChange={(next) => {
+        if (next === 'live' || next === 'assistant') {
+          setTabletDetail(next);
+        }
+      }}
+      options={[
+        { value: 'live', label: t('transcription.sections.live_content'), icon: 'wave-square' },
+        { value: 'assistant', label: t('assistant.section.title'), icon: 'robot' },
+      ]}
+    />
+  );
+
+  const MobileModeSegment = (
+    <NativeSegment
+      value={activeMobilePane}
+      onValueChange={(next) => {
+        if (next !== 'live' && next !== 'history' && next !== 'assistant') {
+          return;
+        }
+        setActiveCarouselIndex(next === 'live' ? 0 : next === 'assistant' ? 2 : 1);
+      }}
+      options={[
+        { value: 'live', label: t('transcription.sections.live_content'), icon: 'wave-square' },
+        { value: 'history', label: t('transcription.sections.history_title'), icon: 'clock-rotate-left' },
+        { value: 'assistant', label: t('assistant.section.title'), icon: 'robot' },
+      ]}
+    />
+  );
+
+  const WorkflowStepper = (
+    <View className="rounded-2xl bg-surface-secondary px-2 py-1.5" style={styles.workflowStepperFrame}>
+      <Stepper currentStep={workflowStep} orientation="horizontal" animation="disable-all">
+        <Stepper.Step disabled className="min-w-0 flex-1">
+          <Stepper.Rail />
+          <Stepper.Content className="min-w-0">
+            <Stepper.Title numberOfLines={1}>{t('transcription.controls.start')}</Stepper.Title>
+          </Stepper.Content>
+        </Stepper.Step>
+        <Stepper.Step disabled className="min-w-0 flex-1">
+          <Stepper.Rail />
+          <Stepper.Content className="min-w-0">
+            <Stepper.Title numberOfLines={1}>{t('transcription.status.transcribing')}</Stepper.Title>
+          </Stepper.Content>
+        </Stepper.Step>
+        <Stepper.Step disabled className="min-w-0 flex-1">
+          <Stepper.Rail />
+          <Stepper.Content className="min-w-0">
+            <Stepper.Title numberOfLines={1}>{t('assistant.section.title')}</Stepper.Title>
+          </Stepper.Content>
+        </Stepper.Step>
+      </Stepper>
     </View>
   );
 
-  const LiveCard = ({ style, showTabs }: { style?: any; showTabs?: boolean }) => (
-    <ThemedView style={[styles.card, style]} lightColor={cardLight} darkColor={cardDark}>
-      {showTabs ? TabletDetailTabs : null}
-      <View style={styles.headerRow}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          {t('transcription.sections.live_content')}
-        </ThemedText>
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={() => {
-              void handleExportConversation();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={t('transcription.export.accessibility')}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
-            <Ionicons name="share-outline" size={20} color="#2563eb" />
-          </Pressable>
-          <RecordingToggle variant="icon" />
+  const StudioHeader = (
+    <Surface variant="default" className="rounded-3xl border border-border px-4 py-3" style={styles.headerSurface}>
+      <View className="flex-row items-center gap-3">
+        <View className="size-11 items-center justify-center rounded-2xl bg-accent">
+          <StudioIcon name="wave-square" size={21} className="text-accent-foreground" solid />
+        </View>
+        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
+          <Text.Heading type={isTablet ? 'h2' : 'h3'} numberOfLines={1}>
+            {activeConversationTitle}
+          </Text.Heading>
+          <Text type="body-sm" color="muted" numberOfLines={1}>
+            {transcriptionMetaLabel}
+          </Text>
+        </View>
+        <Button
+          accessibilityLabel={t('transcription.export.accessibility')}
+          isIconOnly
+          size="sm"
+          variant="tertiary"
+          onPress={() => {
+            void handleExportConversation();
+          }}>
+          <StudioIcon name="file-export" size={17} className="text-foreground" />
+        </Button>
+      </View>
+    </Surface>
+  );
+
+  const RecordingDock = (
+    <Surface variant="default" className="gap-3 rounded-3xl border border-border p-3" style={styles.recordingDock}>
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
+          <View className="flex-row items-center gap-2">
+            <TrendChip
+              size="sm"
+              trend={sessionState === 'failed' ? 'down' : sessionState === 'recording' ? 'up' : 'neutral'}>
+              {workflowStatusLabel}
+            </TrendChip>
+            <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
+              {t('transcription.sections.live_content')} {transcriptCountLabel}
+            </Text>
+          </View>
+          <Text type="body-xs" color="muted" numberOfLines={1}>
+            {transcriptionMetaLabel}
+          </Text>
+        </View>
+        <View className="flex-row items-center gap-2" style={styles.metricStrip}>
+          <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
+            {t('transcription.sections.history_title')} {historyCountLabel}
+          </Text>
+          <Text type="body-xs" color="muted" weight="semibold" numberOfLines={1}>
+            {t('assistant.section.title')} {assistantCountLabel}
+          </Text>
         </View>
       </View>
-      <View style={styles.dialogueContainer}>
+      {WorkflowStepper}
+      <View className="flex-row items-center gap-3">
+        <Button
+          accessibilityLabel={recordLabel}
+          className="flex-1"
+          isDisabled={isSessionBusy}
+          onPress={handleToggleRecording}
+          size="lg"
+          variant={isSessionActive ? 'danger' : 'primary'}>
+          <StudioIcon
+            name={isSessionActive ? 'circle-stop' : 'circle-dot'}
+            size={19}
+            className="text-white"
+            solid
+          />
+          <Button.Label numberOfLines={1}>{recordLabel}</Button.Label>
+        </Button>
+        <Button
+          accessibilityLabel={t('transcription.export.accessibility')}
+          isIconOnly
+          size="lg"
+          variant="secondary"
+          onPress={() => {
+            void handleExportConversation();
+          }}>
+          <StudioIcon name="share-nodes" size={19} className="text-foreground" />
+        </Button>
+      </View>
+    </Surface>
+  );
+
+  const LivePane = ({ showTabs = false }: { showTabs?: boolean }) => (
+    <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
+      {showTabs ? DetailSegment : null}
+      <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
+        <View className="flex-row items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <View className="min-w-0 flex-1" style={styles.shrinkable}>
+            <Text type="body-sm" weight="bold" numberOfLines={1}>
+              {t('transcription.sections.live_content')}
+            </Text>
+            <Text type="body-xs" color="muted" numberOfLines={1}>
+              {workflowStatusLabel}
+            </Text>
+          </View>
+          <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
+            <StudioIcon name="radio" size={17} className="text-accent" solid />
+          </View>
+        </View>
         <ScrollView
           ref={scrollRef}
-          style={styles.dialogueScroll}
+          className="flex-1"
           contentContainerStyle={messages.length === 0 ? styles.emptyDialogue : styles.dialogueContent}
           onContentSizeChange={() => {
             if (messages.length > 0) {
@@ -1698,55 +1801,52 @@ export default function TranscriptionScreen() {
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled>
           {messages.length === 0 ? (
-            <ThemedText style={styles.emptyMessage} lightColor="#94a3b8" darkColor="#94a3b8">
-              {t('transcription.history.placeholder_empty')}
-            </ThemedText>
+            <StudioEmptyState
+              icon="microphone"
+              title={t('transcription.history.placeholder_empty')}
+              subtitle={t('transcription.controls.start')}
+            />
           ) : (
             messages.map((item) => (
               <MessageBubble key={item.id} message={item} onOpenMenu={handleMessageLongPress} />
             ))
           )}
         </ScrollView>
-      </View>
-    </ThemedView>
+      </Surface>
+    </View>
   );
 
-  const HistoryCard = ({ style }: { style?: any }) => (
-    <ThemedView style={[styles.card, styles.historyCard, style]} lightColor={cardLight} darkColor={cardDark}>
-      <View style={styles.historyHeader}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          {t('transcription.sections.history_title')}
-        </ThemedText>
-        <View style={styles.historyActions}>
-          <Pressable
-            onPress={() => {
-              void handleAddConversation();
-            }}
-            style={styles.historyIconButton}
-            accessibilityLabel={t('transcription.history.accessibility.add')}>
-            <ThemedText style={styles.historyIconLabel} lightColor="#1f2937" darkColor="#e2e8f0">
-              +
-            </ThemedText>
-          </Pressable>
+  const HistoryPane = () => (
+    <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
+      <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
+        <View className="gap-3 border-b border-border px-4 py-3">
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="min-w-0 flex-1" style={styles.shrinkable}>
+              <Text type="body-sm" weight="bold" numberOfLines={1}>
+                {t('transcription.sections.history_title')}
+              </Text>
+              <Text type="body-xs" color="muted" numberOfLines={1}>
+                {activeConversationTitle}
+              </Text>
+            </View>
+            <Text type="body-xs" color="muted" weight="bold">
+              {historyCountLabel}
+            </Text>
+          </View>
+          <SearchField value={searchTerm} onChange={handleSearchChange}>
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input
+                placeholder={t('transcription.history.search_placeholder')}
+                autoCorrect={false}
+              />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </View>
-      </View>
-      <View style={styles.historySearchContainer}>
-        <TextInput
-          value={searchTerm}
-          onChangeText={handleSearchChange}
-          placeholder={t('transcription.history.search_placeholder')}
-          placeholderTextColor="rgba(148,163,184,0.7)"
-          style={[styles.historySearchInput, { color: searchInputColor }]}
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          selectionColor="#2563eb"
-        />
-      </View>
-      <View style={styles.historyListContainer}>
         <ScrollView
           ref={historyScrollRef}
-          style={styles.historyScroll}
+          className="flex-1"
           contentContainerStyle={
             historyGroups.length === 0 ? styles.historyEmptyContainer : styles.historyScrollContent
           }
@@ -1754,19 +1854,16 @@ export default function TranscriptionScreen() {
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled">
           {historyGroups.length === 0 ? (
-            <ThemedText style={styles.historyEmptyText} lightColor="#94a3b8" darkColor="#94a3b8">
-              {t('transcription.history.placeholder_search_empty')}
-            </ThemedText>
+            <StudioEmptyState
+              icon="magnifying-glass"
+              title={t('transcription.history.placeholder_search_empty')}
+            />
           ) : (
             historyGroups.map((group) => (
               <View key={group.key} style={styles.historyGroup}>
-                <View style={styles.historyDateRow}>
-                  <View style={styles.historyDateLine} />
-                  <ThemedText style={styles.historyDateLabel} lightColor="#1f2937" darkColor="#e2e8f0">
-                    {group.label}
-                  </ThemedText>
-                  <View style={styles.historyDateLine} />
-                </View>
+                <Text type="body-xs" color="muted" weight="semibold">
+                  {group.label}
+                </Text>
                 {group.items.map((item) => {
                   const isActive = item.id === activeConversationId;
                   return (
@@ -1805,25 +1902,32 @@ export default function TranscriptionScreen() {
                       delayLongPress={isDesktopApp ? undefined : 250}
                       accessibilityRole="button"
                       accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
-                      style={({ pressed }) => [
-                        styles.historyItem,
-                        isActive && styles.historyItemActive,
-                        pressed && styles.historyItemPressed,
-                      ]}>
-                      <View style={styles.historyItemHeader}>
-                        <ThemedText
-                          numberOfLines={1}
-                          style={styles.historyItemTitle}
-                          lightColor="#1f2937"
-                          darkColor="#f1f5f9">
-                          {item.title}
-                        </ThemedText>
-                        <ThemedText
-                          style={styles.historyItemTime}
-                          lightColor="#64748b"
-                          darkColor="#94a3b8">
-                          {formatRecordTime(item.createdAt, i18n.language)}
-                        </ThemedText>
+                      className={[
+                        'rounded-2xl border px-3 py-3',
+                        isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
+                      ].join(' ')}>
+                      <View className="flex-row items-start gap-3">
+                        <View className={['mt-0.5 size-9 items-center justify-center rounded-2xl', isActive ? 'bg-accent' : 'bg-background'].join(' ')}>
+                          <StudioIcon
+                            name="box-archive"
+                            size={16}
+                            className={isActive ? 'text-accent-foreground' : 'text-muted'}
+                            solid
+                          />
+                        </View>
+                        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
+                          <Text weight="semibold" numberOfLines={1}>
+                            {item.title}
+                          </Text>
+                          <Text type="body-xs" color="muted">
+                            {formatRecordTime(item.createdAt, i18n.language)}
+                          </Text>
+                          {item.transcript.trim() ? (
+                            <Text numberOfLines={2} type="body-sm" color="muted">
+                              {item.transcript}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
                     </Pressable>
                   );
@@ -1832,24 +1936,47 @@ export default function TranscriptionScreen() {
             ))
           )}
         </ScrollView>
-      </View>
-    </ThemedView>
+        <View className="border-t border-border p-3">
+          <SlideButton
+            variant="accent"
+            autoReset
+            autoResetDelay={900}
+            onComplete={() => {
+              void handleAddConversation();
+            }}>
+            <SlideButton.UnderlayContent>
+              <SlideButton.Label>{t('transcription.history.accessibility.add')}</SlideButton.Label>
+            </SlideButton.UnderlayContent>
+            <SlideButton.OverlayContent>
+              <SlideButton.Label>{t('transcription.history.new_conversation', { id: historyIdCounter.current })}</SlideButton.Label>
+            </SlideButton.OverlayContent>
+            <SlideButton.Thumb />
+          </SlideButton>
+        </View>
+      </Surface>
+    </View>
   );
 
-  const AssistantCard = ({ style, showTabs }: { style?: any; showTabs?: boolean }) => (
-    <ThemedView
-      style={[styles.card, styles.assistantCard, style]}
-      lightColor={cardLight}
-      darkColor={cardDark}
-    >
-      {showTabs ? TabletDetailTabs : null}
-      <ThemedText type="subtitle" style={styles.sectionTitle}>
-        {t('assistant.section.title')}
-      </ThemedText>
-      <View style={styles.assistantConversation}>
+  const AssistantPane = ({ showTabs = false }: { showTabs?: boolean }) => (
+    <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
+      {showTabs ? DetailSegment : null}
+      <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
+        <View className="flex-row items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <View className="min-w-0 flex-1" style={styles.shrinkable}>
+            <Text type="body-sm" weight="bold" numberOfLines={1}>
+              {t('assistant.section.title')}
+            </Text>
+            <Text type="body-xs" color="muted" numberOfLines={1}>
+              {activeConversationTitle}
+            </Text>
+          </View>
+          <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
+            <StudioIcon name="robot" size={17} className="text-accent" solid />
+          </View>
+        </View>
         <ScrollView
           ref={assistantScrollRef}
-          style={styles.assistantConversationScroll}
+          className="flex-1"
           contentContainerStyle={styles.assistantConversationContent}
           showsVerticalScrollIndicator={false}>
           <Pressable
@@ -1877,16 +2004,13 @@ export default function TranscriptionScreen() {
               }
             }}
             delayLongPress={isDesktopApp ? undefined : 250}>
-            <ThemedView
-              lightColor="#eff6ff"
-              darkColor="rgba(30, 41, 59, 0.6)"
-              style={styles.assistantSummaryCard}>
-              <ThemedText
-                style={styles.assistantSummaryLabel}
-                lightColor="#2563eb"
-                darkColor="#60a5fa">
-                {t('assistant.section.summary_title')}
-              </ThemedText>
+            <View className="gap-2 rounded-2xl bg-surface-secondary p-3">
+              <View className="flex-row items-center gap-2">
+                <StudioIcon name="wand-magic-sparkles" size={15} className="text-accent" solid />
+                <Text type="body-xs" color="muted" weight="semibold">
+                  {t('assistant.section.summary_title')}
+                </Text>
+              </View>
               <MarkdownText
                 style={styles.assistantSummaryText}
                 lightColor="#1e293b"
@@ -1894,15 +2018,14 @@ export default function TranscriptionScreen() {
               >
                 {assistantSummary || assistantSummaryPlaceholder}
               </MarkdownText>
-            </ThemedView>
+            </View>
           </Pressable>
           {assistantMessages.length === 0 ? (
-            <ThemedText
-              style={styles.assistantEmptyText}
-              lightColor="#94a3b8"
-              darkColor="#94a3b8">
-              {t('assistant.placeholders.no_messages')}
-            </ThemedText>
+            <StudioEmptyState
+              icon="comments"
+              title={t('assistant.placeholders.no_messages')}
+              subtitle={assistantSummaryPlaceholder}
+            />
           ) : (
             assistantMessages.map((message) => {
               const isUser = message.role === 'user';
@@ -1915,28 +2038,17 @@ export default function TranscriptionScreen() {
               return (
                 <View
                   key={message.id}
-                  style={[
-                    styles.assistantMessageRow,
-                    isUser
-                      ? styles.assistantMessageRowUser
-                      : styles.assistantMessageRowAssistant,
-                  ]}>
+                  className={`flex-row ${isUser ? 'justify-end' : 'justify-start'}`}>
                   <View
-                    style={[
-                      styles.assistantMessageBubble,
-                      isUser
-                        ? styles.assistantMessageBubbleUser
-                        : styles.assistantMessageBubbleAssistant,
-                      !isUser && { backgroundColor: assistantAssistantBubbleColor },
-                    ]}>
+                    style={{ maxWidth: assistantBubbleMaxWidth }}
+                    className={[
+                      'gap-2 rounded-2xl px-4 py-3',
+                      isUser ? 'bg-accent' : 'bg-surface-secondary',
+                    ].join(' ')}>
                     {isUser ? (
-                      <ThemedText
-                        style={[
-                          styles.assistantMessageText,
-                          styles.assistantMessageTextUser,
-                        ]}>
+                      <Text className="text-accent-foreground">
                         {message.content}
-                      </ThemedText>
+                      </Text>
                     ) : (
                       <MarkdownText
                         style={styles.assistantMessageText}
@@ -1947,14 +2059,11 @@ export default function TranscriptionScreen() {
                       </MarkdownText>
                     )}
                     {statusText ? (
-                      <ThemedText
-                        style={[
-                          styles.assistantMessageStatus,
-                          { color: assistantMetaColor },
-                          message.status === 'failed' && styles.assistantMessageStatusError,
-                        ]}>
+                      <Text
+                        type="body-xs"
+                        className={message.status === 'failed' ? 'text-danger' : isUser ? 'text-accent-foreground' : 'text-muted'}>
                         {statusText}
-                      </ThemedText>
+                      </Text>
                     ) : null}
                   </View>
                 </View>
@@ -1962,106 +2071,80 @@ export default function TranscriptionScreen() {
             })
           )}
         </ScrollView>
+        {showAssistantComposer ? (
+          <View className="flex-row items-end gap-2 border-t border-border p-3">
+            <Input
+              ref={assistantInputRef}
+              className="min-h-11 flex-1"
+              value={assistantDraft}
+              onChangeText={handleAssistantChange}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="done"
+              placeholder={t('assistant.placeholders.input')}
+              onSubmitEditing={() => {
+                if (assistantCanSend) {
+                  handleAssistantSend();
+                }
+              }}
+              variant="secondary"
+            />
+            <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
+            <View style={styles.assistantSendButtonFrame}>
+              <ProgressButton
+                accessibilityLabel={t('assistant.accessibility.send_input')}
+                autoReset
+                autoResetDelay={800}
+                holdDuration={650}
+                isDisabled={!assistantCanSend || assistantSending}
+                onComplete={handleAssistantSend}
+                variant="accent">
+                <ProgressButton.Label numberOfLines={1}>{t('assistant.accessibility.send_input')}</ProgressButton.Label>
+                <ProgressButton.Overlay>
+                  <ProgressButton.MaskLabel numberOfLines={1}>{t('assistant.accessibility.send_input')}</ProgressButton.MaskLabel>
+                </ProgressButton.Overlay>
+              </ProgressButton>
+            </View>
+          </View>
+        ) : null}
+      </Surface>
+    </View>
+  );
+
+  const MobileContent = (
+    <View className="min-h-0 flex-1 gap-3" style={styles.screenRoot}>
+      {StudioHeader}
+      {MobileModeSegment}
+      <View className="min-h-0 flex-1" style={styles.mobilePaneFrame}>
+        {activeMobilePane === 'live' ? <LivePane /> : null}
+        {activeMobilePane === 'history' ? <HistoryPane /> : null}
+        {activeMobilePane === 'assistant' ? <AssistantPane /> : null}
       </View>
-      <View
-        style={[
-          styles.assistantComposerPlaceholder,
-          !showAssistantComposer && styles.assistantComposerPlaceholderCollapsed,
-        ]}
-      />
-      {showAssistantComposer ? (
-        <KeyboardStickyInput
-          ref={assistantInputRef}
-          containerStyle={styles.assistantComposerContainer}
-          inputContainerStyle={[
-            styles.assistantComposer,
-            {
-              backgroundColor: assistantComposerBackground,
-              borderColor: assistantComposerBorder,
-            },
-          ]}
-          inputStyle={[styles.assistantInput, { color: searchInputColor }]}
-          value={assistantDraft}
-          onChangeText={handleAssistantChange}
-          autoCorrect={false}
-          autoCapitalize="none"
-          enableDesktopSelection
-          returnKeyType="done"
-          selectionColor="#2563eb"
-          placeholder={t('assistant.placeholders.input')}
-          placeholderTextColor={assistantPlaceholderColor}
-          layoutBottomInset={CARD_BOTTOM_MARGIN}
-          onSubmitEditing={() => {
-            if (assistantCanSend) {
-              handleAssistantSend();
-            }
-          }}
-        >
-          <VoiceInputButton style={styles.assistantVoiceButton} onInsert={handleVoiceInputInsert} />
-          {assistantCanSend ? (
-            <Pressable
-              onPress={handleAssistantSend}
-              accessibilityRole="button"
-              accessibilityLabel={t('assistant.accessibility.send_input')}
-              disabled={assistantSending}
-              style={({ pressed }) => [
-                styles.assistantSendButton,
-                pressed && styles.assistantSendButtonPressed,
-                assistantSending && styles.assistantSendButtonDisabled,
-              ]}>
-              <Ionicons name="paper-plane" size={18} color="#ffffff" />
-            </Pressable>
-          ) : null}
-        </KeyboardStickyInput>
-      ) : null}
-    </ThemedView>
+      {activeMobilePane === 'live' ? RecordingDock : null}
+    </View>
+  );
+
+  const TabletContent = (
+    <View className="min-h-0 flex-1 gap-4" style={styles.screenRoot}>
+      {StudioHeader}
+      <View className="min-h-0 flex-1 flex-row gap-4" style={styles.tabletContentRow}>
+        <View
+          style={[styles.tabletHistoryFrame, { width: tabletHistoryWidth }]}
+          className="min-h-0 flex-shrink-0">
+          <HistoryPane />
+        </View>
+        <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
+          {tabletDetail === "assistant" ? <AssistantPane showTabs /> : <LivePane showTabs />}
+        </View>
+      </View>
+      {tabletDetail === 'live' ? RecordingDock : null}
+    </View>
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={["top"]}>
-      <ThemedView style={styles.container}>
-        <View style={styles.topBar}>
-          <ThemedText type="title" style={styles.topBarTitle}>
-            {topBarTitle}
-          </ThemedText>
-        </View>
-        <View style={styles.content}>
-          {isTablet ? (
-            <View style={styles.tabletSplit}>
-              <View style={[styles.tabletHistoryColumn, { width: tabletHistoryWidth }]}>
-                <HistoryCard style={styles.tabletCard} />
-              </View>
-              <View style={styles.tabletDetailColumn}>
-                {tabletDetail === "assistant" ? (
-                  <AssistantCard style={styles.tabletCard} showTabs />
-                ) : (
-                  <LiveCard style={styles.tabletCard} showTabs />
-                )}
-              </View>
-            </View>
-          ) : (
-            <ScrollView
-              ref={carouselRef}
-              horizontal
-              pagingEnabled
-              bounces={false}
-              showsHorizontalScrollIndicator={false}
-              style={styles.carousel}
-              contentContainerStyle={styles.carouselContent}
-              onMomentumScrollEnd={handleCarouselMomentumEnd}>
-              <View style={[styles.cardPage, { width: pageWidth }]}>
-                <LiveCard />
-              </View>
-              <View style={[styles.cardPage, { width: pageWidth }]}>
-                <HistoryCard />
-              </View>
-              <View style={[styles.cardPage, { width: pageWidth }]}>
-                <AssistantCard />
-              </View>
-            </ScrollView>
-          )}
-        </View>
-      </ThemedView>
+    <AppScreen
+      scroll={false}>
+      {isTablet ? TabletContent : MobileContent}
       <ContextMenu
         visible={Boolean(contextMenu)}
         title={contextMenu?.title}
@@ -2078,359 +2161,131 @@ export default function TranscriptionScreen() {
         >
           <Pressable style={styles.renameBackdrop} onPress={handleRenameCancel}>
             <Pressable style={styles.renameCardPressable} onPress={() => {}}>
-              <ThemedView
-                lightColor="#ffffff"
-                darkColor="#0f172a"
-                style={styles.renameCard}
-              >
-                <ThemedText
-                  type="subtitle"
-                  style={styles.renameTitle}
-                  lightColor="#0f172a"
-                  darkColor="#e2e8f0"
-                >
-                  {t('transcription.history.rename.title')}
-                </ThemedText>
-                <TextInput
-                  value={renameDraft}
-                  onChangeText={setRenameDraft}
-                  placeholder={t('transcription.history.rename.placeholder')}
-                  placeholderTextColor={assistantPlaceholderColor}
-                  style={[styles.renameInput, { color: searchInputColor }]}
-                  selectionColor="#2563eb"
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleRenameSave}
-                />
-                <View style={styles.renameActions}>
-                  <Pressable
-                    onPress={handleRenameCancel}
-                    style={styles.renameActionButton}
-                  >
-                    <ThemedText
-                      style={styles.renameActionLabel}
-                      lightColor="#0f172a"
-                      darkColor="#e2e8f0"
-                    >
-                      {t('common.actions.cancel')}
-                    </ThemedText>
-                  </Pressable>
-                  <Pressable
-                    onPress={handleRenameSave}
-                    disabled={!canSaveRename}
-                    style={[
-                      styles.renameActionButton,
-                      styles.renameActionButtonPrimary,
-                      !canSaveRename && styles.renameActionButtonDisabled,
-                    ]}
-                  >
-                    <ThemedText
-                      style={[styles.renameActionLabel, styles.renameActionLabelPrimary]}
-                    >
-                      {t('transcription.history.rename.save')}
-                    </ThemedText>
-                  </Pressable>
-                </View>
-              </ThemedView>
+              <Card className="w-[88%] max-w-[420px] border border-border">
+                <Card.Body className="gap-4">
+                  <Text.Heading type="h3">{t('transcription.history.rename.title')}</Text.Heading>
+                  <FormInput
+                    label={t('transcription.history.rename.placeholder')}
+                    value={renameDraft}
+                    onChangeText={setRenameDraft}
+                    placeholder={t('transcription.history.rename.placeholder')}
+                    onBlur={undefined}
+                  />
+                  <View className="flex-row justify-end gap-2">
+                    <Button variant="tertiary" onPress={handleRenameCancel}>
+                      <Button.Label>{t('common.actions.cancel')}</Button.Label>
+                    </Button>
+                    <Button isDisabled={!canSaveRename} onPress={handleRenameSave}>
+                      <Button.Label>{t('transcription.history.rename.save')}</Button.Label>
+                    </Button>
+                  </View>
+                </Card.Body>
+              </Card>
             </Pressable>
           </Pressable>
         </Modal>
       ) : null}
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenRoot: {
     flex: 1,
+    minHeight: 0,
+    minWidth: 0,
   },
-  container: {
-    flex: 1,
-  },
-  topBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  topBarTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-  },
-  content: {
-    flex: 1,
-  },
-  carousel: {
-    flex: 1,
-  },
-  carouselContent: {
-    flexGrow: 1,
-  },
-  tabletSplit: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingBottom: CARD_BOTTOM_MARGIN,
-  },
-  tabletHistoryColumn: {
+  headerSurface: {
     flexShrink: 0,
+    minWidth: 0,
   },
-  tabletDetailColumn: {
+  mobilePaneFrame: {
     flex: 1,
+    minHeight: 0,
+    minWidth: 0,
   },
-  tabletCard: {
-    marginHorizontal: 0,
-    marginBottom: 0,
-  },
-  tabletTabs: {
-    width: "100%",
-    flexDirection: "row",
-    padding: 4,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: -2,
-    marginBottom: 10,
-    gap: 4,
-  },
-  tabletTab: {
+  paneRoot: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "transparent",
+    minHeight: 0,
+    minWidth: 0,
   },
-  tabletTabPressed: {
-    opacity: 0.9,
-  },
-  tabletTabText: {
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  cardPage: {
-    height: "100%",
-    justifyContent: "center",
-  },
-  card: {
+  paneSurface: {
     flex: 1,
-    borderRadius: 24,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: CARD_BOTTOM_MARGIN,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    shadowColor: "rgba(15, 23, 42, 0.06)",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 4,
-    gap: 20,
-    position: "relative",
+    minHeight: 0,
+    minWidth: 0,
+    overflow: 'hidden',
   },
-  assistantCard: {
-    overflow: "hidden",
+  shrinkable: {
+    flexShrink: 1,
+    minWidth: 0,
   },
-  assistantSummaryCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 12,
-    gap: 12,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    shadowColor: "rgba(15, 23, 42, 0.05)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 3,
+  recordingDock: {
+    flexShrink: 0,
+    minWidth: 0,
   },
-  assistantSummaryLabel: {
-    fontSize: 14,
-    opacity: 0.9,
+  workflowStepperFrame: {
+    flexShrink: 0,
+    minWidth: 0,
+  },
+  metricStrip: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  tabletContentRow: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 0,
+    minWidth: 0,
+  },
+  tabletHistoryFrame: {
+    flexShrink: 0,
+    minHeight: 0,
+    minWidth: 0,
+    borderRadius: 18,
+  },
+  assistantSendButtonFrame: {
+    width: 112,
   },
   assistantSummaryText: {
     fontSize: 16,
     lineHeight: 24,
   },
-  assistantConversation: {
-    flex: 1,
-  },
-  assistantConversationScroll: {
-    flex: 1,
-    paddingHorizontal: 4,
-  },
   assistantConversationContent: {
     flexGrow: 1,
     justifyContent: "flex-start",
-    paddingVertical: 0,
-    paddingBottom: 120,
-  },
-  assistantEmptyText: {
-    textAlign: "center",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  assistantMessageRow: {
-    width: "100%",
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-  assistantMessageRowAssistant: {
-    justifyContent: "flex-start",
-  },
-  assistantMessageRowUser: {
-    justifyContent: "flex-end",
-  },
-  assistantMessageBubble: {
-    maxWidth: "84%",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-  },
-  assistantMessageBubbleAssistant: {
-    backgroundColor: "rgba(15, 23, 42, 0.06)",
-  },
-  assistantMessageBubbleUser: {
-    backgroundColor: "#2563eb",
+    gap: 12,
+    padding: 12,
   },
   assistantMessageText: {
     fontSize: 15,
     lineHeight: 22,
   },
-  assistantMessageTextUser: {
-    color: "#ffffff",
-  },
-  assistantMessageStatus: {
-    marginTop: 6,
-    fontSize: 12,
-  },
-  assistantMessageStatusError: {
-    color: "#ef4444",
-  },
-  assistantSendButtonDisabled: {
-    opacity: 0.7,
-  },
-  assistantComposerContainer: {
-    left: 0,
-    right: 0,
-    paddingBottom: 0,
-    paddingHorizontal: 4,
-  },
-  assistantComposer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    marginHorizontal: 4,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 0,
-  },
-  assistantInput: {
-    flex: 1,
-    fontSize: 16,
-  },
   assistantVoiceButton: {
     width: 36,
     height: 36,
   },
-  assistantSendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2563eb",
-  },
-  assistantSendButtonPressed: {
-    opacity: 0.85,
-  },
-  assistantComposerPlaceholder: {
-    height: 88,
-  },
-  assistantComposerPlaceholderCollapsed: {
-    height: 0,
-  },
-  historyCard: {
-    gap: 16,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 22,
-    backgroundColor: "rgba(37, 99, 235, 0.08)",
-  },
-  iconButtonPressed: {
-    opacity: 0.85,
-  },
-  iconButtonLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  dialogueContainer: {
-    flex: 1,
-  },
-  dialogueScroll: {
-    flex: 1,
-  },
   dialogueContent: {
     gap: 12,
     flexGrow: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 12,
+    justifyContent: "flex-start",
+    padding: 12,
   },
   emptyDialogue: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: 12,
-  },
-  emptyMessage: {
-    fontSize: 15,
-    textAlign: "center",
+    padding: 16,
   },
   messageBubble: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    backgroundColor: "rgba(148, 163, 184, 0.08)",
     gap: 8,
-  },
-  messageStatus: {
-    fontSize: 13,
-    opacity: 0.7,
   },
   messageBody: {
     fontSize: 16,
     lineHeight: 24,
   },
   translationSection: {
-    marginTop: 8,
     gap: 8,
   },
   translationDivider: {
@@ -2450,103 +2305,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#f87171",
   },
-  historyHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  historyActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  historyIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(148, 163, 184, 0.18)",
-  },
-  historyIconLabel: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  historySearchContainer: {
-    width: "100%",
-  },
-  historySearchInput: {
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
-    fontSize: 15,
-  },
-  historyListContainer: {
-    flex: 1,
-  },
-  historyScroll: {
-    flex: 1,
-  },
   historyScrollContent: {
-    paddingVertical: 8,
+    padding: 12,
     gap: 12,
   },
   historyEmptyContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 24,
-  },
-  historyEmptyText: {
-    fontSize: 15,
+    padding: 16,
   },
   historyGroup: {
     gap: 12,
-  },
-  historyDateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  historyDateLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(148, 163, 184, 0.25)",
-  },
-  historyDateLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  historyItem: {
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
-    borderWidth: 1,
-    borderColor: "transparent",
-    gap: 6,
-  },
-  historyItemActive: {
-    borderWidth: 1.5,
-    borderColor: "#2563eb",
-    backgroundColor: "rgba(37, 99, 235, 0.12)",
-  },
-  historyItemPressed: {
-    opacity: 0.9,
-  },
-  historyItemHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  historyItemTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  historyItemTime: {
-    fontSize: 14,
   },
   renameBackdrop: {
     flex: 1,
@@ -2556,55 +2326,6 @@ const styles = StyleSheet.create({
   },
   renameCardPressable: {
     borderRadius: 20,
-  },
-  renameCard: {
-    borderRadius: 20,
-    padding: 16,
-    gap: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    shadowColor: "rgba(15, 23, 42, 0.2)",
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
-  },
-  renameTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  renameInput: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.35)",
-    backgroundColor: "rgba(148, 163, 184, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  renameActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
-  renameActionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: "rgba(148, 163, 184, 0.15)",
-  },
-  renameActionButtonPrimary: {
-    backgroundColor: "#2563eb",
-  },
-  renameActionButtonDisabled: {
-    opacity: 0.5,
-  },
-  renameActionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  renameActionLabelPrimary: {
-    color: "#ffffff",
   },
 });
 
@@ -2667,13 +2388,17 @@ function MessageBubble({
       }}
       delayLongPress={isDesktopApp ? undefined : 250}
       accessibilityRole="button">
-      <ThemedView style={styles.messageBubble}>
-        {statusLabel ? <ThemedText style={styles.messageStatus}>{statusLabel}</ThemedText> : null}
-        <ThemedText style={styles.messageBody}>
+      <Surface variant="secondary" className="gap-2 rounded-2xl p-4" style={styles.messageBubble}>
+        {statusLabel ? (
+          <Text type="body-xs" color="muted" weight="semibold">
+            {statusLabel}
+          </Text>
+        ) : null}
+        <Text style={styles.messageBody}>
           {message.transcript && message.transcript.length > 0 ? message.transcript : fallbackText}
-        </ThemedText>
+        </Text>
         <TranslationSection message={message} />
-      </ThemedView>
+      </Surface>
     </Pressable>
   );
 }
@@ -2683,15 +2408,15 @@ function TranslationSection({ message }: { message: TranscriptionMessage }) {
 
   let content: ReactNode | null = null;
   if (message.translationStatus === 'pending') {
-    content = <ThemedText style={styles.translationPending}>{t('translation.status.in_progress')}</ThemedText>;
+    content = <Text style={styles.translationPending}>{t('translation.status.in_progress')}</Text>;
   } else if (message.translationStatus === 'failed') {
     content = (
-      <ThemedText style={styles.translationError}>
+      <Text style={styles.translationError}>
         {message.translationError || t('translation.status.failed')}
-      </ThemedText>
+      </Text>
     );
   } else if (message.translationStatus === 'completed' && message.translation) {
-    content = <ThemedText style={styles.translationText}>{message.translation}</ThemedText>;
+    content = <Text style={styles.translationText}>{message.translation}</Text>;
   }
 
   if (!content) {
@@ -2702,6 +2427,67 @@ function TranslationSection({ message }: { message: TranscriptionMessage }) {
     <View style={styles.translationSection}>
       <View style={styles.translationDivider} />
       {content}
+    </View>
+  );
+}
+
+function NativeSegment<T extends string>({
+  value,
+  options,
+  onValueChange,
+}: {
+  value: T;
+  options: { value: T; label: string; icon?: StudioIconName; disabled?: boolean }[];
+  onValueChange: (next: T) => void;
+}) {
+  return (
+    <Segment value={value} onValueChange={(next) => onValueChange(next as T)} size="sm">
+      <Segment.Group className="rounded-2xl bg-surface-secondary p-1">
+        <Segment.Indicator />
+        {options.map((option, index) => (
+          <Fragment key={option.value}>
+            {index > 0 ? (
+              <Segment.Separator betweenValues={[options[index - 1].value, option.value]} />
+            ) : null}
+            <Segment.Item
+              accessibilityLabel={option.label}
+              className="min-w-0 flex-1 flex-row items-center justify-center gap-1.5 px-2"
+              isDisabled={option.disabled}
+              value={option.value}>
+              {option.icon ? (
+                <StudioIcon name={option.icon} size={16} className="text-muted" />
+              ) : null}
+              <Segment.Label numberOfLines={1}>{option.label}</Segment.Label>
+            </Segment.Item>
+          </Fragment>
+        ))}
+      </Segment.Group>
+    </Segment>
+  );
+}
+
+function StudioEmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: StudioIconName;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <View className="items-center justify-center gap-3 px-6 py-10">
+      <View className="size-14 items-center justify-center rounded-3xl bg-surface-secondary">
+        <StudioIcon name={icon} size={27} className="text-muted" />
+      </View>
+      <Text weight="semibold" align="center">
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text type="body-sm" color="muted" align="center">
+          {subtitle}
+        </Text>
+      ) : null}
     </View>
   );
 }

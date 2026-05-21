@@ -105,6 +105,10 @@ export const OPENAI_TTS_VOICES = [
   'marin',
   'cedar',
 ] as const;
+export type OpenAiTtsVoice = (typeof OPENAI_TTS_VOICES)[number];
+export function isOpenAiTtsVoice(value: string): value is OpenAiTtsVoice {
+  return (OPENAI_TTS_VOICES as readonly string[]).includes(value);
+}
 export const DEFAULT_GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 export const DEFAULT_GEMINI_TTS_VOICE = 'Kore';
 export const GEMINI_TTS_VOICES = [
@@ -139,6 +143,10 @@ export const GEMINI_TTS_VOICES = [
   'Sadaltager',
   'Sulafat',
 ] as const;
+export type GeminiTtsVoice = (typeof GEMINI_TTS_VOICES)[number];
+export function isGeminiTtsVoice(value: string): value is GeminiTtsVoice {
+  return (GEMINI_TTS_VOICES as readonly string[]).includes(value);
+}
 export const DEFAULT_GEMINI_TITLE_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_TRANSLATION_PROMPT_PREFIX = 'You are a translation engine.';
 export const COMMON_TRANSLATION_TARGET_LANGUAGES = [

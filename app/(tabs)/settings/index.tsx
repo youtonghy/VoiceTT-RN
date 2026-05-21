@@ -1,18 +1,13 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import { useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Image, Linking, Pressable, View } from 'react-native';
+import { Card, Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
 import { useIsTablet } from '@/hooks/use-is-tablet';
 import { getProStatus } from '@/services/pro';
-
-import { settingsStyles } from './shared';
 
 type RouteHref = Extract<Href, string>;
 
@@ -20,23 +15,17 @@ interface SettingsEntry {
   route: RouteHref;
   title: string;
   subtitle: string;
+  icon: AppIconName;
 }
 
 const WEBSITE_URL = 'https://vtt.tokisantike.net/';
 const REPOSITORY_URL = 'https://github.com/youtonghy/VoiceTT';
-
 const aboutIconSource = require('../../../assets/images/icon.png');
 
 export default function SettingsIndexScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const isTablet = useIsTablet();
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
   const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
@@ -51,18 +40,6 @@ export default function SettingsIndexScreen() {
       Alert.alert('Unable to open link', 'Please try again later.');
     });
   }, []);
-
-  const handleOpenProCard = useCallback(() => {
-    router.push('/settings/pro' as RouteHref);
-  }, [router]);
-
-  const handleOpenWebsite = useCallback(() => {
-    openExternalLink(WEBSITE_URL);
-  }, [openExternalLink]);
-
-  const handleOpenRepository = useCallback(() => {
-    openExternalLink(REPOSITORY_URL);
-  }, [openExternalLink]);
 
   useEffect(() => {
     let isActive = true;
@@ -100,407 +77,159 @@ export default function SettingsIndexScreen() {
         route: '/settings/recording' as RouteHref,
         title: t('settings.sections.recording.title'),
         subtitle: t('settings.sections.recording.subtitle'),
+        icon: 'microphone',
       },
       {
         route: '/settings/keyboard' as RouteHref,
         title: t('settings.sections.keyboard.title'),
         subtitle: t('settings.sections.keyboard.subtitle'),
+        icon: 'keyboard',
       },
       {
         route: '/settings/transcription' as RouteHref,
         title: t('settings.sections.transcription.title'),
         subtitle: t('settings.sections.transcription.subtitle'),
+        icon: 'wave-square',
       },
       {
         route: '/settings/translation' as RouteHref,
         title: t('settings.sections.translation.title'),
         subtitle: t('settings.sections.translation.subtitle'),
+        icon: 'language',
       },
       {
         route: '/settings/export' as RouteHref,
         title: t('settings.sections.export.title'),
         subtitle: t('settings.sections.export.subtitle'),
+        icon: 'file-export',
       },
       {
         route: '/settings/tts' as RouteHref,
         title: t('settings.sections.tts.title'),
         subtitle: t('settings.sections.tts.subtitle'),
+        icon: 'volume-high',
       },
       {
         route: '/settings/summary' as RouteHref,
         title: t('settings.sections.summary.title'),
         subtitle: t('settings.sections.summary.subtitle'),
+        icon: 'file-lines',
       },
       {
         route: '/settings/qa' as RouteHref,
         title: t('settings.sections.qa.title'),
         subtitle: t('settings.sections.qa.subtitle'),
+        icon: 'circle-question',
       },
       {
         route: '/settings/appearance' as RouteHref,
         title: t('settings.sections.appearance.title'),
         subtitle: t('settings.sections.appearance.subtitle'),
+        icon: 'palette',
       },
       {
         route: '/settings/credentials' as RouteHref,
         title: t('settings.sections.credentials.title'),
         subtitle: t('settings.sections.credentials.subtitle'),
+        icon: 'lock',
       },
     ],
     [t]
   );
-
-  const aboutLinks = useMemo(
-    () => [
-      {
-        key: 'website',
-        label: t('settings.about.links.website'),
-        url: WEBSITE_URL,
-        onPress: handleOpenWebsite,
-        icon: 'globe-outline' as const,
-      },
-      {
-        key: 'repository',
-        label: t('settings.about.links.repository'),
-        url: REPOSITORY_URL,
-        onPress: handleOpenRepository,
-        icon: 'logo-github' as const,
-      },
-    ],
-    [handleOpenRepository, handleOpenWebsite, t]
-  );
-
-  const proCardTheme = isPro
-    ? {
-        background: isDark ? '#5c4512' : '#fef3c7',
-        border: isDark ? 'rgba(245, 158, 11, 0.4)' : 'rgba(202, 138, 4, 0.45)',
-        shadow: isDark ? 'rgba(245, 158, 11, 0.35)' : 'rgba(217, 119, 6, 0.3)',
-      }
-    : {
-        background: isDark ? '#064e3b' : '#dcfce7',
-        border: isDark ? 'rgba(16, 185, 129, 0.4)' : 'rgba(34, 197, 94, 0.35)',
-        shadow: isDark ? 'rgba(16, 185, 129, 0.35)' : 'rgba(34, 197, 94, 0.3)',
-      };
-  const proCtaTheme = {
-    background: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(22, 163, 74, 0.12)',
-    border: isDark ? 'rgba(16, 185, 129, 0.45)' : 'rgba(22, 163, 74, 0.35)',
-  };
 
   if (isTablet) {
     return null;
   }
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText
-            type="title"
-            style={settingsStyles.pageTitle}
-            lightColor="#0f172a"
-            darkColor="#e2e8f0">
-            {t('settings.page_title')}
-          </ThemedText>
-        </View>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.entryList}
-          style={styles.entryScroll}>
+    <AppScreen title={t('settings.page_title')}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.pro.title')}
+        onPress={() => router.push('/settings/pro' as RouteHref)}>
+        <AppCard
+          className={isPro ? 'bg-warning/15' : 'bg-success/15'}
+          icon={isPro ? 'shield-halved' : 'wand-magic-sparkles'}
+          title={t('settings.pro.title')}
+          subtitle={t('settings.pro.description')}>
+          {!isPro ? (
+            <View className="self-start rounded-lg border border-success/40 bg-success/10 px-3 py-2">
+              <Text type="body-xs" weight="bold" className="text-success">
+                {t('settings.pro.cta')}
+              </Text>
+            </View>
+          ) : null}
+        </AppCard>
+      </Pressable>
+
+      <View className="gap-3">
+        {entryItems.map((entry) => (
           <Pressable
+            key={entry.route}
             accessibilityRole="button"
-            accessibilityLabel={t('settings.pro.title')}
-            onPress={handleOpenProCard}
-            style={({ pressed }) => [
-              styles.proCardPressable,
-              { shadowColor: proCardTheme.shadow },
-              pressed && styles.proCardPressed,
-            ]}>
-            <ThemedView
-              style={[
-                styles.proCard,
-                { backgroundColor: proCardTheme.background, borderColor: proCardTheme.border },
-              ]}>
-              <View style={styles.proCardContent}>
-                <ThemedText
-                  type="title"
-                  style={styles.proCardTitle}
-                  lightColor="#0f172a"
-                  darkColor="#e2e8f0">
-                  {t('settings.pro.title')}
-                </ThemedText>
-                <ThemedText
-                  style={styles.proCardSubtitle}
-                  lightColor="#475569"
-                  darkColor="#cbd5e1">
-                  {t('settings.pro.description')}
-                </ThemedText>
-                {!isPro ? (
-                  <View
-                    style={[
-                      styles.proCardCta,
-                      { backgroundColor: proCtaTheme.background, borderColor: proCtaTheme.border },
-                    ]}>
-                    <ThemedText
-                      style={styles.proCardCtaText}
-                      lightColor="#166534"
-                      darkColor="#bbf7d0">
-                      {t('settings.pro.cta')}
-                    </ThemedText>
-                  </View>
-                ) : null}
-              </View>
-            </ThemedView>
+            accessibilityLabel={entry.title}
+            onPress={() => router.push(entry.route)}>
+            <Card className="border border-border">
+              <Card.Body className="flex-row items-center gap-3">
+                <View className="size-10 items-center justify-center rounded-lg bg-surface-secondary">
+                  <AppIcon name={entry.icon} size={20} className="text-accent" />
+                </View>
+                <View className="flex-1 gap-1">
+                  <Text weight="semibold">{entry.title}</Text>
+                  <Text type="body-sm" color="muted">
+                    {entry.subtitle}
+                  </Text>
+                </View>
+                <AppIcon name="chevron-right" size={18} className="text-muted" />
+              </Card.Body>
+            </Card>
           </Pressable>
-          {entryItems.map((entry) => (
-            <Pressable
-              key={entry.route}
-              accessibilityRole="button"
-              accessibilityLabel={entry.title}
-              onPress={() => router.push(entry.route)}
-              style={({ pressed }) => [styles.entryPressable, pressed && styles.entryPressed]}>
-              <ThemedView
-                lightColor="rgba(148, 163, 184, 0.12)"
-                darkColor="rgba(15, 23, 42, 0.7)"
-                style={styles.entryCard}>
-                <ThemedText
-                  type="title"
-                  style={styles.entryTitle}
-                  lightColor="#0f172a"
-                  darkColor="#e2e8f0">
-                  {entry.title}
-                </ThemedText>
-                <ThemedText
-                  style={styles.entrySubtitle}
-                  lightColor="#475569"
-                  darkColor="#94a3b8">
-                  {entry.subtitle}
-                </ThemedText>
-              </ThemedView>
-            </Pressable>
-          ))}
-          <ThemedView
-            lightColor="rgba(148, 163, 184, 0.12)"
-            darkColor="rgba(15, 23, 42, 0.7)"
-            style={styles.aboutCard}>
-            <Image
-              source={aboutIconSource}
-              style={styles.aboutIcon}
-              accessibilityLabel={t('settings.about.icon_accessibility')}
-            />
-            <ThemedText
-              type="title"
-              style={styles.aboutTitle}
-              lightColor="#0f172a"
-              darkColor="#e2e8f0">
-              {t('settings.about.title')}
-            </ThemedText>
-            <View style={styles.aboutMeta}>
-              {aboutMeta.map((meta) => (
-                <ThemedText
-                  key={meta}
-                  style={styles.aboutMetaText}
-                  lightColor="rgba(15, 23, 42, 0.65)"
-                  darkColor="rgba(226, 232, 240, 0.7)">
-                  {meta}
-                </ThemedText>
-              ))}
-            </View>
-            <View style={styles.aboutLinks}>
-              {aboutLinks.map((link) => (
-                <Pressable
-                  key={link.key}
-                  accessibilityRole="link"
-                  accessibilityLabel={link.label}
-                  onPress={link.onPress}
-                  style={({ pressed }) => [styles.aboutLinkPressable, pressed && styles.aboutLinkPressed]}>
-                  <ThemedView
-                    lightColor="rgba(248, 250, 252, 0.65)"
-                    darkColor="rgba(15, 23, 42, 0.6)"
-                    style={styles.aboutLinkCard}>
-                    <Ionicons name={link.icon} size={22} color="#2563eb" />
-                  </ThemedView>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.aboutFooter}>
-              <ThemedText
-                style={styles.aboutFooterText}
-                lightColor="rgba(15, 23, 42, 0.55)"
-                darkColor="rgba(226, 232, 240, 0.65)">
-                {t('settings.about.footer.copyright')}
-              </ThemedText>
-              <ThemedText
-                style={styles.aboutFooterText}
-                lightColor="rgba(15, 23, 42, 0.55)"
-                darkColor="rgba(226, 232, 240, 0.65)">
-                {t('settings.about.footer.powered')}
-              </ThemedText>
-              <ThemedText
-                style={styles.aboutFooterText}
-                lightColor="rgba(15, 23, 42, 0.55)"
-                darkColor="rgba(226, 232, 240, 0.65)">
-                {t('settings.about.footer.location')}
-              </ThemedText>
-            </View>
-          </ThemedView>
-        </ScrollView>
+        ))}
       </View>
-    </SafeAreaView>
+
+      <AppCard title={t('settings.about.title')}>
+        <View className="items-center gap-3">
+          <Image
+            source={aboutIconSource}
+            className="size-16 rounded-2xl"
+            accessibilityLabel={t('settings.about.icon_accessibility')}
+          />
+          <View className="items-center gap-1">
+            {aboutMeta.map((meta) => (
+              <Text key={meta} type="body-sm" color="muted">
+                {meta}
+              </Text>
+            ))}
+          </View>
+          <View className="flex-row gap-3">
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t('settings.about.links.website')}
+              onPress={() => openExternalLink(WEBSITE_URL)}
+              className="size-12 items-center justify-center rounded-xl bg-surface-secondary">
+              <AppIcon name="globe" size={20} className="text-accent" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t('settings.about.links.repository')}
+              onPress={() => openExternalLink(REPOSITORY_URL)}
+              className="size-12 items-center justify-center rounded-xl bg-surface-secondary">
+              <AppIcon name="github" size={22} className="text-accent" />
+            </Pressable>
+          </View>
+          <View className="items-center gap-1">
+            <Text type="body-xs" color="muted" align="center">
+              {t('settings.about.footer.copyright')}
+            </Text>
+            <Text type="body-xs" color="muted" align="center">
+              {t('settings.about.footer.powered')}
+            </Text>
+            <Text type="body-xs" color="muted" align="center">
+              {t('settings.about.footer.location')}
+            </Text>
+          </View>
+        </View>
+      </AppCard>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  proCardPressable: {
-    borderRadius: 28,
-    shadowColor: 'rgba(15, 23, 42, 0.08)',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.9,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  proCardPressed: {
-    opacity: 0.94,
-    transform: [{ translateY: 1 }],
-  },
-  proCard: {
-    borderRadius: 28,
-    padding: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  proCardContent: {
-    gap: 14,
-  },
-  proCardTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  proCardSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 320,
-  },
-  proCardCta: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  proCardCtaText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  container: {
-    flex: 1,
-    paddingTop: 16,
-    gap: 20,
-  },
-  header: {
-    paddingHorizontal: 20,
-  },
-  entryScroll: {
-    flex: 1,
-  },
-  entryList: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    gap: 16,
-  },
-  entryPressable: {
-    borderRadius: 24,
-    width: '100%',
-  },
-  entryPressed: {
-    opacity: 0.85,
-  },
-  entryCard: {
-    width: '100%',
-    padding: 20,
-    borderRadius: 24,
-    gap: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    shadowColor: 'rgba(15, 23, 42, 0.06)',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  entryTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  entrySubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  aboutCard: {
-    width: '100%',
-    padding: 24,
-    borderRadius: 24,
-    alignItems: 'center',
-    gap: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    shadowColor: 'rgba(15, 23, 42, 0.06)',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  aboutIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-  },
-  aboutTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  aboutLinks: {
-    width: '100%',
-    gap: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  aboutMeta: {
-    gap: 2,
-    alignItems: 'center',
-  },
-  aboutMetaText: {
-    fontSize: 13,
-  },
-  aboutLinkPressable: {
-    borderRadius: 18,
-  },
-  aboutLinkPressed: {
-    opacity: 0.85,
-  },
-  aboutLinkCard: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    shadowColor: 'rgba(15, 23, 42, 0.04)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  aboutFooter: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  aboutFooterText: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-});

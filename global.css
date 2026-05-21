@@ -1,0 +1,45 @@
+@import 'tailwindcss';
+@import 'uniwind';
+@import 'heroui-native/styles';
+@import 'heroui-native-pro/styles';
+
+@source './app';
+@source './components';
+@source './node_modules/heroui-native/lib';
+@source './node_modules/heroui-native-pro/lib';
+
+@layer theme {
+  :root {
+    @variant light {
+      --background: oklch(0.982 0.006 96);
+      --surface: oklch(0.998 0 0);
+      --surface-secondary: oklch(0.956 0.009 96);
+      --surface-tertiary: oklch(0.923 0.014 116);
+      --foreground: oklch(0.205 0.018 72);
+      --muted: oklch(0.51 0.026 72);
+      --accent: oklch(0.58 0.128 166);
+      --accent-foreground: oklch(0.99 0 0);
+      --border: oklch(0.88 0.014 96);
+      --separator: oklch(0.76 0.021 96);
+      --success: oklch(0.68 0.16 155);
+      --warning: oklch(0.76 0.15 75);
+      --danger: oklch(0.62 0.21 25);
+    }
+
+    @variant dark {
+      --background: oklch(0.15 0.016 72);
+      --surface: oklch(0.205 0.018 72);
+      --surface-secondary: oklch(0.255 0.02 78);
+      --surface-tertiary: oklch(0.31 0.024 88);
+      --foreground: oklch(0.96 0.006 96);
+      --muted: oklch(0.73 0.02 96);
+      --accent: oklch(0.72 0.13 166);
+      --accent-foreground: oklch(0.99 0 0);
+      --border: oklch(0.35 0.024 78);
+      --separator: oklch(0.43 0.025 86);
+      --success: oklch(0.74 0.16 155);
+      --warning: oklch(0.82 0.14 75);
+      --danger: oklch(0.66 0.2 25);
+    }
+  }
+}

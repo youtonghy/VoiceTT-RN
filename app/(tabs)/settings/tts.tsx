@@ -24,6 +24,8 @@ import {
     DEFAULT_OPENAI_TTS_VOICE,
     GEMINI_TTS_VOICES,
     OPENAI_TTS_VOICES,
+    isGeminiTtsVoice,
+    isOpenAiTtsVoice,
     type TtsEngine,
 } from '@/types/settings';
 
@@ -72,11 +74,11 @@ export default function TtsSettingsScreen() {
     : t('settings.tts.help_label_openai');
   const openAiVoiceValue = useMemo(() => {
     const trimmed = formState.ttsVoice.trim();
-    return OPENAI_TTS_VOICES.includes(trimmed) ? trimmed : DEFAULT_OPENAI_TTS_VOICE;
+    return isOpenAiTtsVoice(trimmed) ? trimmed : DEFAULT_OPENAI_TTS_VOICE;
   }, [formState.ttsVoice]);
   const geminiVoiceValue = useMemo(() => {
     const trimmed = formState.ttsVoice.trim();
-    return GEMINI_TTS_VOICES.includes(trimmed) ? trimmed : DEFAULT_GEMINI_TTS_VOICE;
+    return isGeminiTtsVoice(trimmed) ? trimmed : DEFAULT_GEMINI_TTS_VOICE;
   }, [formState.ttsVoice]);
 
   const handleSelectEngine = (engine: TtsEngine) => {
@@ -84,8 +86,8 @@ export default function TtsSettingsScreen() {
       return;
     }
     const currentVoice = settings.ttsVoice?.trim() || '';
-    const isGeminiVoice = GEMINI_TTS_VOICES.includes(currentVoice);
-    const isOpenAiVoice = OPENAI_TTS_VOICES.includes(currentVoice);
+    const isGeminiVoice = isGeminiTtsVoice(currentVoice);
+    const isOpenAiVoice = isOpenAiTtsVoice(currentVoice);
     if (engine === 'gemini') {
       updateSettings({
         ttsEngine: engine,

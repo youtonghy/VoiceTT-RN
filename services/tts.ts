@@ -8,6 +8,8 @@ import {
   DEFAULT_OPENAI_TTS_VOICE,
   GEMINI_TTS_VOICES,
   OPENAI_TTS_VOICES,
+  isGeminiTtsVoice,
+  isOpenAiTtsVoice,
 } from '@/types/settings';
 import type { TextToSpeechFormat } from '@/types/tts';
 
@@ -90,7 +92,7 @@ function validateTextToSpeechInput(text: unknown): string {
 
 function normalizeOpenAIVoice(voice?: string): string {
   const resolved = voice?.trim();
-  if (resolved && OPENAI_TTS_VOICES.includes(resolved)) {
+  if (resolved && isOpenAiTtsVoice(resolved)) {
     return resolved;
   }
   return DEFAULT_OPENAI_TTS_VOICE;
@@ -98,7 +100,7 @@ function normalizeOpenAIVoice(voice?: string): string {
 
 function normalizeGeminiVoice(voice?: string): string {
   const resolved = voice?.trim();
-  if (resolved && GEMINI_TTS_VOICES.includes(resolved)) {
+  if (resolved && isGeminiTtsVoice(resolved)) {
     return resolved;
   }
   return DEFAULT_GEMINI_TTS_VOICE;
@@ -264,7 +266,9 @@ function extractGeminiAudioPayload(data: any): { base64: string; mimeType?: stri
 }
 
 function normalizeBuffer(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return copy;
 }
 
 async function synthesizeSpeechWithOpenAI(

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
@@ -6,14 +7,15 @@ import { useTranslation } from 'react-i18next';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ThemedText } from '@/components/themed-text';
+
+type RailIconName = 'comments' | 'gear' | 'volume-high' | 'wave-square';
 
 type RailItem = {
   key: 'transcription' | 'qa' | 'reading' | 'settings';
   href: '/transcription' | '/conversation-qa' | '/text-to-speech' | '/settings';
   label: string;
-  icon: Parameters<typeof IconSymbol>[0]['name'];
+  icon: RailIconName;
   isActive: (pathname: string) => boolean;
 };
 
@@ -36,28 +38,28 @@ export function SideTabRail({
         key: 'transcription',
         href: '/transcription',
         label: t('navigation.tabs.transcription'),
-        icon: 'waveform',
+        icon: 'wave-square',
         isActive: (path) => path === '/transcription' || path === '/' || path === '',
       },
       {
         key: 'qa',
         href: '/conversation-qa',
         label: t('navigation.tabs.qa'),
-        icon: 'bubble.left.and.bubble.right.fill',
+        icon: 'comments',
         isActive: (path) => path === '/conversation-qa' || path.startsWith('/conversation-qa/'),
       },
       {
         key: 'reading',
         href: '/text-to-speech',
         label: t('navigation.tabs.reading'),
-        icon: 'speaker.wave.2.fill',
+        icon: 'volume-high',
         isActive: (path) => path === '/text-to-speech' || path.startsWith('/text-to-speech/'),
       },
       {
         key: 'settings',
         href: '/settings',
         label: t('navigation.tabs.settings'),
-        icon: 'gearshape.fill',
+        icon: 'gear',
         isActive: (path) => path === '/settings' || path.startsWith('/settings/'),
       },
     ];
@@ -91,7 +93,7 @@ export function SideTabRail({
                 pressed && styles.itemPressed,
               ]}>
               <View style={styles.itemIconRow}>
-                <IconSymbol name={item.icon} size={26} color={iconColor} />
+                <FontAwesome6 name={item.icon} size={20} color={iconColor} solid />
               </View>
               <ThemedText
                 style={[styles.itemLabel, { color: iconColor }]}

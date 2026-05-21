@@ -110,7 +110,7 @@ let originalGetUserMedia:
 let desktopMeteringStream: MediaStream | null = null;
 let desktopMeteringContext: AudioContext | null = null;
 let desktopMeteringAnalyser: AnalyserNode | null = null;
-let desktopMeteringData: Uint8Array | null = null;
+let desktopMeteringData: Uint8Array<ArrayBuffer> | null = null;
 
 function updatePreferredDesktopAudioInputId(value: string | null) {
   preferredDesktopAudioInputId = value;
@@ -198,7 +198,7 @@ function attachDesktopMeteringStream(stream: MediaStream) {
   desktopMeteringStream = stream;
   desktopMeteringContext = context;
   desktopMeteringAnalyser = analyser;
-  desktopMeteringData = new Uint8Array(analyser.fftSize);
+  desktopMeteringData = new Uint8Array(new ArrayBuffer(analyser.fftSize));
 
   stream.getTracks().forEach((track) => {
     track.addEventListener('ended', () => {
@@ -605,12 +605,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const recorder = useAudioRecorder(buildRecordingOptions());
   const recorderState = useAudioRecorderState(recorder);
   const isRecording = recorderState.isRecording;
-
-  console.log('[TranscriptionProvider] recorderState:', {
-    isRecording: recorderState.isRecording,
-    durationMillis: recorderState.durationMillis,
-    metering: recorderState.metering,
-  });
 
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
   const nextMessageIdRef = useRef(Math.max(Date.now(), 1));

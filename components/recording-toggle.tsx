@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Feather from '@expo/vector-icons/Feather';
 import {
   Animated,
   Easing,
@@ -18,16 +18,15 @@ const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 type RecordingToggleProps = {
   qaAutoEnabled?: boolean;
+  compact?: boolean;
   variant?: 'icon' | 'full';
 };
 
-export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
+export function RecordingToggle({ compact = false, qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
   const { isSessionActive, toggleSession, sessionState } = useTranscription();
   const { t } = useTranslation();
   const shimmerProgress = useRef(new Animated.Value(0)).current;
   const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
-
-  console.log('[RecordingToggle] Render - isSessionActive:', isSessionActive, 'variant:', variant);
 
   useEffect(() => {
     return () => {
@@ -82,6 +81,7 @@ export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: Rec
     : t('transcription.controls.start');
 
   const isFull = variant === 'full';
+  const isCompactFull = isFull && compact;
   const isBusy = sessionState === 'starting' || sessionState === 'stopping';
 
   return (
@@ -89,23 +89,31 @@ export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: Rec
       accessibilityLabel={accessibilityLabel}
       disabled={isBusy}
       onPress={() => {
-        console.log('[RecordingToggle] Button pressed');
         void toggleSession({ qaAutoEnabled });
       }}
-      style={[styles.recordButtonWrapper, isFull && styles.recordButtonWrapperFull, isBusy && styles.recordButtonWrapperDisabled]}>
+      style={[
+        styles.recordButtonWrapper,
+        isFull && (isCompactFull ? styles.recordButtonWrapperCompactFull : styles.recordButtonWrapperFull),
+        isBusy && styles.recordButtonWrapperDisabled,
+      ]}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.recordButton, isFull && styles.recordButtonFull]}>
+        style={[styles.recordButton, isFull && (isCompactFull ? styles.recordButtonCompactFull : styles.recordButtonFull)]}>
         <View style={[styles.recordButtonContent, isFull && styles.recordButtonContentFull]}>
-          <Ionicons
-            name={isSessionActive ? 'stop' : 'mic'}
-            size={24}
+          <Feather
+            name={isSessionActive ? 'square' : 'mic'}
+            size={isFull ? 20 : 22}
             color="#fff"
           />
           {isFull ? (
-            <ThemedText style={styles.recordButtonLabel} lightColor="#fff" darkColor="#fff">
+            <ThemedText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.recordButtonLabel}
+              lightColor="#fff"
+              darkColor="#fff">
               {label}
             </ThemedText>
           ) : null}
@@ -129,32 +137,42 @@ export function RecordingToggle({ qaAutoEnabled = false, variant = 'icon' }: Rec
 
 const styles = StyleSheet.create({
   recordButtonWrapper: {
-    borderRadius: 30,
+    borderRadius: 22,
     overflow: 'hidden',
-    elevation: 6,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
   },
   recordButtonWrapperFull: {
     width: '100%',
+  },
+  recordButtonWrapperCompactFull: {
+    flexShrink: 0,
+    width: 148,
   },
   recordButtonWrapperDisabled: {
     opacity: 0.75,
   },
   recordButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordButtonFull: {
     width: '100%',
-    height: 56,
+    height: 52,
     flexDirection: 'row',
     paddingHorizontal: 24,
+  },
+  recordButtonCompactFull: {
+    width: 148,
+    height: 42,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
   },
   recordButtonContent: {
     alignItems: 'center',
@@ -162,10 +180,11 @@ const styles = StyleSheet.create({
   },
   recordButtonContentFull: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   recordButtonLabel: {
-    fontSize: 18,
+    flexShrink: 1,
+    fontSize: 14,
     fontWeight: '600',
   },
   recordButtonShimmer: {
@@ -175,7 +194,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   recordButtonShimmerIcon: {
-    width: 60,
+    width: 54,
   },
   recordButtonShimmerFull: {
     width: '100%',

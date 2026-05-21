@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Feather from '@expo/vector-icons/Feather';
 import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
@@ -170,7 +170,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
         ? '#475569'
         : '#2563eb';
 
-  const iconName = status === 'recording' ? 'stop' : 'mic';
+  const iconName = status === 'recording' ? 'square' : 'mic';
 
   return (
     <Pressable
@@ -186,7 +186,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
       {status === 'processing' ? (
         <ActivityIndicator size="small" color="#ffffff" />
       ) : (
-        <Ionicons name={iconName as any} size={18} color="#ffffff" />
+        <Feather name={iconName} size={17} color="#ffffff" />
       )}
     </Pressable>
   );
