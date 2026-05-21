@@ -1,26 +1,65 @@
 import Constants from 'expo-constants';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Linking, Pressable, View } from 'react-native';
 import { Card, Text } from 'heroui-native';
+import { Badge } from 'heroui-native-pro';
 
-import { AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
+import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
+import { buildSettingsMenuGroups, type RouteHref, type SettingsMenuEntry } from '@/components/settings/settings-menu';
 import { useIsTablet } from '@/hooks/use-is-tablet';
 import { getProStatus } from '@/services/pro';
-
-type RouteHref = Extract<Href, string>;
-
-interface SettingsEntry {
-  route: RouteHref;
-  title: string;
-  subtitle: string;
-  icon: AppIconName;
-}
 
 const WEBSITE_URL = 'https://vtt.tokisantike.net/';
 const REPOSITORY_URL = 'https://github.com/youtonghy/VoiceTT';
 const aboutIconSource = require('../../../assets/images/icon.png');
+
+function SettingsEntryCard({
+  entry,
+  priorityLabel,
+  onPress,
+}: {
+  entry: SettingsMenuEntry;
+  priorityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={entry.title}
+      onPress={onPress}>
+      <Card className={`border ${entry.isPriority ? 'border-accent/40 bg-accent/5' : 'border-border'}`}>
+        <Card.Body className="flex-row items-center gap-3 p-3">
+          <View
+            className={`size-11 items-center justify-center rounded-xl ${
+              entry.isPriority ? 'bg-accent' : 'bg-surface-secondary'
+            }`}>
+            <AppIcon
+              name={entry.icon}
+              size={19}
+              className={entry.isPriority ? 'text-accent-foreground' : 'text-accent'}
+            />
+          </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text weight="semibold">{entry.title}</Text>
+              {entry.isPriority ? (
+                <Badge color="accent" size="sm" variant="soft">
+                  <Badge.Label>{priorityLabel}</Badge.Label>
+                </Badge>
+              ) : null}
+            </View>
+            <Text type="body-sm" color="muted" numberOfLines={2}>
+              {entry.subtitle}
+            </Text>
+          </View>
+          <AppIcon name="chevron-right" size={18} className="text-muted" />
+        </Card.Body>
+      </Card>
+    </Pressable>
+  );
+}
 
 export default function SettingsIndexScreen() {
   const router = useRouter();
@@ -71,71 +110,8 @@ export default function SettingsIndexScreen() {
     return [versionText, buildText].filter(Boolean) as string[];
   }, [appVersion, buildVersion, t]);
 
-  const entryItems: SettingsEntry[] = useMemo(
-    () => [
-      {
-        route: '/settings/recording' as RouteHref,
-        title: t('settings.sections.recording.title'),
-        subtitle: t('settings.sections.recording.subtitle'),
-        icon: 'microphone',
-      },
-      {
-        route: '/settings/keyboard' as RouteHref,
-        title: t('settings.sections.keyboard.title'),
-        subtitle: t('settings.sections.keyboard.subtitle'),
-        icon: 'keyboard',
-      },
-      {
-        route: '/settings/transcription' as RouteHref,
-        title: t('settings.sections.transcription.title'),
-        subtitle: t('settings.sections.transcription.subtitle'),
-        icon: 'wave-square',
-      },
-      {
-        route: '/settings/translation' as RouteHref,
-        title: t('settings.sections.translation.title'),
-        subtitle: t('settings.sections.translation.subtitle'),
-        icon: 'language',
-      },
-      {
-        route: '/settings/export' as RouteHref,
-        title: t('settings.sections.export.title'),
-        subtitle: t('settings.sections.export.subtitle'),
-        icon: 'file-export',
-      },
-      {
-        route: '/settings/tts' as RouteHref,
-        title: t('settings.sections.tts.title'),
-        subtitle: t('settings.sections.tts.subtitle'),
-        icon: 'volume-high',
-      },
-      {
-        route: '/settings/summary' as RouteHref,
-        title: t('settings.sections.summary.title'),
-        subtitle: t('settings.sections.summary.subtitle'),
-        icon: 'file-lines',
-      },
-      {
-        route: '/settings/qa' as RouteHref,
-        title: t('settings.sections.qa.title'),
-        subtitle: t('settings.sections.qa.subtitle'),
-        icon: 'circle-question',
-      },
-      {
-        route: '/settings/appearance' as RouteHref,
-        title: t('settings.sections.appearance.title'),
-        subtitle: t('settings.sections.appearance.subtitle'),
-        icon: 'palette',
-      },
-      {
-        route: '/settings/credentials' as RouteHref,
-        title: t('settings.sections.credentials.title'),
-        subtitle: t('settings.sections.credentials.subtitle'),
-        icon: 'lock',
-      },
-    ],
-    [t]
-  );
+  const menuGroups = useMemo(() => buildSettingsMenuGroups(t), [t]);
+  const priorityLabel = t('settings.badges.core');
 
   if (isTablet) {
     return null;
@@ -143,6 +119,31 @@ export default function SettingsIndexScreen() {
 
   return (
     <AppScreen title={t('settings.page_title')}>
+      <View className="gap-5">
+        {menuGroups.map((group) => (
+          <View key={group.key} className="gap-3">
+            <View className="gap-1 px-1">
+              <Text type="body-sm" weight="bold" className="uppercase text-muted">
+                {group.title}
+              </Text>
+              <Text type="body-xs" color="muted">
+                {group.subtitle}
+              </Text>
+            </View>
+            <View className="gap-2">
+              {group.entries.map((entry) => (
+                <SettingsEntryCard
+                  key={entry.route}
+                  entry={entry}
+                  priorityLabel={priorityLabel}
+                  onPress={() => router.push(entry.route)}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('settings.pro.title')}
@@ -161,31 +162,6 @@ export default function SettingsIndexScreen() {
           ) : null}
         </AppCard>
       </Pressable>
-
-      <View className="gap-3">
-        {entryItems.map((entry) => (
-          <Pressable
-            key={entry.route}
-            accessibilityRole="button"
-            accessibilityLabel={entry.title}
-            onPress={() => router.push(entry.route)}>
-            <Card className="border border-border">
-              <Card.Body className="flex-row items-center gap-3">
-                <View className="size-10 items-center justify-center rounded-lg bg-surface-secondary">
-                  <AppIcon name={entry.icon} size={20} className="text-accent" />
-                </View>
-                <View className="flex-1 gap-1">
-                  <Text weight="semibold">{entry.title}</Text>
-                  <Text type="body-sm" color="muted">
-                    {entry.subtitle}
-                  </Text>
-                </View>
-                <AppIcon name="chevron-right" size={18} className="text-muted" />
-              </Card.Body>
-            </Card>
-          </Pressable>
-        ))}
-      </View>
 
       <AppCard title={t('settings.about.title')}>
         <View className="items-center gap-3">

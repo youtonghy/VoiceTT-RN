@@ -248,6 +248,27 @@
         "subtitle": "管理模型密钥"
       }
     },
+    "groups": {
+      "essentials": {
+        "title": "核心设置",
+        "subtitle": "录音与模型调用前优先配置"
+      },
+      "workflow": {
+        "title": "AI 工作流",
+        "subtitle": "调整转写、翻译、朗读、总结和问答"
+      },
+      "preferences": {
+        "title": "偏好设置",
+        "subtitle": "调整显示与导出默认项"
+      },
+      "extras": {
+        "title": "附加工具",
+        "subtitle": "可选的配套工具与集成"
+      }
+    },
+    "badges": {
+      "core": "核心"
+    },
     "about": {
       "title": "关于",
       "icon_accessibility": "VoiceTT 应用图标",

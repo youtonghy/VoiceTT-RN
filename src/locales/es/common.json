@@ -207,6 +207,10 @@
         "title": "Detección de grabación",
         "subtitle": "Sensibilidad y detección de silencio"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "Recomendación para dictado de escritorio"
+      },
       "voice_input": {
         "title": "Entrada de voz",
         "subtitle": "Motor de micrófono del teclado"
@@ -243,6 +247,27 @@
         "title": "Credenciales",
         "subtitle": "Administrar claves API"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "Configuración clave",
+        "subtitle": "Empieza aquí antes de grabar o llamar servicios de IA"
+      },
+      "workflow": {
+        "title": "Flujo de IA",
+        "subtitle": "Ajusta transcripción, traducción, lectura, resúmenes y Q&A"
+      },
+      "preferences": {
+        "title": "Preferencias",
+        "subtitle": "Ajusta la visualización y los valores de exportación"
+      },
+      "extras": {
+        "title": "Complementos",
+        "subtitle": "Herramientas e integraciones opcionales"
+      }
+    },
+    "badges": {
+      "core": "Clave"
     },
     "about": {
       "title": "Acerca de",

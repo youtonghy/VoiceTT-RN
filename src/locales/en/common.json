@@ -248,6 +248,27 @@
         "subtitle": "Manage API keys"
       }
     },
+    "groups": {
+      "essentials": {
+        "title": "Core setup",
+        "subtitle": "Start here before recording or calling AI services"
+      },
+      "workflow": {
+        "title": "AI workflow",
+        "subtitle": "Tune transcript, translation, reading, summary, and Q&A behavior"
+      },
+      "preferences": {
+        "title": "Preferences",
+        "subtitle": "Adjust display and output defaults"
+      },
+      "extras": {
+        "title": "Add-ons",
+        "subtitle": "Optional companion tools and integrations"
+      }
+    },
+    "badges": {
+      "core": "Core"
+    },
     "about": {
       "title": "About",
       "icon_accessibility": "VoiceTT app icon",

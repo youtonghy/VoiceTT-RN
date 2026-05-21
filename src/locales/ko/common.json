@@ -207,6 +207,10 @@
         "title": "녹음 감지",
         "subtitle": "감도 및 무음 판정"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "데스크톱 음성 입력 추천"
+      },
       "voice_input": {
         "title": "음성 입력",
         "subtitle": "키보드 마이크 엔진"
@@ -243,6 +247,27 @@
         "title": "자격 증명",
         "subtitle": "API 키 관리"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "핵심 설정",
+        "subtitle": "녹음 및 AI 서비스 호출 전에 먼저 설정"
+      },
+      "workflow": {
+        "title": "AI 워크플로",
+        "subtitle": "전사, 번역, 읽기, 요약, Q&A 동작 조정"
+      },
+      "preferences": {
+        "title": "환경 설정",
+        "subtitle": "표시 및 내보내기 기본값 조정"
+      },
+      "extras": {
+        "title": "추가 도구",
+        "subtitle": "선택형 동반 도구 및 통합"
+      }
+    },
+    "badges": {
+      "core": "핵심"
     },
     "about": {
       "title": "정보",

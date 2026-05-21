@@ -4,18 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Card, Text } from 'heroui-native';
+import { Badge } from 'heroui-native-pro';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import { AppIcon } from '@/components/native/app-shell';
+import { buildSettingsMenuGroups, type SettingsMenuEntry } from '@/components/settings/settings-menu';
 import { getProStatus } from '@/services/pro';
 
 type RouteHref = Extract<Href, string>;
-
-type SettingsEntry = {
-  route: RouteHref;
-  title: string;
-  subtitle: string;
-  icon: AppIconName;
-};
 
 export function SettingsSidebar() {
   const router = useRouter();
@@ -43,71 +38,8 @@ export function SettingsSidebar() {
     };
   }, [pathname]);
 
-  const entries: SettingsEntry[] = useMemo(
-    () => [
-      {
-        route: '/settings/recording' as RouteHref,
-        title: t('settings.sections.recording.title'),
-        subtitle: t('settings.sections.recording.subtitle'),
-        icon: 'microphone',
-      },
-      {
-        route: '/settings/keyboard' as RouteHref,
-        title: t('settings.sections.keyboard.title'),
-        subtitle: t('settings.sections.keyboard.subtitle'),
-        icon: 'keyboard',
-      },
-      {
-        route: '/settings/transcription' as RouteHref,
-        title: t('settings.sections.transcription.title'),
-        subtitle: t('settings.sections.transcription.subtitle'),
-        icon: 'wave-square',
-      },
-      {
-        route: '/settings/translation' as RouteHref,
-        title: t('settings.sections.translation.title'),
-        subtitle: t('settings.sections.translation.subtitle'),
-        icon: 'language',
-      },
-      {
-        route: '/settings/export' as RouteHref,
-        title: t('settings.sections.export.title'),
-        subtitle: t('settings.sections.export.subtitle'),
-        icon: 'file-export',
-      },
-      {
-        route: '/settings/tts' as RouteHref,
-        title: t('settings.sections.tts.title'),
-        subtitle: t('settings.sections.tts.subtitle'),
-        icon: 'volume-high',
-      },
-      {
-        route: '/settings/summary' as RouteHref,
-        title: t('settings.sections.summary.title'),
-        subtitle: t('settings.sections.summary.subtitle'),
-        icon: 'file-lines',
-      },
-      {
-        route: '/settings/qa' as RouteHref,
-        title: t('settings.sections.qa.title'),
-        subtitle: t('settings.sections.qa.subtitle'),
-        icon: 'circle-question',
-      },
-      {
-        route: '/settings/appearance' as RouteHref,
-        title: t('settings.sections.appearance.title'),
-        subtitle: t('settings.sections.appearance.subtitle'),
-        icon: 'palette',
-      },
-      {
-        route: '/settings/credentials' as RouteHref,
-        title: t('settings.sections.credentials.title'),
-        subtitle: t('settings.sections.credentials.subtitle'),
-        icon: 'lock',
-      },
-    ],
-    [t]
-  );
+  const menuGroups = useMemo(() => buildSettingsMenuGroups(t), [t]);
+  const priorityLabel = t('settings.badges.core');
 
   return (
     <SafeAreaView
@@ -138,31 +70,81 @@ export function SettingsSidebar() {
             </Card.Body>
           </Card>
         </Pressable>
-        {entries.map((entry) => {
-          const active = pathname === entry.route || pathname.startsWith(`${entry.route}/`);
-          return (
-            <Pressable
-              key={entry.route}
-              accessibilityRole="button"
-              accessibilityLabel={entry.title}
-              onPress={() => router.replace(entry.route)}>
-              <Card className={`border ${active ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary'}`}>
-                <Card.Body className="flex-row items-center gap-3 p-3">
-                  <AppIcon name={entry.icon} size={18} className={active ? 'text-accent' : 'text-muted'} />
-                  <View className="flex-1 gap-1">
-                    <Text type="body-sm" weight="semibold">
-                      {entry.title}
-                    </Text>
-                    <Text type="body-xs" color="muted" numberOfLines={2}>
-                      {entry.subtitle}
-                    </Text>
-                  </View>
-                </Card.Body>
-              </Card>
-            </Pressable>
-          );
-        })}
+        {menuGroups.map((group) => (
+          <View key={group.key} className="gap-2">
+            <View className="gap-1 px-1 pt-2">
+              <Text type="body-xs" weight="bold" className="uppercase text-muted">
+                {group.title}
+              </Text>
+            </View>
+            {group.entries.map((entry) => (
+              <SidebarEntry
+                key={entry.route}
+                entry={entry}
+                isActive={pathname === entry.route || pathname.startsWith(`${entry.route}/`)}
+                priorityLabel={priorityLabel}
+                onPress={() => router.replace(entry.route)}
+              />
+            ))}
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function SidebarEntry({
+  entry,
+  isActive,
+  priorityLabel,
+  onPress,
+}: {
+  entry: SettingsMenuEntry;
+  isActive: boolean;
+  priorityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={entry.title}
+      onPress={onPress}>
+      <Card
+        className={`border ${
+          isActive
+            ? 'border-accent bg-surface'
+            : entry.isPriority
+              ? 'border-accent/20 bg-accent/5'
+              : 'border-transparent bg-surface-secondary'
+        }`}>
+        <Card.Body className="flex-row items-center gap-3 p-3">
+          <View
+            className={`size-9 items-center justify-center rounded-lg ${
+              isActive ? 'bg-accent' : entry.isPriority ? 'bg-accent/15' : 'bg-surface'
+            }`}>
+            <AppIcon
+              name={entry.icon}
+              size={17}
+              className={isActive ? 'text-accent-foreground' : entry.isPriority ? 'text-accent' : 'text-muted'}
+            />
+          </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <View className="flex-row items-center gap-2">
+              <Text type="body-sm" weight="semibold" numberOfLines={1}>
+                {entry.title}
+              </Text>
+              {entry.isPriority ? (
+                <Badge color="accent" size="sm" variant="soft">
+                  <Badge.Label>{priorityLabel}</Badge.Label>
+                </Badge>
+              ) : null}
+            </View>
+            <Text type="body-xs" color="muted" numberOfLines={2}>
+              {entry.subtitle}
+            </Text>
+          </View>
+        </Card.Body>
+      </Card>
+    </Pressable>
   );
 }

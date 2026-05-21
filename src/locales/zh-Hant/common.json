@@ -207,6 +207,10 @@
         "title": "錄音偵測",
         "subtitle": "靈敏度與靜音判定"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "桌面語音輸入推薦"
+      },
       "voice_input": {
         "title": "語音輸入",
         "subtitle": "鍵盤錄音使用的引擎"
@@ -243,6 +247,27 @@
         "title": "憑證",
         "subtitle": "管理模型金鑰"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "核心設定",
+        "subtitle": "錄音與模型呼叫前優先配置"
+      },
+      "workflow": {
+        "title": "AI 工作流程",
+        "subtitle": "調整轉寫、翻譯、朗讀、總結和問答"
+      },
+      "preferences": {
+        "title": "偏好設定",
+        "subtitle": "調整顯示與匯出預設值"
+      },
+      "extras": {
+        "title": "附加工具",
+        "subtitle": "可選的配套工具與整合"
+      }
+    },
+    "badges": {
+      "core": "核心"
     },
     "about": {
       "title": "關於",

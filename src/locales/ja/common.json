@@ -207,6 +207,10 @@
         "title": "録音検出",
         "subtitle": "感度と無音判定"
       },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "デスクトップ音声入力のおすすめ"
+      },
       "voice_input": {
         "title": "音声入力",
         "subtitle": "キーボードマイクのエンジン"
@@ -243,6 +247,27 @@
         "title": "認証情報",
         "subtitle": "API キーを管理"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "基本設定",
+        "subtitle": "録音や AI サービス利用前に確認する項目"
+      },
+      "workflow": {
+        "title": "AI ワークフロー",
+        "subtitle": "文字起こし、翻訳、読み上げ、要約、Q&A を調整"
+      },
+      "preferences": {
+        "title": "環境設定",
+        "subtitle": "表示と出力の既定値を調整"
+      },
+      "extras": {
+        "title": "追加ツール",
+        "subtitle": "任意の連携ツールと統合"
+      }
+    },
+    "badges": {
+      "core": "基本"
     },
     "about": {
       "title": "このアプリについて",
