@@ -30,7 +30,10 @@ export default function ExportSettingsScreen() {
   }, [settings.exportIncludeTranslation, translationUnavailable, updateSettings]);
 
   return (
-    <AppScreen>
+    <AppScreen
+      edges={['left', 'right']}
+      contentTopInset={0}
+      scrollContentInsetAdjustmentBehavior="never">
       <AppCard icon="file-export" title={t('settings.export.labels.format')}>
         <View className="flex-row flex-wrap gap-2">
           {exportFormats.map((format) => (

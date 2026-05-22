@@ -35,7 +35,10 @@ export default function AppearanceSettingsScreen() {
   return (
     <AppScreen
       title={t('settings.sections.appearance.title')}
-      subtitle={t('settings.sections.appearance.subtitle')}>
+      subtitle={t('settings.sections.appearance.subtitle')}
+      edges={['left', 'right']}
+      contentTopInset={0}
+      scrollContentInsetAdjustmentBehavior="never">
       <AppCard title={t('settings.appearance.labels.mode')} icon="circle-half-stroke">
         <SegmentControl
           value={settings.themeMode}

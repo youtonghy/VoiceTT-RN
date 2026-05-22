@@ -130,7 +130,12 @@ export default function ProScreen() {
   const showSyncHint = status?.reason === 'needs_time_sync' || status?.reason === 'time_rollback';
 
   return (
-    <AppScreen title={t('settings.pro.title')} subtitle={t('settings.pro.description')}>
+    <AppScreen
+      title={t('settings.pro.title')}
+      subtitle={t('settings.pro.description')}
+      edges={['left', 'right']}
+      contentTopInset={0}
+      scrollContentInsetAdjustmentBehavior="never">
       <AppCard
         icon={status?.isActive ? 'shield-halved' : 'gem'}
         title={t('settings.pro.fields.status')}

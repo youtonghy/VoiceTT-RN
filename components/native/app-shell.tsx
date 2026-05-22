@@ -67,7 +67,9 @@ export function AppScreen({
   action,
   scroll = true,
   edges = ['top', 'left', 'right'],
+  contentTopInset,
   contentBottomInset,
+  scrollContentInsetAdjustmentBehavior = 'automatic',
 }: {
   title?: string;
   subtitle?: string;
@@ -75,16 +77,20 @@ export function AppScreen({
   action?: ReactNode;
   scroll?: boolean;
   edges?: ComponentProps<typeof SafeAreaView>['edges'];
+  contentTopInset?: number;
   contentBottomInset?: number;
+  scrollContentInsetAdjustmentBehavior?: ComponentProps<typeof ScrollView>['contentInsetAdjustmentBehavior'];
 }) {
   const insets = useSafeAreaInsets();
+  const topInset = contentTopInset ?? 12;
   const bottomInset = contentBottomInset ?? 24 + insets.bottom;
   const content = (
     <View
-      className={`gap-4 px-4 pt-3 ${scroll ? '' : 'min-h-0 flex-1'}`}
+      className={`gap-4 px-4 ${scroll ? '' : 'min-h-0 flex-1'}`}
       style={[
         styles.screenContent,
         !scroll && styles.screenContentFixed,
+        { paddingTop: topInset },
         { paddingBottom: bottomInset },
       ]}>
       {title || subtitle || action ? (
@@ -106,7 +112,7 @@ export function AppScreen({
         <ScrollView
           className="flex-1"
           style={styles.flex}
-          contentInsetAdjustmentBehavior="automatic"
+          contentInsetAdjustmentBehavior={scrollContentInsetAdjustmentBehavior}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
@@ -439,7 +445,6 @@ const styles = StyleSheet.create({
   screenContent: {
     gap: 16,
     paddingHorizontal: 16,
-    paddingTop: 12,
   },
   screenContentFixed: {
     flex: 1,

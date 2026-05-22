@@ -186,14 +186,14 @@ export default function TtsSettingsScreen() {
   };
 
   return (
-    <AppScreen contentBottomInset={0} scroll={false}>
+    <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">
         <ScrollView
           className="min-h-0 flex-1"
           contentContainerClassName="gap-4 pb-6"
-          contentInsetAdjustmentBehavior="always"
+          contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>

@@ -42,7 +42,12 @@ export default function KeyboardRecommendationScreen() {
   );
 
   return (
-    <AppScreen title={t('settings.keyboard.title')} subtitle={t('settings.keyboard.subtitle')}>
+    <AppScreen
+      title={t('settings.keyboard.title')}
+      subtitle={t('settings.keyboard.subtitle')}
+      edges={['left', 'right']}
+      contentTopInset={0}
+      scrollContentInsetAdjustmentBehavior="never">
       <AppCard
         className="border-success/30 bg-success/10"
         icon="shield-halved"

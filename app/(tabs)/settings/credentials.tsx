@@ -475,7 +475,7 @@ export default function CredentialSettingsScreen() {
   }, [activeProvider.remoteModelProvider, refreshModels]);
 
   return (
-    <AppScreen contentBottomInset={0} scroll={false}>
+    <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">
@@ -491,7 +491,8 @@ export default function CredentialSettingsScreen() {
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             className="min-h-0 flex-1"
-            contentContainerClassName="gap-4 pb-6">
+            contentContainerClassName="gap-4 pb-6"
+            contentInsetAdjustmentBehavior="never">
             <SettingsModelDetailCard
               title={activeProvider.title}
               description={
