@@ -1,44 +1,67 @@
-import { useState } from 'react';
+import { ModelProvider } from '@lobehub/icons-rn';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner, Switch, Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import {
+  getModelSelectOptions,
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  useSettingsModelCatalogs,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    DEFAULT_GEMINI_TRANSLATION_MODEL,
-    DEFAULT_OPENAI_TRANSLATION_MODEL,
+  DEFAULT_GEMINI_TRANSLATION_MODEL,
+  DEFAULT_OPENAI_TRANSLATION_MODEL,
 } from '@/services/transcription';
 import {
-    COMMON_TRANSLATION_TARGET_LANGUAGES,
-    DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
-    type TranslationEngine,
+  COMMON_TRANSLATION_TARGET_LANGUAGES,
+  DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
+  type EngineCredentials,
+  type TranslationEngine,
 } from '@/types/settings';
 
 import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
-    OptionPill,
-    SettingsCard,
-    formatNumberInput,
-    settingsStyles,
-    useSettingsForm,
+  SettingsCard,
+  formatNumberInput,
+  settingsStyles,
+  useSettingsForm,
 } from './shared';
 
-const translationEngines: TranslationEngine[] = ['openai', 'gemini', 'none'];
+type TranslationProviderConfig = SettingsModelProviderItem<TranslationEngine> & {
+  modelLabel?: string;
+  modelValue?: string;
+  modelFallback?: string;
+  modelKey?: keyof EngineCredentials;
+  promptLabel?: string;
+  promptValue?: string;
+  promptPlaceholder?: string;
+  promptHint?: string;
+  onPromptChange?: (value: string) => void;
+  onPromptBlur?: () => void;
+};
+
+const FALLBACK_ICON_MAP: Record<TranslationEngine, AppIconName> = {
+  openai: 'robot',
+  gemini: 'gem',
+  none: 'circle-half-stroke',
+};
 
 export default function TranslationSettingsScreen() {
   const { t } = useTranslation();
@@ -48,8 +71,10 @@ export default function TranslationSettingsScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
-
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
+  const safeAreaStyle = [
+    settingsStyles.safeArea,
+    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
+  ];
   const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
   const multilineInputStyle = [
     settingsStyles.input,
@@ -57,11 +82,110 @@ export default function TranslationSettingsScreen() {
     isDark ? settingsStyles.inputDark : null,
     isDark ? styles.promptInputDark : null,
   ];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const selectedTargetLanguageLabel = t(`settings.translation.languages.${settings.translationTargetLanguage}`, {
+    defaultValue: settings.translationTargetLanguage,
+  });
+  const appendedInstruction = t('settings.translation.labels.appended_instruction', {
+    language: selectedTargetLanguageLabel,
+  });
+
+  const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
+    openaiApiKey: formState.openaiApiKey,
+    openaiBaseUrl: formState.openaiBaseUrl,
+    geminiApiKey: formState.geminiApiKey,
+    qwenApiKey: formState.qwenApiKey,
+    glmApiKey: formState.glmApiKey,
+  });
+
+  const providers = useMemo<TranslationProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.translation.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        isDisabled: !settings.enableTranslation,
+        modelLabel: t('settings.translation.labels.openai_model'),
+        modelValue: formState.openaiTranslationModel,
+        modelFallback: DEFAULT_OPENAI_TRANSLATION_MODEL,
+        modelKey: 'openaiTranslationModel',
+        promptLabel: t('settings.translation.labels.prompt'),
+        promptValue: formState.openaiTranslationPrompt,
+        promptPlaceholder: t('settings.translation.labels.prompt_placeholder'),
+        promptHint: t('settings.translation.labels.prompt_hint'),
+        onPromptChange: (text) =>
+          setFormState((prev) => ({ ...prev, openaiTranslationPrompt: text })),
+        onPromptBlur: () =>
+          updateSettings({
+            openaiTranslationPrompt: formState.openaiTranslationPrompt.trim(),
+          }),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.translation.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        isDisabled: !settings.enableTranslation,
+        modelLabel: t('settings.translation.labels.gemini_model'),
+        modelValue: formState.geminiTranslationModel,
+        modelFallback: DEFAULT_GEMINI_TRANSLATION_MODEL,
+        modelKey: 'geminiTranslationModel',
+        promptLabel: t('settings.translation.labels.prompt'),
+        promptValue: formState.geminiTranslationPrompt,
+        promptPlaceholder: t('settings.translation.labels.prompt_placeholder'),
+        promptHint: t('settings.translation.labels.prompt_hint'),
+        onPromptChange: (text) =>
+          setFormState((prev) => ({ ...prev, geminiTranslationPrompt: text })),
+        onPromptBlur: () =>
+          updateSettings({
+            geminiTranslationPrompt: formState.geminiTranslationPrompt.trim(),
+          }),
+      },
+      {
+        id: 'none',
+        title: t('settings.translation.engines.none'),
+        fallbackIcon: FALLBACK_ICON_MAP.none,
+        isDisabled: !settings.enableTranslation,
+      },
+    ],
+    [
+      formState.geminiTranslationModel,
+      formState.geminiTranslationPrompt,
+      formState.openaiTranslationModel,
+      formState.openaiTranslationPrompt,
+      setFormState,
+      settings.enableTranslation,
+      t,
+      updateSettings,
+    ]
+  );
+
+  const activeProvider =
+    providers.find((provider) => provider.id === settings.translationEngine) ?? providers[0];
+  const activeCatalog = activeProvider.modelProvider
+    ? catalogs[activeProvider.modelProvider]
+    : undefined;
+  const modelOptions =
+    activeProvider.modelLabel && activeProvider.modelProvider
+      ? getModelSelectOptions(catalogs, activeProvider.modelProvider, [
+          activeProvider.modelValue,
+          activeProvider.modelFallback,
+        ])
+      : [];
+  const isModelDisabled = !settings.enableTranslation || settings.translationEngine === 'none';
+
+  useEffect(() => {
+    if (!settings.enableTranslation) {
+      return;
+    }
+    void ensureModelsFetched(activeProvider.remoteModelProvider);
+  }, [activeProvider.remoteModelProvider, ensureModelsFetched, settings.enableTranslation]);
+
   const resolveTemperature = (value: string, fallback: number) => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -73,12 +197,25 @@ export default function TranslationSettingsScreen() {
     }
     return parsed;
   };
-  const selectedTargetLanguageLabel = t(`settings.translation.languages.${settings.translationTargetLanguage}`, {
-    defaultValue: settings.translationTargetLanguage,
-  });
-  const appendedInstruction = t('settings.translation.labels.appended_instruction', {
-    language: selectedTargetLanguageLabel,
-  });
+
+  const handleSelectEngine = (engine: TranslationEngine) => {
+    updateSettings({ translationEngine: engine });
+  };
+
+  const handleSelectModel = (value: string) => {
+    if (!activeProvider.modelKey || !activeProvider.modelFallback) {
+      return;
+    }
+    const nextValue = value.trim() || activeProvider.modelFallback;
+    setFormState((prev) => ({ ...prev, [activeProvider.modelKey!]: nextValue }));
+    updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
+  const description = activeProvider.modelProvider
+    ? activeProvider.remoteModelProvider
+      ? t('settings.credentials.models.catalog_hint')
+      : t('settings.credentials.models.local_hint')
+    : t('settings.credentials.models.credentials_only');
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -92,46 +229,29 @@ export default function TranslationSettingsScreen() {
           ]}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <SettingsCard variant="interaction">
-            <View style={settingsStyles.rowBetween}>
-              <ThemedText
-                type="subtitle"
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.translation.labels.enable_translation')}
-              </ThemedText>
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <SettingsCard>
+            <View className="flex-row items-center justify-between gap-4">
+              <View className="min-w-0 flex-1 gap-1">
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.translation.labels.enable_translation')}
+                </Text>
+                <Text type="body-xs" color="muted">
+                  {selectedTargetLanguageLabel}
+                </Text>
+              </View>
               <Switch
-                value={settings.enableTranslation}
-                onValueChange={(next) => updateSettings({ enableTranslation: next })}
+                isSelected={settings.enableTranslation}
+                onSelectedChange={(next) => updateSettings({ enableTranslation: next })}
               />
             </View>
 
-            <ThemedText
-              style={groupLabelStyle}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.translation.labels.engine')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {translationEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.translation.engines.${engine}`)}
-                  active={settings.translationEngine === engine}
-                  onPress={() => updateSettings({ translationEngine: engine })}
-                  disabled={!settings.enableTranslation}
-                />
-              ))}
-            </View>
-
-            <ThemedText
-              style={groupLabelStyle}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.translation.labels.target_language')}
-            </ThemedText>
             <Pressable
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: !settings.enableTranslation || settings.translationEngine === 'none',
+              }}
               onPress={() => setLanguageModalVisible(true)}
               disabled={!settings.enableTranslation || settings.translationEngine === 'none'}
               style={({ pressed }) => [
@@ -145,209 +265,135 @@ export default function TranslationSettingsScreen() {
                   (!settings.enableTranslation || settings.translationEngine === 'none') &&
                     styles.selectBoxDisabled,
                 ]}>
-                <ThemedText
-                  lightColor={CARD_TEXT_LIGHT}
-                  darkColor={CARD_TEXT_DARK}
-                  style={styles.selectText}>
-                  {selectedTargetLanguageLabel}
-                </ThemedText>
-                <ThemedText
-                  lightColor={CARD_SUBTLE_LIGHT}
-                  darkColor={CARD_SUBTLE_DARK}
-                  style={styles.selectChevron}>
-                  ▾
-                </ThemedText>
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.translation.labels.target_language')}
+                </Text>
+                <View className="min-w-0 flex-1 flex-row items-center justify-end gap-2">
+                  <Text type="body-sm" color="muted" numberOfLines={1}>
+                    {selectedTargetLanguageLabel}
+                  </Text>
+                  <AppIcon name="chevron-right" size={13} className="text-muted" />
+                </View>
               </View>
             </Pressable>
           </SettingsCard>
 
-          {settings.translationEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.translation.engines.openai')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.translation.labels.openai_model')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranslationModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranslationModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiTranslationModel:
-                          formState.openaiTranslationModel.trim() ||
-                          DEFAULT_OPENAI_TRANSLATION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_OPENAI_TRANSLATION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
+          <SettingsModelProviderStrip
+            providers={providers}
+            activeId={settings.translationEngine}
+            onSelect={handleSelectEngine}
+            disabled={!settings.enableTranslation}
+          />
 
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.translation.labels.temperature')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranslationTemperature}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        openaiTranslationTemperature: formatNumberInput(text),
-                      }))
-                    }
-                    onBlur={() =>
-                      updateSettings({
-                        openaiTranslationTemperature: resolveTemperature(
-                          formState.openaiTranslationTemperature,
-                          DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
-                        ),
-                      })
-                    }
-                    keyboardType="decimal-pad"
-                    style={baseInputStyle}
-                    placeholder={`${DEFAULT_OPENAI_TRANSLATION_TEMPERATURE}`}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
+          <SettingsModelDetailCard
+            title={activeProvider.title}
+            description={description}
+            providerIcon={activeProvider.providerIcon}
+            fallbackIcon={activeProvider.fallbackIcon}
+            statusText={
+              activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined
+            }
+            disabled={isModelDisabled}
+            action={
+              activeProvider.remoteModelProvider ? (
+                <Button
+                  accessibilityLabel={t('settings.credentials.models.refresh')}
+                  isDisabled={isModelDisabled || activeCatalog?.status === 'loading'}
+                  isIconOnly
+                  onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
+                  size="sm"
+                  variant="tertiary">
+                  {activeCatalog?.status === 'loading' ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
+                  )}
+                </Button>
+              ) : null
+            }>
+            {activeProvider.modelLabel && activeProvider.modelValue && activeProvider.modelFallback ? (
+              <SettingsModelSelectField
+                label={activeProvider.modelLabel}
+                value={activeProvider.modelValue}
+                options={modelOptions}
+                placeholder={activeProvider.modelFallback}
+                onChange={handleSelectModel}
+                disabled={isModelDisabled}
+              />
+            ) : (
+              <Text type="body-sm" color="muted">
+                {settings.enableTranslation
+                  ? t('settings.credentials.models.credentials_only')
+                  : t('settings.translation.engines.none')}
+              </Text>
+            )}
 
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.translation.labels.prompt')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranslationPrompt}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranslationPrompt: text }))
-                    }
-                    onBlur={() =>
-                      updateSettings({
-                        openaiTranslationPrompt: formState.openaiTranslationPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.translation.labels.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.translation.labels.prompt_hint')}
-                  </ThemedText>
-                  <TextInput
-                    value={appendedInstruction}
-                    editable={false}
-                    multiline
-                    scrollEnabled={false}
-                    style={[
-                      settingsStyles.input,
-                      styles.readOnlyInput,
-                      isDark ? settingsStyles.inputDark : null,
-                      isDark ? styles.readOnlyInputDark : null,
-                    ]}
-                  />
-                </View>
+            {settings.translationEngine === 'openai' ? (
+              <View style={styles.fieldGroup}>
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.translation.labels.temperature')}
+                </Text>
+                <TextInput
+                  value={formState.openaiTranslationTemperature}
+                  onChangeText={(text) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      openaiTranslationTemperature: formatNumberInput(text),
+                    }))
+                  }
+                  onBlur={() =>
+                    updateSettings({
+                      openaiTranslationTemperature: resolveTemperature(
+                        formState.openaiTranslationTemperature,
+                        DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
+                      ),
+                    })
+                  }
+                  editable={!isModelDisabled}
+                  keyboardType="decimal-pad"
+                  style={baseInputStyle}
+                  placeholder={`${DEFAULT_OPENAI_TRANSLATION_TEMPERATURE}`}
+                  placeholderTextColor={placeholderTextColor}
+                />
               </View>
-            </SettingsCard>
-          ) : null}
+            ) : null}
 
-          {settings.translationEngine === 'gemini' ? (
-            <SettingsCard variant="gemini">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.translation.engines.gemini')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.translation.labels.gemini_model')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTranslationModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, geminiTranslationModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        geminiTranslationModel:
-                          formState.geminiTranslationModel.trim() ||
-                          DEFAULT_GEMINI_TRANSLATION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_GEMINI_TRANSLATION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.translation.labels.prompt')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTranslationPrompt}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, geminiTranslationPrompt: text }))
-                    }
-                    onBlur={() =>
-                      updateSettings({
-                        geminiTranslationPrompt: formState.geminiTranslationPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.translation.labels.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.translation.labels.prompt_hint')}
-                  </ThemedText>
-                  <TextInput
-                    value={appendedInstruction}
-                    editable={false}
-                    multiline
-                    scrollEnabled={false}
-                    style={[
-                      settingsStyles.input,
-                      styles.readOnlyInput,
-                      isDark ? settingsStyles.inputDark : null,
-                      isDark ? styles.readOnlyInputDark : null,
-                    ]}
-                  />
-                </View>
+            {activeProvider.promptLabel && activeProvider.promptValue !== undefined ? (
+              <View style={styles.fieldGroup}>
+                <Text type="body-sm" weight="semibold">
+                  {activeProvider.promptLabel}
+                </Text>
+                <TextInput
+                  value={activeProvider.promptValue}
+                  onChangeText={activeProvider.onPromptChange}
+                  onBlur={activeProvider.onPromptBlur}
+                  editable={!isModelDisabled}
+                  style={multilineInputStyle}
+                  placeholder={activeProvider.promptPlaceholder}
+                  placeholderTextColor={placeholderTextColor}
+                  multiline
+                  textAlignVertical="top"
+                />
+                {activeProvider.promptHint ? (
+                  <Text type="body-xs" color="muted">
+                    {activeProvider.promptHint}
+                  </Text>
+                ) : null}
+                <TextInput
+                  value={appendedInstruction}
+                  editable={false}
+                  multiline
+                  scrollEnabled={false}
+                  style={[
+                    settingsStyles.input,
+                    styles.readOnlyInput,
+                    isDark ? settingsStyles.inputDark : null,
+                    isDark ? styles.readOnlyInputDark : null,
+                  ]}
+                />
               </View>
-            </SettingsCard>
-          ) : null}
+            ) : null}
+          </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -360,9 +406,9 @@ export default function TranslationSettingsScreen() {
           <Pressable
             style={[styles.modalSheet, isDark ? styles.modalSheetDark : styles.modalSheetLight]}
             onPress={() => {}}>
-            <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
+            <Text.Heading type="h3">
               {t('settings.translation.labels.select_language')}
-            </ThemedText>
+            </Text.Heading>
             <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
               {COMMON_TRANSLATION_TARGET_LANGUAGES.map((language) => {
                 const active = settings.translationTargetLanguage === language.code;
@@ -378,20 +424,10 @@ export default function TranslationSettingsScreen() {
                       pressed && styles.modalItemPressed,
                       active && styles.modalItemActive,
                     ]}>
-                    <ThemedText
-                      lightColor={CARD_TEXT_LIGHT}
-                      darkColor={CARD_TEXT_DARK}
-                      style={styles.modalItemLabel}>
+                    <Text type="body-sm" weight={active ? 'semibold' : undefined}>
                       {t(language.i18nKey)}
-                    </ThemedText>
-                    {active ? (
-                      <ThemedText
-                        lightColor={CARD_SUBTLE_LIGHT}
-                        darkColor={CARD_SUBTLE_DARK}
-                        style={styles.modalItemCheck}>
-                        ✓
-                      </ThemedText>
-                    ) : null}
+                    </Text>
+                    {active ? <AppIcon name="toggle-on" size={16} className="text-accent" /> : null}
                   </Pressable>
                 );
               })}
@@ -404,11 +440,6 @@ export default function TranslationSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
   promptInput: {
     minHeight: 120,
     paddingTop: 12,
@@ -417,15 +448,8 @@ const styles = StyleSheet.create({
   promptInputDark: {
     color: '#e2e8f0',
   },
-  promptHint: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  fieldStack: {
-    gap: 16,
-  },
   fieldGroup: {
-    gap: 6,
+    gap: 8,
   },
   selectPressable: {
     borderRadius: 12,
@@ -441,6 +465,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   selectBoxLight: {
     borderColor: 'rgba(148, 163, 184, 0.4)',
@@ -452,13 +477,6 @@ const styles = StyleSheet.create({
   },
   selectBoxDisabled: {
     opacity: 0.55,
-  },
-  selectText: {
-    fontSize: 15,
-  },
-  selectChevron: {
-    fontSize: 14,
-    marginLeft: 12,
   },
   readOnlyInput: {
     opacity: 0.75,
@@ -501,11 +519,5 @@ const styles = StyleSheet.create({
   },
   modalItemActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
-  },
-  modalItemLabel: {
-    fontSize: 15,
-  },
-  modalItemCheck: {
-    fontSize: 14,
   },
 });

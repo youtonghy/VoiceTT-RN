@@ -1,41 +1,69 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { ModelProvider } from '@lobehub/icons-rn';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner, Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import {
+  getModelSelectOptions,
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  useSettingsModelCatalogs,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-    DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+  DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
+  DEFAULT_GLM_TRANSCRIPTION_MODEL,
+  DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+  DEFAULT_QWEN_TRANSCRIPTION_MODEL,
 } from '@/services/transcription';
-import type { TranscriptionEngine } from '@/types/settings';
+import type { EngineCredentials, TranscriptionEngine } from '@/types/settings';
 
-import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
-    OptionPill,
-    SettingsCard,
-    settingsStyles,
-    useSettingsForm,
-} from './shared';
+import { settingsStyles, useSettingsForm } from './shared';
 
-const transcriptionEngines: TranscriptionEngine[] = ['openai', 'gemini', 'qwen3', 'soniox', 'doubao', 'glm'];
+type TranscriptionProviderConfig = SettingsModelProviderItem<TranscriptionEngine> & {
+  docsUrl?: string;
+  helpLabel?: string;
+  modelLabel?: string;
+  modelValue?: string;
+  modelFallback?: string;
+  modelKey?: keyof EngineCredentials;
+  promptLabel?: string;
+  promptValue?: string;
+  promptPlaceholder?: string;
+  promptHint?: string;
+  onPromptChange?: (value: string) => void;
+  onPromptBlur?: () => void;
+};
+
 const OPENAI_STT_DOCS_URL = 'https://platform.openai.com/docs/guides/speech-to-text';
 const GEMINI_STT_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/audio#javascript';
+
+const FALLBACK_ICON_MAP: Record<TranscriptionEngine, AppIconName> = {
+  openai: 'robot',
+  gemini: 'gem',
+  qwen3: 'server',
+  soniox: 'wave-square',
+  doubao: 'key',
+  glm: 'cloud-arrow-up',
+};
 
 export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
@@ -44,33 +72,168 @@ export default function TranscriptionSettingsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
+  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const safeAreaStyle = [
+    settingsStyles.safeArea,
+    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
+  ];
   const multilineInputStyle = [
     settingsStyles.input,
     styles.promptInput,
     isDark ? settingsStyles.inputDark : null,
     isDark ? styles.promptInputDark : null,
   ];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const helpIconColor = isDark ? '#e2e8f0' : '#0f172a';
-  const isGeminiEngine = settings.transcriptionEngine === 'gemini';
-  const helpLabel = isGeminiEngine
-    ? t('settings.transcription.help_label_gemini')
-    : t('settings.transcription.help_label_openai');
 
-  const handleOpenDocs = () => {
-    const url = isGeminiEngine ? GEMINI_STT_DOCS_URL : OPENAI_STT_DOCS_URL;
-    Linking.openURL(url).catch((error) => {
-      console.warn('[settings] Failed to open link', url, error);
+  const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
+    openaiApiKey: formState.openaiApiKey,
+    openaiBaseUrl: formState.openaiBaseUrl,
+    geminiApiKey: formState.geminiApiKey,
+    qwenApiKey: formState.qwenApiKey,
+    glmApiKey: formState.glmApiKey,
+  });
+
+  const providers = useMemo<TranscriptionProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.transcription.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        docsUrl: OPENAI_STT_DOCS_URL,
+        helpLabel: t('settings.transcription.help_label_openai'),
+        modelLabel: t('settings.transcription.labels.openai_model'),
+        modelValue: formState.openaiTranscriptionModel,
+        modelFallback: DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+        modelKey: 'openaiTranscriptionModel',
+        promptLabel: t('settings.transcription.labels.prompt'),
+        promptValue: formState.openaiTranscriptionPrompt,
+        promptPlaceholder: t('settings.transcription.labels.prompt_placeholder'),
+        promptHint: t('settings.transcription.labels.prompt_hint'),
+        onPromptChange: (text) =>
+          setFormState((prev) => ({ ...prev, openaiTranscriptionPrompt: text })),
+        onPromptBlur: () =>
+          updateSettings({
+            openaiTranscriptionPrompt: formState.openaiTranscriptionPrompt.trim(),
+          }),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.transcription.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        docsUrl: GEMINI_STT_DOCS_URL,
+        helpLabel: t('settings.transcription.help_label_gemini'),
+        modelLabel: t('settings.transcription.labels.gemini_model'),
+        modelValue: formState.geminiTranscriptionModel,
+        modelFallback: DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
+        modelKey: 'geminiTranscriptionModel',
+        promptLabel: t('settings.transcription.labels.prompt'),
+        promptValue: formState.geminiTranscriptionPrompt,
+        promptPlaceholder: t('settings.transcription.labels.prompt_placeholder'),
+        promptHint: t('settings.transcription.labels.prompt_hint'),
+        onPromptChange: (text) =>
+          setFormState((prev) => ({ ...prev, geminiTranscriptionPrompt: text })),
+        onPromptBlur: () =>
+          updateSettings({
+            geminiTranscriptionPrompt: formState.geminiTranscriptionPrompt.trim(),
+          }),
+      },
+      {
+        id: 'qwen3',
+        title: t('settings.transcription.engines.qwen3'),
+        providerIcon: ModelProvider.Qwen,
+        fallbackIcon: FALLBACK_ICON_MAP.qwen3,
+        modelProvider: 'qwen',
+        modelLabel: t('settings.credentials.labels.transcription_model'),
+        modelValue: formState.qwenTranscriptionModel,
+        modelFallback: DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+        modelKey: 'qwenTranscriptionModel',
+      },
+      {
+        id: 'soniox',
+        title: t('settings.transcription.engines.soniox'),
+        fallbackIcon: FALLBACK_ICON_MAP.soniox,
+      },
+      {
+        id: 'doubao',
+        title: t('settings.transcription.engines.doubao'),
+        providerIcon: ModelProvider.Doubao,
+        fallbackIcon: FALLBACK_ICON_MAP.doubao,
+      },
+      {
+        id: 'glm',
+        title: t('settings.transcription.engines.glm'),
+        providerIcon: ModelProvider.ZhiPu,
+        fallbackIcon: FALLBACK_ICON_MAP.glm,
+        modelProvider: 'glm',
+        modelLabel: t('settings.credentials.labels.transcription_model'),
+        modelValue: formState.glmTranscriptionModel,
+        modelFallback: DEFAULT_GLM_TRANSCRIPTION_MODEL,
+        modelKey: 'glmTranscriptionModel',
+      },
+    ],
+    [
+      formState.geminiTranscriptionModel,
+      formState.geminiTranscriptionPrompt,
+      formState.glmTranscriptionModel,
+      formState.openaiTranscriptionModel,
+      formState.openaiTranscriptionPrompt,
+      formState.qwenTranscriptionModel,
+      setFormState,
+      t,
+      updateSettings,
+    ]
+  );
+
+  const activeProvider =
+    providers.find((provider) => provider.id === settings.transcriptionEngine) ?? providers[0];
+  const activeCatalog = activeProvider.modelProvider
+    ? catalogs[activeProvider.modelProvider]
+    : undefined;
+  const modelOptions =
+    activeProvider.modelLabel && activeProvider.modelProvider
+      ? getModelSelectOptions(catalogs, activeProvider.modelProvider, [
+          activeProvider.modelValue,
+          activeProvider.modelFallback,
+        ])
+      : [];
+
+  useEffect(() => {
+    void ensureModelsFetched(activeProvider.remoteModelProvider);
+  }, [activeProvider.remoteModelProvider, ensureModelsFetched]);
+
+  const handleOpenDocs = (provider: TranscriptionProviderConfig) => {
+    if (!provider.docsUrl) {
+      return;
+    }
+    Linking.openURL(provider.docsUrl).catch((error) => {
+      console.warn('[settings] Failed to open link', provider.docsUrl, error);
       Alert.alert(t('settings.transcription.help_error_title'), t('settings.transcription.help_error_body'));
     });
   };
+
+  const handleSelectEngine = (engine: TranscriptionEngine) => {
+    updateSettings({ transcriptionEngine: engine });
+  };
+
+  const handleSelectModel = (value: string) => {
+    if (!activeProvider.modelKey || !activeProvider.modelFallback) {
+      return;
+    }
+    const nextValue = value.trim() || activeProvider.modelFallback;
+    setFormState((prev) => ({ ...prev, [activeProvider.modelKey!]: nextValue }));
+    updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
+  const description = activeProvider.modelProvider
+    ? activeProvider.remoteModelProvider
+      ? t('settings.credentials.models.catalog_hint')
+      : t('settings.credentials.models.local_hint')
+    : t('settings.credentials.models.credentials_only');
 
   return (
     <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
@@ -84,168 +247,93 @@ export default function TranscriptionSettingsScreen() {
           ]}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <SettingsCard variant="interaction">
-            <View style={styles.headerRow}>
-              <ThemedText
-                type="subtitle"
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.transcription.labels.engine')}
-              </ThemedText>
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel={helpLabel}
-                onPress={handleOpenDocs}
-                style={({ pressed }) => [styles.helpButton, pressed && styles.helpButtonPressed]}>
-                <Ionicons name="help-circle-outline" size={20} color={helpIconColor} />
-              </Pressable>
-            </View>
-            <View style={settingsStyles.optionsRow}>
-              {transcriptionEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.transcription.engines.${engine}`)}
-                  active={settings.transcriptionEngine === engine}
-                  onPress={() => updateSettings({ transcriptionEngine: engine })}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <SettingsModelProviderStrip
+            providers={providers}
+            activeId={settings.transcriptionEngine}
+            onSelect={handleSelectEngine}
+          />
+
+          <SettingsModelDetailCard
+            title={activeProvider.title}
+            description={description}
+            providerIcon={activeProvider.providerIcon}
+            fallbackIcon={activeProvider.fallbackIcon}
+            statusText={
+              activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined
+            }
+            action={
+              activeProvider.remoteModelProvider || activeProvider.docsUrl ? (
+                <View className="flex-row gap-2">
+                  {activeProvider.remoteModelProvider ? (
+                    <Button
+                      accessibilityLabel={t('settings.credentials.models.refresh')}
+                      isDisabled={activeCatalog?.status === 'loading'}
+                      isIconOnly
+                      onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
+                      size="sm"
+                      variant="tertiary">
+                      {activeCatalog?.status === 'loading' ? (
+                        <Spinner size="sm" />
+                      ) : (
+                        <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
+                      )}
+                    </Button>
+                  ) : null}
+                  {activeProvider.docsUrl ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={activeProvider.helpLabel}
+                      onPress={() => handleOpenDocs(activeProvider)}
+                      style={({ pressed }) => [styles.helpButton, pressed && styles.helpButtonPressed]}>
+                      <Ionicons
+                        name="help-circle-outline"
+                        size={20}
+                        color={isDark ? '#e2e8f0' : '#0f172a'}
+                      />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null
+            }>
+            {activeProvider.modelLabel && activeProvider.modelValue && activeProvider.modelFallback ? (
+              <SettingsModelSelectField
+                label={activeProvider.modelLabel}
+                value={activeProvider.modelValue}
+                options={modelOptions}
+                placeholder={activeProvider.modelFallback}
+                onChange={handleSelectModel}
+              />
+            ) : (
+              <Text type="body-sm" color="muted">
+                {t('settings.credentials.models.credentials_only')}
+              </Text>
+            )}
+
+            {activeProvider.promptLabel && activeProvider.promptValue !== undefined ? (
+              <View style={styles.fieldGroup}>
+                <Text type="body-sm" weight="semibold">
+                  {activeProvider.promptLabel}
+                </Text>
+                <TextInput
+                  value={activeProvider.promptValue}
+                  onChangeText={activeProvider.onPromptChange}
+                  onBlur={activeProvider.onPromptBlur}
+                  style={multilineInputStyle}
+                  placeholder={activeProvider.promptPlaceholder}
+                  placeholderTextColor={placeholderTextColor}
+                  multiline
+                  textAlignVertical="top"
                 />
-              ))}
-            </View>
-          </SettingsCard>
-
-          {settings.transcriptionEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.transcription.engines.openai')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.transcription.labels.openai_model')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranscriptionModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranscriptionModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiTranscriptionModel:
-                          formState.openaiTranscriptionModel.trim() ||
-                          DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_OPENAI_TRANSCRIPTION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.transcription.labels.prompt')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTranscriptionPrompt}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTranscriptionPrompt: text }))
-                    }
-                    onBlur={() =>
-                      updateSettings({
-                        openaiTranscriptionPrompt: formState.openaiTranscriptionPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.transcription.labels.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.transcription.labels.prompt_hint')}
-                  </ThemedText>
-                </View>
+                {activeProvider.promptHint ? (
+                  <Text type="body-xs" color="muted">
+                    {activeProvider.promptHint}
+                  </Text>
+                ) : null}
               </View>
-            </SettingsCard>
-          ) : null}
-
-          {settings.transcriptionEngine === 'gemini' ? (
-            <SettingsCard variant="gemini">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.transcription.engines.gemini')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.transcription.labels.gemini_model')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTranscriptionModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, geminiTranscriptionModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        geminiTranscriptionModel:
-                          formState.geminiTranscriptionModel.trim() ||
-                          DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_GEMINI_TRANSCRIPTION_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.transcription.labels.prompt')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTranscriptionPrompt}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, geminiTranscriptionPrompt: text }))
-                    }
-                    onBlur={() =>
-                      updateSettings({
-                        geminiTranscriptionPrompt: formState.geminiTranscriptionPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.transcription.labels.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.transcription.labels.prompt_hint')}
-                  </ThemedText>
-                </View>
-              </View>
-            </SettingsCard>
-          ) : null}
+            ) : null}
+          </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -253,11 +341,6 @@ export default function TranscriptionSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
   promptInput: {
     minHeight: 120,
     paddingTop: 12,
@@ -266,21 +349,8 @@ const styles = StyleSheet.create({
   promptInputDark: {
     color: '#e2e8f0',
   },
-  promptHint: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  fieldStack: {
-    gap: 16,
-  },
   fieldGroup: {
-    gap: 6,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   helpButton: {
     width: 32,
