@@ -100,6 +100,26 @@ export default function SettingsIndexScreen() {
 
   return (
     <AppScreen title={t('settings.page_title')}>
+      <PressableFeedback
+        accessibilityRole="button"
+        accessibilityLabel={t('settings.pro.title')}
+        className="rounded-2xl"
+        onPress={() => router.push('/settings/pro' as RouteHref)}>
+        <AppCard
+          className={isPro ? 'bg-warning/15' : 'bg-success/15'}
+          icon={isPro ? 'shield-halved' : 'wand-magic-sparkles'}
+          title={t('settings.pro.title')}
+          subtitle={t('settings.pro.description')}>
+          {!isPro ? (
+            <View className="self-start rounded-lg border border-success/40 bg-success/10 px-3 py-2">
+              <Text type="body-xs" weight="bold" className="text-success">
+                {t('settings.pro.cta')}
+              </Text>
+            </View>
+          ) : null}
+        </AppCard>
+      </PressableFeedback>
+
       <View className="gap-5">
         {menuGroups.map((group) => (
           <View key={group.key} className="gap-3">
@@ -124,26 +144,6 @@ export default function SettingsIndexScreen() {
           </View>
         ))}
       </View>
-
-      <PressableFeedback
-        accessibilityRole="button"
-        accessibilityLabel={t('settings.pro.title')}
-        className="rounded-2xl"
-        onPress={() => router.push('/settings/pro' as RouteHref)}>
-        <AppCard
-          className={isPro ? 'bg-warning/15' : 'bg-success/15'}
-          icon={isPro ? 'shield-halved' : 'wand-magic-sparkles'}
-          title={t('settings.pro.title')}
-          subtitle={t('settings.pro.description')}>
-          {!isPro ? (
-            <View className="self-start rounded-lg border border-success/40 bg-success/10 px-3 py-2">
-              <Text type="body-xs" weight="bold" className="text-success">
-                {t('settings.pro.cta')}
-              </Text>
-            </View>
-          ) : null}
-        </AppCard>
-      </PressableFeedback>
 
       <AppCard title={t('settings.about.title')}>
         <View className="items-center gap-3">
