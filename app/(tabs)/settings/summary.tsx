@@ -5,16 +5,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
-  TextInput,
   View,
-  type StyleProp,
-  type TextStyle,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Spinner, Text } from 'heroui-native';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
   getModelSelectOptions,
   resolveModelCatalogStatusText,
@@ -25,7 +20,6 @@ import {
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_ASSISTANT_PROMPT,
   DEFAULT_CONVERSATION_SUMMARY_PROMPT,
@@ -44,7 +38,6 @@ import {
 
 import {
   formatNumberInput,
-  settingsStyles,
   useSettingsForm,
 } from './shared';
 
@@ -72,21 +65,6 @@ export default function SummarySettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
 
   const modelCatalogs = useSettingsModelCatalogs({
     openaiApiKey: formState.openaiApiKey,
@@ -265,15 +243,13 @@ export default function SummarySettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -300,9 +276,6 @@ export default function SummarySettingsScreen() {
             setFormModelValue={(key, value) =>
               setFormState((prev) => ({ ...prev, [key]: value }))
             }
-            baseInputStyle={baseInputStyle}
-            multilineInputStyle={multilineInputStyle}
-            placeholderTextColor={placeholderTextColor}
           />
 
           <SummaryModelSection
@@ -328,9 +301,6 @@ export default function SummarySettingsScreen() {
             setFormModelValue={(key, value) =>
               setFormState((prev) => ({ ...prev, [key]: value }))
             }
-            baseInputStyle={baseInputStyle}
-            multilineInputStyle={multilineInputStyle}
-            placeholderTextColor={placeholderTextColor}
           />
 
           <SummaryModelSection
@@ -354,13 +324,10 @@ export default function SummarySettingsScreen() {
             setFormModelValue={(key, value) =>
               setFormState((prev) => ({ ...prev, [key]: value }))
             }
-            baseInputStyle={baseInputStyle}
-            multilineInputStyle={multilineInputStyle}
-            placeholderTextColor={placeholderTextColor}
           />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
@@ -377,9 +344,6 @@ function SummaryModelSection({
   modelCatalogs,
   updateCredentials,
   setFormModelValue,
-  baseInputStyle,
-  multilineInputStyle,
-  placeholderTextColor,
 }: {
   title: string;
   activeEngine: SummaryModelEngine;
@@ -393,9 +357,6 @@ function SummaryModelSection({
   modelCatalogs: ModelCatalogControls;
   updateCredentials: (partial: Partial<EngineCredentials>) => void;
   setFormModelValue: (key: keyof EngineCredentials, value: string) => void;
-  baseInputStyle: StyleProp<TextStyle>;
-  multilineInputStyle: StyleProp<TextStyle>;
-  placeholderTextColor: string;
 }) {
   const { t } = useTranslation();
   const { catalogs, ensureModelsFetched, refreshModels } = modelCatalogs;
@@ -457,52 +418,26 @@ function SummaryModelSection({
         {activeProvider.temperatureLabel &&
         activeProvider.temperatureValue !== undefined &&
         activeProvider.temperatureFallback !== undefined ? (
-          <View style={styles.fieldGroup}>
-            <Text type="body-sm" weight="semibold">
-              {activeProvider.temperatureLabel}
-            </Text>
-            <TextInput
-              value={activeProvider.temperatureValue}
-              onChangeText={activeProvider.onTemperatureChange}
-              onBlur={activeProvider.onTemperatureBlur}
-              keyboardType="decimal-pad"
-              style={baseInputStyle}
-              placeholder={`${activeProvider.temperatureFallback}`}
-              placeholderTextColor={placeholderTextColor}
-            />
-          </View>
+          <FormInput
+            label={activeProvider.temperatureLabel}
+            value={activeProvider.temperatureValue}
+            onChangeText={activeProvider.onTemperatureChange ?? (() => undefined)}
+            onBlur={activeProvider.onTemperatureBlur}
+            keyboardType="decimal-pad"
+            placeholder={`${activeProvider.temperatureFallback}`}
+          />
         ) : null}
 
-        <View style={styles.fieldGroup}>
-          <Text type="body-sm" weight="semibold">
-            {promptLabel}
-          </Text>
-          <TextInput
-            value={promptValue}
-            onChangeText={onPromptChange}
-            onBlur={onPromptBlur}
-            style={multilineInputStyle}
-            placeholder={promptFallback}
-            placeholderTextColor={placeholderTextColor}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        <FormInput
+          label={promptLabel}
+          value={promptValue}
+          onChangeText={onPromptChange}
+          onBlur={onPromptBlur}
+          placeholder={promptFallback}
+          multiline
+          inputClassName="min-h-36"
+        />
       </SettingsModelDetailCard>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  fieldGroup: {
-    gap: 8,
-  },
-  promptInput: {
-    minHeight: 140,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-});

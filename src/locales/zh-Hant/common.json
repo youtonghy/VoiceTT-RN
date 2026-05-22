@@ -439,6 +439,7 @@
         "prompt": "Prompting（可選）",
         "prompt_placeholder": "例如：正式語氣並保留產業術語。",
         "prompt_hint": "會自動附加下方「僅輸出譯文」的翻譯指令。",
+        "appended_instruction_label": "自動附加指令",
         "appended_instruction": "將使用者輸入翻譯為{{language}}，並且僅輸出譯文。"
       },
       "engines": {

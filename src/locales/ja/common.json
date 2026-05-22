@@ -439,6 +439,7 @@
         "prompt": "プロンプト（任意）",
         "prompt_placeholder": "例: フォーマルな口調と業界用語。",
         "prompt_hint": "翻訳のみの指示が自動で追加されます。",
+        "appended_instruction_label": "自動追加指示",
         "appended_instruction": "ユーザー入力を{{language}}に翻訳し、翻訳のみを返してください。"
       },
       "engines": {

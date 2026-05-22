@@ -126,7 +126,6 @@
   "private": true,
   "trustedDependencies": [
     "heroui-native-pro",
-    "@heroui-pro/react",
     "@zowe/secrets-for-zowe-sdk",
     "heroui-pro"
   ]

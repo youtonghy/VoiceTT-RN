@@ -473,6 +473,7 @@
         "prompt": "Prompting（可选）",
         "prompt_placeholder": "例如：正式语气并保留行业术语。",
         "prompt_hint": "会自动附加下方“仅输出译文”的翻译指令。",
+        "appended_instruction_label": "自动附加指令",
         "appended_instruction": "将用户输入翻译为{{language}}，并且仅输出译文。"
       },
       "engines": {

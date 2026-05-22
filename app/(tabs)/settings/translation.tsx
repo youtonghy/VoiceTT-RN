@@ -1,20 +1,22 @@
 import { ModelProvider } from '@lobehub/icons-rn';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
-  StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Spinner, Switch, Text } from 'heroui-native';
+import { Button, Spinner, Text } from 'heroui-native';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import {
+  AppCard,
+  AppIcon,
+  AppScreen,
+  FormInput,
+  SettingSwitch,
+  type AppIconName,
+} from '@/components/native/app-shell';
 import {
   getModelSelectOptions,
   resolveModelCatalogStatusText,
@@ -25,7 +27,6 @@ import {
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_TRANSLATION_MODEL,
@@ -38,9 +39,7 @@ import {
 } from '@/types/settings';
 
 import {
-  SettingsCard,
   formatNumberInput,
-  settingsStyles,
   useSettingsForm,
 } from './shared';
 
@@ -67,22 +66,6 @@ export default function TranslationSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-  const [languageModalVisible, setLanguageModalVisible] = useState(false);
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
   const selectedTargetLanguageLabel = t(`settings.translation.languages.${settings.translationTargetLanguage}`, {
     defaultValue: settings.translationTargetLanguage,
   });
@@ -218,65 +201,37 @@ export default function TranslationSettingsScreen() {
     : t('settings.credentials.models.credentials_only');
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <SettingsCard>
-            <View className="flex-row items-center justify-between gap-4">
-              <View className="min-w-0 flex-1 gap-1">
-                <Text type="body-sm" weight="semibold">
-                  {t('settings.translation.labels.enable_translation')}
-                </Text>
-                <Text type="body-xs" color="muted">
-                  {selectedTargetLanguageLabel}
-                </Text>
-              </View>
-              <Switch
-                isSelected={settings.enableTranslation}
-                onSelectedChange={(next) => updateSettings({ enableTranslation: next })}
-              />
-            </View>
+          <AppCard icon="language" title={t('settings.translation.labels.target_language')}>
+            <SettingSwitch
+              title={t('settings.translation.labels.enable_translation')}
+              subtitle={selectedTargetLanguageLabel}
+              value={settings.enableTranslation}
+              onChange={(next) => updateSettings({ enableTranslation: next })}
+            />
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{
-                disabled: !settings.enableTranslation || settings.translationEngine === 'none',
-              }}
-              onPress={() => setLanguageModalVisible(true)}
+            <SettingsModelSelectField
+              label={t('settings.translation.labels.target_language')}
+              value={settings.translationTargetLanguage}
+              options={COMMON_TRANSLATION_TARGET_LANGUAGES.map((language) => ({
+                label: t(language.i18nKey),
+                value: language.code,
+              }))}
+              placeholder={selectedTargetLanguageLabel}
+              onChange={(value) => updateSettings({ translationTargetLanguage: value })}
               disabled={!settings.enableTranslation || settings.translationEngine === 'none'}
-              style={({ pressed }) => [
-                styles.selectPressable,
-                pressed && !(!settings.enableTranslation || settings.translationEngine === 'none') && styles.selectPressed,
-              ]}>
-              <View
-                style={[
-                  styles.selectBox,
-                  isDark ? styles.selectBoxDark : styles.selectBoxLight,
-                  (!settings.enableTranslation || settings.translationEngine === 'none') &&
-                    styles.selectBoxDisabled,
-                ]}>
-                <Text type="body-sm" weight="semibold">
-                  {t('settings.translation.labels.target_language')}
-                </Text>
-                <View className="min-w-0 flex-1 flex-row items-center justify-end gap-2">
-                  <Text type="body-sm" color="muted" numberOfLines={1}>
-                    {selectedTargetLanguageLabel}
-                  </Text>
-                  <AppIcon name="chevron-right" size={13} className="text-muted" />
-                </View>
-              </View>
-            </Pressable>
-          </SettingsCard>
+            />
+          </AppCard>
 
           <SettingsModelProviderStrip
             providers={providers}
@@ -329,195 +284,58 @@ export default function TranslationSettingsScreen() {
             )}
 
             {settings.translationEngine === 'openai' ? (
-              <View style={styles.fieldGroup}>
-                <Text type="body-sm" weight="semibold">
-                  {t('settings.translation.labels.temperature')}
-                </Text>
-                <TextInput
-                  value={formState.openaiTranslationTemperature}
-                  onChangeText={(text) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      openaiTranslationTemperature: formatNumberInput(text),
-                    }))
-                  }
-                  onBlur={() =>
-                    updateSettings({
-                      openaiTranslationTemperature: resolveTemperature(
-                        formState.openaiTranslationTemperature,
-                        DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
-                      ),
-                    })
-                  }
-                  editable={!isModelDisabled}
-                  keyboardType="decimal-pad"
-                  style={baseInputStyle}
-                  placeholder={`${DEFAULT_OPENAI_TRANSLATION_TEMPERATURE}`}
-                  placeholderTextColor={placeholderTextColor}
-                />
-              </View>
+              <FormInput
+                label={t('settings.translation.labels.temperature')}
+                value={formState.openaiTranslationTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiTranslationTemperature: formatNumberInput(text),
+                  }))
+                }
+                onBlur={() =>
+                  updateSettings({
+                    openaiTranslationTemperature: resolveTemperature(
+                      formState.openaiTranslationTemperature,
+                      DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
+                    ),
+                  })
+                }
+                editable={!isModelDisabled}
+                keyboardType="decimal-pad"
+                placeholder={`${DEFAULT_OPENAI_TRANSLATION_TEMPERATURE}`}
+                isDisabled={isModelDisabled}
+              />
             ) : null}
 
             {activeProvider.promptLabel && activeProvider.promptValue !== undefined ? (
-              <View style={styles.fieldGroup}>
-                <Text type="body-sm" weight="semibold">
-                  {activeProvider.promptLabel}
-                </Text>
-                <TextInput
+              <View className="gap-4">
+                <FormInput
+                  label={activeProvider.promptLabel}
                   value={activeProvider.promptValue}
-                  onChangeText={activeProvider.onPromptChange}
+                  onChangeText={activeProvider.onPromptChange ?? (() => undefined)}
                   onBlur={activeProvider.onPromptBlur}
                   editable={!isModelDisabled}
-                  style={multilineInputStyle}
                   placeholder={activeProvider.promptPlaceholder}
-                  placeholderTextColor={placeholderTextColor}
+                  description={activeProvider.promptHint}
                   multiline
-                  textAlignVertical="top"
+                  inputClassName="min-h-32"
+                  isDisabled={isModelDisabled}
                 />
-                {activeProvider.promptHint ? (
-                  <Text type="body-xs" color="muted">
-                    {activeProvider.promptHint}
-                  </Text>
-                ) : null}
-                <TextInput
+                <FormInput
+                  label={t('settings.translation.labels.appended_instruction_label')}
                   value={appendedInstruction}
+                  onChangeText={() => undefined}
                   editable={false}
                   multiline
                   scrollEnabled={false}
-                  style={[
-                    settingsStyles.input,
-                    styles.readOnlyInput,
-                    isDark ? settingsStyles.inputDark : null,
-                    isDark ? styles.readOnlyInputDark : null,
-                  ]}
+                  inputClassName="min-h-20 opacity-75"
                 />
               </View>
             ) : null}
           </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal
-        visible={languageModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLanguageModalVisible(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setLanguageModalVisible(false)}>
-          <Pressable
-            style={[styles.modalSheet, isDark ? styles.modalSheetDark : styles.modalSheetLight]}
-            onPress={() => {}}>
-            <Text.Heading type="h3">
-              {t('settings.translation.labels.select_language')}
-            </Text.Heading>
-            <ScrollView style={styles.modalList} keyboardShouldPersistTaps="handled">
-              {COMMON_TRANSLATION_TARGET_LANGUAGES.map((language) => {
-                const active = settings.translationTargetLanguage === language.code;
-                return (
-                  <Pressable
-                    key={language.code}
-                    onPress={() => {
-                      updateSettings({ translationTargetLanguage: language.code });
-                      setLanguageModalVisible(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.modalItem,
-                      pressed && styles.modalItemPressed,
-                      active && styles.modalItemActive,
-                    ]}>
-                    <Text type="body-sm" weight={active ? 'semibold' : undefined}>
-                      {t(language.i18nKey)}
-                    </Text>
-                    {active ? <AppIcon name="toggle-on" size={16} className="text-accent" /> : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  promptInput: {
-    minHeight: 120,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-  fieldGroup: {
-    gap: 8,
-  },
-  selectPressable: {
-    borderRadius: 12,
-  },
-  selectPressed: {
-    opacity: 0.85,
-  },
-  selectBox: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  selectBoxLight: {
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-    backgroundColor: '#fff',
-  },
-  selectBoxDark: {
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    backgroundColor: '#111c36',
-  },
-  selectBoxDisabled: {
-    opacity: 0.55,
-  },
-  readOnlyInput: {
-    opacity: 0.75,
-  },
-  readOnlyInputDark: {
-    opacity: 0.85,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-  },
-  modalSheet: {
-    borderRadius: 16,
-    padding: 16,
-    maxHeight: '70%',
-  },
-  modalSheetLight: {
-    backgroundColor: '#ffffff',
-  },
-  modalSheetDark: {
-    backgroundColor: '#0b1224',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-  },
-  modalList: {
-    marginTop: 12,
-  },
-  modalItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modalItemPressed: {
-    opacity: 0.85,
-  },
-  modalItemActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-  },
-});

@@ -439,6 +439,7 @@
         "prompt": "Prompt (opcional)",
         "prompt_placeholder": "p. ej. Tono formal con terminología de la industria.",
         "prompt_hint": "La instrucción de solo traducir se añade automáticamente.",
+        "appended_instruction_label": "Instrucción automática",
         "appended_instruction": "Traduce la entrada del usuario al {{language}}. Responde solo con la traducción."
       },
       "engines": {

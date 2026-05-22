@@ -5,14 +5,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Spinner, Text } from 'heroui-native';
+import { Button, Spinner } from 'heroui-native';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
   getModelSelectOptions,
   resolveModelCatalogStatusText,
@@ -23,7 +19,6 @@ import {
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_QA_MODEL,
   DEFAULT_OPENAI_QA_MODEL,
@@ -35,7 +30,6 @@ import {
 
 import {
   formatNumberInput,
-  settingsStyles,
   useSettingsForm,
 } from './shared';
 
@@ -55,21 +49,6 @@ export default function QaSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
 
   const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
     openaiApiKey: formState.openaiApiKey,
@@ -140,15 +119,13 @@ export default function QaSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -189,70 +166,44 @@ export default function QaSettingsScreen() {
             />
 
             {settings.qaEngine === 'openai' ? (
-              <View style={styles.fieldGroup}>
-                <Text type="body-sm" weight="semibold">
-                  {t('settings.qa.temperature_label')}
-                </Text>
-                <TextInput
-                  value={formState.openaiQaTemperature}
-                  onChangeText={(text) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      openaiQaTemperature: formatNumberInput(text),
-                    }))
-                  }
-                  onBlur={() =>
-                    updateSettings({
-                      openaiQaTemperature: resolveTemperature(
-                        formState.openaiQaTemperature,
-                        DEFAULT_OPENAI_QA_TEMPERATURE
-                      ),
-                    })
-                  }
-                  keyboardType="decimal-pad"
-                  style={baseInputStyle}
-                  placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
-                  placeholderTextColor={placeholderTextColor}
-                />
-              </View>
-            ) : null}
-
-            <View style={styles.fieldGroup}>
-              <Text type="body-sm" weight="semibold">
-                {t('settings.qa.prompt_label')}
-              </Text>
-              <TextInput
-                value={formState.qaPrompt}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, qaPrompt: text }))}
+              <FormInput
+                label={t('settings.qa.temperature_label')}
+                value={formState.openaiQaTemperature}
+                onChangeText={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    openaiQaTemperature: formatNumberInput(text),
+                  }))
+                }
                 onBlur={() =>
                   updateSettings({
-                    qaPrompt: formState.qaPrompt.trim() || DEFAULT_QA_PROMPT,
+                    openaiQaTemperature: resolveTemperature(
+                      formState.openaiQaTemperature,
+                      DEFAULT_OPENAI_QA_TEMPERATURE
+                    ),
                   })
                 }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_QA_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
+                keyboardType="decimal-pad"
+                placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
               />
-            </View>
+            ) : null}
+
+            <FormInput
+              label={t('settings.qa.prompt_label')}
+              value={formState.qaPrompt}
+              onChangeText={(text) => setFormState((prev) => ({ ...prev, qaPrompt: text }))}
+              onBlur={() =>
+                updateSettings({
+                  qaPrompt: formState.qaPrompt.trim() || DEFAULT_QA_PROMPT,
+                })
+              }
+              placeholder={DEFAULT_QA_PROMPT}
+              multiline
+              inputClassName="min-h-36"
+            />
           </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  fieldGroup: {
-    gap: 8,
-  },
-  promptInput: {
-    minHeight: 140,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-});

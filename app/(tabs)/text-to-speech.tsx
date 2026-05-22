@@ -12,7 +12,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -21,7 +20,7 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-import { Button, Card, Input, Text, TextField } from 'heroui-native';
+import { Button, Card, Input, Spinner, Text, TextField } from 'heroui-native';
 import { EmptyState as HeroEmptyState } from 'heroui-native-pro';
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
@@ -748,7 +747,7 @@ export default function ReadingScreen() {
                       </View>
                       <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
                         {message.status === 'pending' ? (
-                          <ActivityIndicator size="small" />
+                          <Spinner size="sm" />
                         ) : (
                           <AppIcon
                             name={message.status === 'failed' ? 'circle-info' : 'volume-high'}

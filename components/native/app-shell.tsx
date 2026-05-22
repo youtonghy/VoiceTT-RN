@@ -1,6 +1,13 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import type { ComponentProps, ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card, Input, Switch, Text, TextField } from 'heroui-native';
 import { withUniwind } from 'uniwind';
@@ -245,10 +252,17 @@ export function FormInput({
   onChangeText,
   placeholder,
   onBlur,
+  description,
   multiline,
+  numberOfLines,
+  scrollEnabled,
   secureTextEntry,
   keyboardType,
   autoCapitalize = 'none',
+  autoCorrect = false,
+  isDisabled,
+  editable,
+  inputClassName,
   style,
 }: {
   label: string;
@@ -256,32 +270,49 @@ export function FormInput({
   onChangeText: (text: string) => void;
   placeholder?: string;
   onBlur?: () => void;
+  description?: string;
   multiline?: boolean;
+  numberOfLines?: number;
+  scrollEnabled?: boolean;
   secureTextEntry?: boolean;
   keyboardType?: ComponentProps<typeof Input>['keyboardType'];
   autoCapitalize?: ComponentProps<typeof Input>['autoCapitalize'];
-  style?: TextStyle;
+  autoCorrect?: ComponentProps<typeof Input>['autoCorrect'];
+  isDisabled?: boolean;
+  editable?: boolean;
+  inputClassName?: string;
+  style?: StyleProp<TextStyle>;
 }) {
+  const className = [multiline ? 'min-h-28' : null, inputClassName].filter(Boolean).join(' ');
+
   return (
-    <TextField className="gap-2">
+    <TextField className="gap-2" isDisabled={isDisabled}>
       <Text type="body-sm" weight="semibold">
         {label}
       </Text>
       <Input
         autoCapitalize={autoCapitalize}
-        autoCorrect={false}
-        className={multiline ? 'min-h-28' : undefined}
+        autoCorrect={autoCorrect}
+        className={className || undefined}
+        editable={editable}
         keyboardType={keyboardType}
         multiline={multiline}
+        numberOfLines={numberOfLines}
         onBlur={onBlur}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        scrollEnabled={scrollEnabled}
         secureTextEntry={secureTextEntry}
         style={style}
         textAlignVertical={multiline ? 'top' : undefined}
         value={value}
         variant="secondary"
       />
+      {description ? (
+        <Text type="body-xs" color="muted">
+          {description}
+        </Text>
+      ) : null}
     </TextField>
   );
 }
@@ -291,14 +322,20 @@ export function SettingSwitch({
   subtitle,
   value,
   onChange,
+  isDisabled,
 }: {
   title: string;
   subtitle?: string;
   value: boolean;
   onChange: (next: boolean) => void;
+  isDisabled?: boolean;
 }) {
   return (
-    <View className="flex-row items-center justify-between gap-4 rounded-xl bg-surface-secondary p-3">
+    <View
+      className={[
+        'flex-row items-center justify-between gap-4 rounded-xl bg-surface-secondary p-3',
+        isDisabled ? 'opacity-55' : '',
+      ].join(' ')}>
       <View className="flex-1 gap-1">
         <Text weight="semibold">{title}</Text>
         {subtitle ? (
@@ -307,7 +344,7 @@ export function SettingSwitch({
           </Text>
         ) : null}
       </View>
-      <Switch isSelected={value} onSelectedChange={onChange}>
+      <Switch isSelected={value} isDisabled={isDisabled} onSelectedChange={onChange}>
         <Switch.Thumb />
       </Switch>
     </View>

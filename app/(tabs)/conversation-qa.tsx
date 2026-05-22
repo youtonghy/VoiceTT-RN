@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Surface, Text } from 'heroui-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Spinner, Surface, Text } from 'heroui-native';
 
 import { MarkdownText } from '@/components/markdown-text';
 import { RecordingToggle } from '@/components/recording-toggle';
@@ -479,7 +479,7 @@ export default function QaScreen() {
           </View>
           {anyLoading ? (
             <View className="flex-row items-center gap-2 rounded-xl bg-surface-secondary px-3 py-2">
-              <ActivityIndicator size="small" />
+              <Spinner size="sm" />
               <Text type="body-sm" color="muted" weight="semibold">
               {t('qa.status.analyzing')}
               </Text>
@@ -528,7 +528,7 @@ export default function QaScreen() {
                           {segmentTitle}
                         </Text>
                       </View>
-                      {status === 'loading' ? <ActivityIndicator size="small" /> : null}
+                      {status === 'loading' ? <Spinner size="sm" /> : null}
                     </View>
                     {!hasState || status === 'loading' ? (
                       <Text type="body-sm" color="muted">

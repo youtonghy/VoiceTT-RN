@@ -439,6 +439,7 @@
         "prompt": "프롬프트(선택)",
         "prompt_placeholder": "예: 격식 있는 어조와 업계 용어.",
         "prompt_hint": "번역만 출력하라는 지시가 자동으로 추가됩니다.",
+        "appended_instruction_label": "자동 추가 지시",
         "appended_instruction": "사용자 입력을 {{language}}로 번역하고 번역만 반환하세요."
       },
       "engines": {

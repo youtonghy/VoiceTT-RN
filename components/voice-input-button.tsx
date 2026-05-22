@@ -8,13 +8,12 @@ import {
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Button, useThemeColor } from 'heroui-native';
+import { Button, Spinner, useThemeColor } from 'heroui-native';
 
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';
@@ -178,7 +177,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
       style={style}
       variant={status === 'recording' ? 'danger' : 'secondary'}>
       {status === 'processing' ? (
-        <ActivityIndicator size="small" />
+        <Spinner size="sm" />
       ) : (
         <Feather
           name={iconName}

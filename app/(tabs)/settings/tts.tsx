@@ -7,14 +7,11 @@ import {
   Linking,
   Platform,
   ScrollView,
-  StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Spinner, Text } from 'heroui-native';
+import { Button, Spinner } from 'heroui-native';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
   getModelSelectOptions,
   resolveModelCatalogStatusText,
@@ -25,7 +22,6 @@ import {
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_TTS_MODEL,
   DEFAULT_GEMINI_TTS_VOICE,
@@ -40,7 +36,6 @@ import {
 } from '@/types/settings';
 
 import {
-  settingsStyles,
   useSettingsForm,
 } from './shared';
 
@@ -72,20 +67,6 @@ export default function TtsSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
 
   const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
     openaiApiKey: formState.openaiApiKey,
@@ -205,15 +186,13 @@ export default function TtsSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -271,45 +250,23 @@ export default function TtsSettingsScreen() {
               onChange={handleSelectVoice}
             />
 
-            <View style={styles.fieldGroup}>
-              <Text type="body-sm" weight="semibold">
-                {activeProvider.promptLabel}
-              </Text>
-              <TextInput
-                value={formState.ttsPrompt}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, ttsPrompt: text }))}
-                onBlur={() =>
-                  updateSettings({
-                    ttsPrompt: formState.ttsPrompt.trim(),
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={activeProvider.promptPlaceholder}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-              <Text type="body-xs" color="muted">
-                {activeProvider.promptHint}
-              </Text>
-            </View>
+            <FormInput
+              label={activeProvider.promptLabel}
+              value={formState.ttsPrompt}
+              onChangeText={(text) => setFormState((prev) => ({ ...prev, ttsPrompt: text }))}
+              onBlur={() =>
+                updateSettings({
+                  ttsPrompt: formState.ttsPrompt.trim(),
+                })
+              }
+              placeholder={activeProvider.promptPlaceholder}
+              description={activeProvider.promptHint}
+              multiline
+              inputClassName="min-h-32"
+            />
           </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  fieldGroup: {
-    gap: 8,
-  },
-  promptInput: {
-    minHeight: 120,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-});

@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { ModelProvider } from '@lobehub/icons-rn';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,16 +6,12 @@ import {
   KeyboardAvoidingView,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
-  StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Spinner, Text } from 'heroui-native';
 
-import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
   getModelSelectOptions,
   resolveModelCatalogStatusText,
@@ -27,7 +22,6 @@ import {
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
@@ -36,7 +30,7 @@ import {
 } from '@/services/transcription';
 import type { EngineCredentials, TranscriptionEngine } from '@/types/settings';
 
-import { settingsStyles, useSettingsForm } from './shared';
+import { useSettingsForm } from './shared';
 
 type TranscriptionProviderConfig = SettingsModelProviderItem<TranscriptionEngine> & {
   docsUrl?: string;
@@ -69,20 +63,6 @@ export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
 
   const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
     openaiApiKey: formState.openaiApiKey,
@@ -236,15 +216,13 @@ export default function TranscriptionSettingsScreen() {
     : t('settings.credentials.models.credentials_only');
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -282,17 +260,14 @@ export default function TranscriptionSettingsScreen() {
                     </Button>
                   ) : null}
                   {activeProvider.docsUrl ? (
-                    <Pressable
-                      accessibilityRole="link"
+                    <Button
                       accessibilityLabel={activeProvider.helpLabel}
+                      isIconOnly
                       onPress={() => handleOpenDocs(activeProvider)}
-                      style={({ pressed }) => [styles.helpButton, pressed && styles.helpButtonPressed]}>
-                      <Ionicons
-                        name="help-circle-outline"
-                        size={20}
-                        color={isDark ? '#e2e8f0' : '#0f172a'}
-                      />
-                    </Pressable>
+                      size="sm"
+                      variant="tertiary">
+                      <AppIcon name="circle-question" size={15} className="text-foreground" />
+                    </Button>
                   ) : null}
                 </View>
               ) : null
@@ -312,54 +287,20 @@ export default function TranscriptionSettingsScreen() {
             )}
 
             {activeProvider.promptLabel && activeProvider.promptValue !== undefined ? (
-              <View style={styles.fieldGroup}>
-                <Text type="body-sm" weight="semibold">
-                  {activeProvider.promptLabel}
-                </Text>
-                <TextInput
-                  value={activeProvider.promptValue}
-                  onChangeText={activeProvider.onPromptChange}
-                  onBlur={activeProvider.onPromptBlur}
-                  style={multilineInputStyle}
-                  placeholder={activeProvider.promptPlaceholder}
-                  placeholderTextColor={placeholderTextColor}
-                  multiline
-                  textAlignVertical="top"
-                />
-                {activeProvider.promptHint ? (
-                  <Text type="body-xs" color="muted">
-                    {activeProvider.promptHint}
-                  </Text>
-                ) : null}
-              </View>
+              <FormInput
+                label={activeProvider.promptLabel}
+                value={activeProvider.promptValue}
+                onChangeText={activeProvider.onPromptChange ?? (() => undefined)}
+                onBlur={activeProvider.onPromptBlur}
+                placeholder={activeProvider.promptPlaceholder}
+                description={activeProvider.promptHint}
+                multiline
+                inputClassName="min-h-32"
+              />
             ) : null}
           </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  promptInput: {
-    minHeight: 120,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-  fieldGroup: {
-    gap: 8,
-  },
-  helpButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  helpButtonPressed: {
-    opacity: 0.8,
-  },
-});

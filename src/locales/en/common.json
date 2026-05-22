@@ -473,6 +473,7 @@
         "prompt": "Prompting (optional)",
         "prompt_placeholder": "e.g. Formal tone with industry terminology.",
         "prompt_hint": "The translate-only instruction is appended automatically.",
+        "appended_instruction_label": "Automatic instruction",
         "appended_instruction": "Translate the user input into {{language}}. Respond with translation only."
       },
       "engines": {

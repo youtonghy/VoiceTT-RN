@@ -296,7 +296,7 @@ export function SettingsModelSelect({
   isDisabled?: boolean;
   children: ReactNode;
 }) {
-  const currentOption = toSelectOption(value);
+  const currentOption = options.find((option) => option.value === value) ?? toSelectOption(value);
   const isPopoverPresentation = Platform.OS === 'web';
   const { height: windowHeight } = useWindowDimensions();
   const safeWindowHeight = windowHeight || 640;
