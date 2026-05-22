@@ -652,7 +652,15 @@ export default function RecordingSettingsScreen() {
         void stopMonitoring().then(() => startMonitoring());
       }
     },
-    [isDesktopApp, isMonitoring, isTestingInput, startInputTest, startMonitoring, stopMonitoring, updateSettings]
+    [
+      isDesktopApp,
+      isMonitoring,
+      isTestingInput,
+      startInputTest,
+      startMonitoring,
+      stopMonitoring,
+      updateSettings,
+    ]
   );
 
   const handleToggleMonitoring = useCallback(() => {

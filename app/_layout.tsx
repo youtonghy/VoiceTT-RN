@@ -21,11 +21,26 @@ export const unstable_settings = {
 
 const heroUIConfig: HeroUINativeConfig = {
   textProps: {
+    allowFontScaling: true,
     maxFontSizeMultiplier: 1.35,
     minimumFontScale: 0.75,
   },
   devInfo: {
     stylingPrinciples: false,
+  },
+  toast: {
+    defaultProps: {
+      variant: 'default',
+      placement: 'top',
+      isSwipeable: true,
+    },
+    insets: {
+      top: 0,
+      bottom: 6,
+      left: 12,
+      right: 12,
+    },
+    maxVisibleToasts: 3,
   },
 };
 

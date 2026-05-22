@@ -1,5 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const { wrapWithReanimatedMetroConfig } = require('react-native-reanimated/metro-config');
 const { withUniwindConfig } = require('uniwind/metro');
 
 const config = getDefaultConfig(__dirname);
@@ -27,7 +28,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     : context.resolveRequest(context, moduleName, platform);
 };
 
-module.exports = withUniwindConfig(config, {
+module.exports = withUniwindConfig(wrapWithReanimatedMetroConfig(config), {
   cssEntryFile: './global.css',
-  dtsFile: './uniwind-env.d.ts',
+  dtsFile: './src/uniwind.d.ts',
 });
