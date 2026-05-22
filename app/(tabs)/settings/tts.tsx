@@ -1,77 +1,100 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo, useState } from 'react';
+import { ModelProvider } from '@lobehub/icons-rn';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner, Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { AppIcon, type AppIconName } from '@/components/native/app-shell';
+import {
+  getModelSelectOptions,
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  useSettingsModelCatalogs,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    DEFAULT_GEMINI_TTS_MODEL,
-    DEFAULT_GEMINI_TTS_VOICE,
-    DEFAULT_OPENAI_TTS_MODEL,
-    DEFAULT_OPENAI_TTS_VOICE,
-    GEMINI_TTS_VOICES,
-    OPENAI_TTS_VOICES,
-    isGeminiTtsVoice,
-    isOpenAiTtsVoice,
-    type TtsEngine,
+  DEFAULT_GEMINI_TTS_MODEL,
+  DEFAULT_GEMINI_TTS_VOICE,
+  DEFAULT_OPENAI_TTS_MODEL,
+  DEFAULT_OPENAI_TTS_VOICE,
+  GEMINI_TTS_VOICES,
+  OPENAI_TTS_VOICES,
+  isGeminiTtsVoice,
+  isOpenAiTtsVoice,
+  type EngineCredentials,
+  type TtsEngine,
 } from '@/types/settings';
 
 import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
-    OptionPill,
-    SettingsCard,
-    settingsStyles,
-    useSettingsForm,
+  settingsStyles,
+  useSettingsForm,
 } from './shared';
+
+type TtsProviderConfig = SettingsModelProviderItem<TtsEngine> & {
+  docsUrl: string;
+  helpLabel: string;
+  modelLabel: string;
+  modelValue: string;
+  modelFallback: string;
+  modelKey: keyof EngineCredentials;
+  voiceLabel: string;
+  voiceValue: string;
+  voiceFallback: string;
+  voiceOptions: { label: string; value: string }[];
+  promptLabel: string;
+  promptPlaceholder: string;
+  promptHint: string;
+};
 
 const OPENAI_TTS_DOCS_URL = 'https://platform.openai.com/docs/guides/text-to-speech#custom-voices';
 const GEMINI_TTS_DOCS_URL = 'https://ai.google.dev/gemini-api/docs/speech-generation';
-const ttsEngines: TtsEngine[] = ['openai', 'gemini'];
+
+const FALLBACK_ICON_MAP: Record<TtsEngine, AppIconName> = {
+  openai: 'robot',
+  gemini: 'gem',
+};
 
 export default function TtsSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const [isOpenAiVoiceMenuOpen, setIsOpenAiVoiceMenuOpen] = useState(false);
-  const [isGeminiVoiceMenuOpen, setIsGeminiVoiceMenuOpen] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
+  const safeAreaStyle = [
+    settingsStyles.safeArea,
+    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
+  ];
   const multilineInputStyle = [
     settingsStyles.input,
     styles.promptInput,
     isDark ? settingsStyles.inputDark : null,
     isDark ? styles.promptInputDark : null,
   ];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
   const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
-  const helpIconColor = isDark ? '#e2e8f0' : '#0f172a';
-  const isGeminiEngine = settings.ttsEngine === 'gemini';
-  const helpLabel = isGeminiEngine
-    ? t('settings.tts.help_label_gemini')
-    : t('settings.tts.help_label_openai');
+
+  const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
+    openaiApiKey: formState.openaiApiKey,
+    openaiBaseUrl: formState.openaiBaseUrl,
+    geminiApiKey: formState.geminiApiKey,
+    qwenApiKey: formState.qwenApiKey,
+    glmApiKey: formState.glmApiKey,
+  });
+
   const openAiVoiceValue = useMemo(() => {
     const trimmed = formState.ttsVoice.trim();
     return isOpenAiTtsVoice(trimmed) ? trimmed : DEFAULT_OPENAI_TTS_VOICE;
@@ -81,6 +104,72 @@ export default function TtsSettingsScreen() {
     return isGeminiTtsVoice(trimmed) ? trimmed : DEFAULT_GEMINI_TTS_VOICE;
   }, [formState.ttsVoice]);
 
+  const providers = useMemo<TtsProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.tts.engine.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        docsUrl: OPENAI_TTS_DOCS_URL,
+        helpLabel: t('settings.tts.help_label_openai'),
+        modelLabel: t('settings.tts.openai.model_label'),
+        modelValue: formState.openaiTtsModel,
+        modelFallback: DEFAULT_OPENAI_TTS_MODEL,
+        modelKey: 'openaiTtsModel',
+        voiceLabel: t('settings.tts.openai.voice_label'),
+        voiceValue: openAiVoiceValue,
+        voiceFallback: DEFAULT_OPENAI_TTS_VOICE,
+        voiceOptions: OPENAI_TTS_VOICES.map((voice) => ({ label: voice, value: voice })),
+        promptLabel: t('settings.tts.openai.prompt_label'),
+        promptPlaceholder: t('settings.tts.openai.prompt_placeholder'),
+        promptHint: t('settings.tts.openai.prompt_hint'),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.tts.engine.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        docsUrl: GEMINI_TTS_DOCS_URL,
+        helpLabel: t('settings.tts.help_label_gemini'),
+        modelLabel: t('settings.tts.gemini.model_label'),
+        modelValue: formState.geminiTtsModel,
+        modelFallback: DEFAULT_GEMINI_TTS_MODEL,
+        modelKey: 'geminiTtsModel',
+        voiceLabel: t('settings.tts.gemini.voice_label'),
+        voiceValue: geminiVoiceValue,
+        voiceFallback: DEFAULT_GEMINI_TTS_VOICE,
+        voiceOptions: GEMINI_TTS_VOICES.map((voice) => ({ label: voice, value: voice })),
+        promptLabel: t('settings.tts.gemini.prompt_label'),
+        promptPlaceholder: t('settings.tts.gemini.prompt_placeholder'),
+        promptHint: t('settings.tts.gemini.prompt_hint'),
+      },
+    ],
+    [
+      formState.geminiTtsModel,
+      formState.openaiTtsModel,
+      geminiVoiceValue,
+      openAiVoiceValue,
+      t,
+    ]
+  );
+
+  const activeProvider =
+    providers.find((provider) => provider.id === settings.ttsEngine) ?? providers[0];
+  const activeCatalog = catalogs[activeProvider.modelProvider!];
+  const modelOptions = getModelSelectOptions(catalogs, activeProvider.modelProvider, [
+    activeProvider.modelValue,
+    activeProvider.modelFallback,
+  ]);
+
+  useEffect(() => {
+    void ensureModelsFetched(activeProvider.remoteModelProvider);
+  }, [activeProvider.remoteModelProvider, ensureModelsFetched]);
+
   const handleSelectEngine = (engine: TtsEngine) => {
     if (engine === settings.ttsEngine) {
       return;
@@ -88,25 +177,29 @@ export default function TtsSettingsScreen() {
     const currentVoice = settings.ttsVoice?.trim() || '';
     const isGeminiVoice = isGeminiTtsVoice(currentVoice);
     const isOpenAiVoice = isOpenAiTtsVoice(currentVoice);
-    if (engine === 'gemini') {
-      updateSettings({
-        ttsEngine: engine,
-        ttsVoice: isGeminiVoice ? currentVoice : DEFAULT_GEMINI_TTS_VOICE,
-      });
-      setIsOpenAiVoiceMenuOpen(false);
-      return;
-    }
-    updateSettings({
-      ttsEngine: engine,
-      ttsVoice: isOpenAiVoice ? currentVoice : DEFAULT_OPENAI_TTS_VOICE,
-    });
-    setIsGeminiVoiceMenuOpen(false);
+    const nextVoice =
+      engine === 'gemini'
+        ? isGeminiVoice ? currentVoice : DEFAULT_GEMINI_TTS_VOICE
+        : isOpenAiVoice ? currentVoice : DEFAULT_OPENAI_TTS_VOICE;
+    setFormState((prev) => ({ ...prev, ttsVoice: nextVoice }));
+    updateSettings({ ttsEngine: engine, ttsVoice: nextVoice });
+  };
+
+  const handleSelectModel = (value: string) => {
+    const nextValue = value.trim() || activeProvider.modelFallback;
+    setFormState((prev) => ({ ...prev, [activeProvider.modelKey]: nextValue }));
+    updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
+  const handleSelectVoice = (value: string) => {
+    const nextValue = value.trim() || activeProvider.voiceFallback;
+    setFormState((prev) => ({ ...prev, ttsVoice: nextValue }));
+    updateSettings({ ttsVoice: nextValue });
   };
 
   const handleOpenDocs = () => {
-    const url = isGeminiEngine ? GEMINI_TTS_DOCS_URL : OPENAI_TTS_DOCS_URL;
-    Linking.openURL(url).catch((error) => {
-      console.warn('[settings] Failed to open link', url, error);
+    Linking.openURL(activeProvider.docsUrl).catch((error) => {
+      console.warn('[settings] Failed to open link', activeProvider.docsUrl, error);
       Alert.alert(t('settings.tts.help_error_title'), t('settings.tts.help_error_body'));
     });
   };
@@ -123,280 +216,84 @@ export default function TtsSettingsScreen() {
           ]}
           contentInsetAdjustmentBehavior="always"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <SettingsCard variant="interaction">
-            <View style={styles.headerRow}>
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.tts.engine.title')}
-              </ThemedText>
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel={helpLabel}
-                onPress={handleOpenDocs}
-                style={({ pressed }) => [styles.helpButton, pressed && styles.helpButtonPressed]}>
-                <Ionicons name="help-circle-outline" size={20} color={helpIconColor} />
-              </Pressable>
-            </View>
-            <View style={settingsStyles.optionsRow}>
-              {ttsEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.tts.engine.engines.${engine}`)}
-                  active={settings.ttsEngine === engine}
-                  onPress={() => handleSelectEngine(engine)}
-                />
-              ))}
-            </View>
-          </SettingsCard>
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <SettingsModelProviderStrip
+            providers={providers}
+            activeId={settings.ttsEngine}
+            onSelect={handleSelectEngine}
+          />
 
-          {settings.ttsEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.tts.engine.engines.openai')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.openai.model_label')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.openaiTtsModel}
-                    onChangeText={(text) =>
-                      setFormState((prev) => ({ ...prev, openaiTtsModel: text }))
-                    }
-                    onBlur={() =>
-                      updateCredentials({
-                        openaiTtsModel:
-                          formState.openaiTtsModel.trim() || DEFAULT_OPENAI_TTS_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_OPENAI_TTS_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.openai.voice_label')}
-                  </ThemedText>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('settings.tts.openai.voice_label')}
-                    onPress={() => setIsOpenAiVoiceMenuOpen((prev) => !prev)}
-                    style={({ pressed }) => [
-                      baseInputStyle,
-                      styles.voiceSelect,
-                      pressed && styles.voiceSelectPressed,
-                    ]}>
-                    <ThemedText lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                      {openAiVoiceValue || DEFAULT_OPENAI_TTS_VOICE}
-                    </ThemedText>
-                    <Ionicons
-                      name={isOpenAiVoiceMenuOpen ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={helpIconColor}
-                    />
-                  </Pressable>
-                  {isOpenAiVoiceMenuOpen ? (
-                    <View
-                      style={[
-                        styles.voiceMenu,
-                        isDark ? styles.voiceMenuDark : null,
-                      ]}>
-                      <ScrollView
-                        nestedScrollEnabled
-                        style={styles.voiceMenuScroll}
-                        contentContainerStyle={styles.voiceMenuContent}>
-                        {OPENAI_TTS_VOICES.map((voice) => {
-                          const isActive = voice === openAiVoiceValue;
-                          return (
-                            <Pressable
-                              key={voice}
-                              onPress={() => {
-                                updateSettings({ ttsVoice: voice });
-                                setIsOpenAiVoiceMenuOpen(false);
-                              }}
-                              style={({ pressed }) => [
-                                styles.voiceMenuItem,
-                                isActive && styles.voiceMenuItemActive,
-                                pressed && styles.voiceMenuItemPressed,
-                              ]}>
-                              <ThemedText
-                                lightColor={isActive ? '#ffffff' : CARD_TEXT_LIGHT}
-                                darkColor={isActive ? '#ffffff' : CARD_TEXT_DARK}>
-                                {voice}
-                              </ThemedText>
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.tts.openai.prompt_label')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.ttsPrompt}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, ttsPrompt: text }))}
-                    onBlur={() =>
-                      updateSettings({
-                        ttsPrompt: formState.ttsPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.tts.openai.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.openai.prompt_hint')}
-                  </ThemedText>
-                </View>
+          <SettingsModelDetailCard
+            title={activeProvider.title}
+            description={t('settings.credentials.models.catalog_hint')}
+            providerIcon={activeProvider.providerIcon}
+            fallbackIcon={activeProvider.fallbackIcon}
+            statusText={resolveModelCatalogStatusText(t, activeCatalog)}
+            action={
+              <View className="flex-row gap-2">
+                <Button
+                  accessibilityLabel={t('settings.credentials.models.refresh')}
+                  isDisabled={activeCatalog.status === 'loading'}
+                  isIconOnly
+                  onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
+                  size="sm"
+                  variant="tertiary">
+                  {activeCatalog.status === 'loading' ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
+                  )}
+                </Button>
+                <Button
+                  accessibilityLabel={activeProvider.helpLabel}
+                  isIconOnly
+                  onPress={handleOpenDocs}
+                  size="sm"
+                  variant="tertiary">
+                  <AppIcon name="circle-question" size={15} className="text-foreground" />
+                </Button>
               </View>
-            </SettingsCard>
-          ) : null}
+            }>
+            <SettingsModelSelectField
+              label={activeProvider.modelLabel}
+              value={activeProvider.modelValue}
+              options={modelOptions}
+              placeholder={activeProvider.modelFallback}
+              onChange={handleSelectModel}
+            />
 
-          {settings.ttsEngine === 'gemini' ? (
-            <SettingsCard variant="gemini">
-              <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                {t('settings.tts.engine.engines.gemini')}
-              </ThemedText>
-              <View style={styles.fieldStack}>
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.gemini.model_label')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.geminiTtsModel}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiTtsModel: text }))}
-                    onBlur={() =>
-                      updateCredentials({
-                        geminiTtsModel: formState.geminiTtsModel.trim() || DEFAULT_GEMINI_TTS_MODEL,
-                      })
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    style={baseInputStyle}
-                    placeholder={DEFAULT_GEMINI_TTS_MODEL}
-                    placeholderTextColor={placeholderTextColor}
-                  />
-                </View>
+            <SettingsModelSelectField
+              label={activeProvider.voiceLabel}
+              value={activeProvider.voiceValue}
+              options={activeProvider.voiceOptions}
+              placeholder={activeProvider.voiceFallback}
+              onChange={handleSelectVoice}
+            />
 
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.gemini.voice_label')}
-                  </ThemedText>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('settings.tts.gemini.voice_label')}
-                    onPress={() => setIsGeminiVoiceMenuOpen((prev) => !prev)}
-                    style={({ pressed }) => [
-                      baseInputStyle,
-                      styles.voiceSelect,
-                      pressed && styles.voiceSelectPressed,
-                    ]}>
-                    <ThemedText lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-                      {geminiVoiceValue || DEFAULT_GEMINI_TTS_VOICE}
-                    </ThemedText>
-                    <Ionicons
-                      name={isGeminiVoiceMenuOpen ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={helpIconColor}
-                    />
-                  </Pressable>
-                  {isGeminiVoiceMenuOpen ? (
-                    <View
-                      style={[
-                        styles.voiceMenu,
-                        isDark ? styles.voiceMenuDark : null,
-                      ]}>
-                      <ScrollView
-                        nestedScrollEnabled
-                        style={styles.voiceMenuScroll}
-                        contentContainerStyle={styles.voiceMenuContent}>
-                        {GEMINI_TTS_VOICES.map((voice) => {
-                          const isActive = voice === geminiVoiceValue;
-                          return (
-                            <Pressable
-                              key={voice}
-                              onPress={() => {
-                                updateSettings({ ttsVoice: voice });
-                                setIsGeminiVoiceMenuOpen(false);
-                              }}
-                              style={({ pressed }) => [
-                                styles.voiceMenuItem,
-                                isActive && styles.voiceMenuItemActive,
-                                pressed && styles.voiceMenuItemPressed,
-                              ]}>
-                              <ThemedText
-                                lightColor={isActive ? '#ffffff' : CARD_TEXT_LIGHT}
-                                darkColor={isActive ? '#ffffff' : CARD_TEXT_DARK}>
-                                {voice}
-                              </ThemedText>
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <ThemedText
-                    style={[groupLabelStyle, styles.cardLabel]}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t('settings.tts.gemini.prompt_label')}
-                  </ThemedText>
-                  <TextInput
-                    value={formState.ttsPrompt}
-                    onChangeText={(text) => setFormState((prev) => ({ ...prev, ttsPrompt: text }))}
-                    onBlur={() =>
-                      updateSettings({
-                        ttsPrompt: formState.ttsPrompt.trim(),
-                      })
-                    }
-                    style={multilineInputStyle}
-                    placeholder={t('settings.tts.gemini.prompt_placeholder')}
-                    placeholderTextColor={placeholderTextColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <ThemedText
-                    style={styles.promptHint}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t('settings.tts.gemini.prompt_hint')}
-                  </ThemedText>
-                </View>
-              </View>
-            </SettingsCard>
-          ) : null}
+            <View style={styles.fieldGroup}>
+              <Text type="body-sm" weight="semibold">
+                {activeProvider.promptLabel}
+              </Text>
+              <TextInput
+                value={formState.ttsPrompt}
+                onChangeText={(text) => setFormState((prev) => ({ ...prev, ttsPrompt: text }))}
+                onBlur={() =>
+                  updateSettings({
+                    ttsPrompt: formState.ttsPrompt.trim(),
+                  })
+                }
+                style={multilineInputStyle}
+                placeholder={activeProvider.promptPlaceholder}
+                placeholderTextColor={placeholderTextColor}
+                multiline
+                textAlignVertical="top"
+              />
+              <Text type="body-xs" color="muted">
+                {activeProvider.promptHint}
+              </Text>
+            </View>
+          </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -404,10 +301,8 @@ export default function TtsSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
+  fieldGroup: {
+    gap: 8,
   },
   promptInput: {
     minHeight: 120,
@@ -416,70 +311,5 @@ const styles = StyleSheet.create({
   },
   promptInputDark: {
     color: '#e2e8f0',
-  },
-  promptHint: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  fieldStack: {
-    gap: 16,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  helpButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  helpButtonPressed: {
-    opacity: 0.8,
-  },
-  voiceSelect: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  voiceSelectPressed: {
-    opacity: 0.9,
-  },
-  voiceMenu: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
-    backgroundColor: '#ffffff',
-    maxHeight: 220,
-    overflow: 'hidden',
-  },
-  voiceMenuDark: {
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-  },
-  voiceMenuScroll: {
-    maxHeight: 220,
-  },
-  voiceMenuContent: {
-    paddingVertical: 6,
-  },
-  voiceMenuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginHorizontal: 6,
-  },
-  voiceMenuItemActive: {
-    backgroundColor: '#2563eb',
-  },
-  voiceMenuItemPressed: {
-    opacity: 0.85,
   },
 });
