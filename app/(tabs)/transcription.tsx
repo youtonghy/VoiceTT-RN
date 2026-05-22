@@ -27,10 +27,16 @@ import {
     AppScreen,
     FormInput,
 } from "@/components/native/app-shell";
+import {
+    getModelSelectOptions,
+    SettingsModelSelect,
+    useSettingsModelCatalogs,
+} from "@/components/settings/model-picker";
 import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { useIsTablet } from "@/hooks/use-is-tablet";
 import {
+    DEFAULT_OPENAI_BASE_URL,
     generateAssistantReply,
     generateConversationSummary,
     generateConversationTitle,
@@ -41,12 +47,12 @@ import { synthesizeSpeech } from "@/services/tts";
 import {
     DEFAULT_GEMINI_ASSISTANT_MODEL,
     DEFAULT_OPENAI_ASSISTANT_MODEL,
-    type AssistantEngine,
+    type EngineCredentials,
 } from "@/types/settings";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
-import { Button, Card, Input, Radio, SearchField, Surface, Text, useThemeColor } from "heroui-native";
-import { RadioButtonGroup, Segment } from "heroui-native-pro";
+import { Button, Card, Input, SearchField, Select, Surface, Text, useThemeColor } from "heroui-native";
+import { Segment } from "heroui-native-pro";
 
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -295,7 +301,7 @@ export default function TranscriptionScreen() {
   const { width } = useWindowDimensions();
   const isTablet = useIsTablet();
   const [dangerForeground] = useThemeColor(['danger-foreground']);
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateCredentials } = useSettings();
   const {
     messages,
     error,
@@ -326,7 +332,6 @@ export default function TranscriptionScreen() {
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [assistantModelMenuOpen, setAssistantModelMenuOpen] = useState(false);
   const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
@@ -1393,45 +1398,49 @@ export default function TranscriptionScreen() {
     ? t('assistant.placeholders.summary_hidden')
     : t('assistant.placeholders.summary');
   const assistantEngine = settings.assistantEngine ?? 'openai';
-  const assistantModelOptions = useMemo(
-    () => [
-      {
-        value: 'openai' as const,
-        label: t('settings.summary.assistant_engine.engines.openai'),
-        model:
-          settings.credentials.openaiAssistantModel?.trim() ||
-          settings.credentials.openaiConversationModel?.trim() ||
-          DEFAULT_OPENAI_ASSISTANT_MODEL,
-      },
-      {
-        value: 'gemini' as const,
-        label: t('settings.summary.assistant_engine.engines.gemini'),
-        model:
-          settings.credentials.geminiAssistantModel?.trim() ||
-          settings.credentials.geminiConversationModel?.trim() ||
-          DEFAULT_GEMINI_ASSISTANT_MODEL,
-      },
-    ],
-    [
-      settings.credentials.geminiAssistantModel,
-      settings.credentials.geminiConversationModel,
-      settings.credentials.openaiAssistantModel,
-      settings.credentials.openaiConversationModel,
-      t,
-    ]
-  );
+  const assistantModelProvider = assistantEngine === 'gemini' ? 'gemini' : 'openai';
+  const assistantModelLabel =
+    assistantModelProvider === 'gemini'
+      ? t('settings.summary.assistant_engine.gemini_label')
+      : t('settings.summary.assistant_engine.openai_label');
   const activeAssistantModel =
-    assistantModelOptions.find((option) => option.value === assistantEngine)?.model ??
-    assistantModelOptions[0].model;
+    assistantModelProvider === 'gemini'
+      ? settings.credentials.geminiAssistantModel?.trim() ||
+        settings.credentials.geminiConversationModel?.trim() ||
+        DEFAULT_GEMINI_ASSISTANT_MODEL
+      : settings.credentials.openaiAssistantModel?.trim() ||
+        settings.credentials.openaiConversationModel?.trim() ||
+        DEFAULT_OPENAI_ASSISTANT_MODEL;
+  const assistantModelFallback =
+    assistantModelProvider === 'gemini'
+      ? DEFAULT_GEMINI_ASSISTANT_MODEL
+      : DEFAULT_OPENAI_ASSISTANT_MODEL;
+  const assistantModelCredentialKey: keyof EngineCredentials =
+    assistantModelProvider === 'gemini' ? 'geminiAssistantModel' : 'openaiAssistantModel';
+  const {
+    catalogs: assistantModelCatalogs,
+    ensureModelsFetched: ensureAssistantModelsFetched,
+  } = useSettingsModelCatalogs({
+    openaiApiKey: settings.credentials.openaiApiKey ?? '',
+    openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
+    geminiApiKey: settings.credentials.geminiApiKey ?? '',
+    qwenApiKey: settings.credentials.qwenApiKey ?? '',
+    glmApiKey: settings.credentials.glmApiKey ?? '',
+  });
+  const assistantModelOptions = getModelSelectOptions(
+    assistantModelCatalogs,
+    assistantModelProvider,
+    [activeAssistantModel, assistantModelFallback]
+  );
+  useEffect(() => {
+    void ensureAssistantModelsFetched(assistantModelProvider);
+  }, [assistantModelProvider, ensureAssistantModelsFetched]);
   const handleAssistantModelChange = useCallback(
     (next: string) => {
-      if (next !== 'openai' && next !== 'gemini') {
-        return;
-      }
-      updateSettings({ assistantEngine: next as AssistantEngine });
-      setAssistantModelMenuOpen(false);
+      const nextValue = next.trim() || assistantModelFallback;
+      updateCredentials({ [assistantModelCredentialKey]: nextValue } as Partial<EngineCredentials>);
     },
-    [updateSettings]
+    [assistantModelCredentialKey, assistantModelFallback, updateCredentials]
   );
 
   const tabletHistoryWidth = useMemo(() => {
@@ -1911,15 +1920,22 @@ export default function TranscriptionScreen() {
               {activeConversationTitle}
             </Text>
           </View>
-          <Button
-            accessibilityLabel={t('assistant.accessibility.switch_model')}
-            accessibilityState={{ expanded: assistantModelMenuOpen }}
-            isIconOnly
-            onPress={() => setAssistantModelMenuOpen(true)}
-            size="md"
-            variant="secondary">
-            <StudioIcon name="robot" size={17} className="text-accent" solid />
-          </Button>
+          <SettingsModelSelect
+            label={assistantModelLabel}
+            value={activeAssistantModel}
+            options={assistantModelOptions}
+            placeholder={assistantModelFallback}
+            onChange={handleAssistantModelChange}>
+            <Select.Trigger variant="unstyled" asChild>
+              <Button
+                accessibilityLabel={t('assistant.accessibility.switch_model')}
+                isIconOnly
+                size="md"
+                variant="secondary">
+                <StudioIcon name="robot" size={17} className="text-accent" solid />
+              </Button>
+            </Select.Trigger>
+          </SettingsModelSelect>
         </View>
         <ScrollView
           ref={assistantScrollRef}
@@ -2090,55 +2106,6 @@ export default function TranscriptionScreen() {
         anchor={contextMenu?.anchor}
         onRequestClose={handleDismissContextMenu}
       />
-      <Modal
-        animationType="fade"
-        transparent
-        visible={assistantModelMenuOpen}
-        onRequestClose={() => setAssistantModelMenuOpen(false)}
-      >
-        <Pressable
-          accessibilityRole="button"
-          style={styles.renameBackdrop}
-          onPress={() => setAssistantModelMenuOpen(false)}>
-          <Pressable
-            style={[
-              styles.modelMenuPressable,
-              { width: Math.min(320, Math.max(260, width - 32)) },
-            ]}
-            onPress={() => {}}>
-            <Surface variant="default" className="gap-3 rounded-2xl border border-border p-3">
-              <View className="gap-1 px-1">
-                <Text weight="bold">{t('assistant.model_menu.title')}</Text>
-                <Text type="body-xs" color="muted" numberOfLines={1}>
-                  {activeAssistantModel}
-                </Text>
-              </View>
-              <RadioButtonGroup
-                className="gap-2"
-                onValueChange={handleAssistantModelChange}
-                value={assistantEngine}
-                variant="secondary">
-                {assistantModelOptions.map((option) => (
-                  <RadioButtonGroup.Item
-                    key={option.value}
-                    className="items-center gap-3 rounded-xl px-3 py-3"
-                    value={option.value}>
-                    <RadioButtonGroup.ItemContent className="min-w-0 flex-1 gap-0.5">
-                      <Text weight="semibold" numberOfLines={1}>
-                        {option.label}
-                      </Text>
-                      <Text type="body-xs" color="muted" numberOfLines={1}>
-                        {option.model}
-                      </Text>
-                    </RadioButtonGroup.ItemContent>
-                    <Radio />
-                  </RadioButtonGroup.Item>
-                ))}
-              </RadioButtonGroup>
-            </Surface>
-          </Pressable>
-        </Pressable>
-      </Modal>
       {renameDialog ? (
         <Modal
           transparent
@@ -2294,10 +2261,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   renameCardPressable: {
-    borderRadius: 20,
-  },
-  modelMenuPressable: {
-    alignSelf: "flex-end",
     borderRadius: 20,
   },
 });

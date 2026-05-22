@@ -1,5 +1,5 @@
 import { ProviderIcon } from '@lobehub/icons-rn';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Platform,
@@ -258,6 +258,44 @@ export function SettingsModelSelectField({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  return (
+    <View className="gap-2">
+      <Text type="body-sm" weight="semibold">
+        {label}
+      </Text>
+      <SettingsModelSelect
+        isDisabled={disabled}
+        label={label}
+        value={value}
+        options={options}
+        placeholder={placeholder}
+        onChange={onChange}>
+        <Select.Trigger className="bg-default">
+          <Select.Value placeholder={placeholder} numberOfLines={1} />
+          <Select.TriggerIndicator />
+        </Select.Trigger>
+      </SettingsModelSelect>
+    </View>
+  );
+}
+
+export function SettingsModelSelect({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+  isDisabled,
+  children,
+}: {
+  label: string;
+  value: string;
+  options: ModelOption[];
+  placeholder: string;
+  onChange: (value: string) => void;
+  isDisabled?: boolean;
+  children: ReactNode;
+}) {
   const currentOption = toSelectOption(value);
   const isPopoverPresentation = Platform.OS === 'web';
   const { height: windowHeight } = useWindowDimensions();
@@ -272,6 +310,7 @@ export function SettingsModelSelectField({
     ? { height: contentHeight, overflow: 'hidden' }
     : { maxHeight: contentHeight, overflow: 'hidden' };
   const listStyle = shouldUseFixedWindow ? { height: listHeight } : { maxHeight: listHeight };
+
   const listContent = (
     <>
       <View className="mb-2 flex-row items-center justify-between gap-3 px-2">
@@ -289,7 +328,7 @@ export function SettingsModelSelectField({
         style={listStyle}
         contentContainerClassName="pb-1">
         {options.map((option, index) => (
-          <View key={option.value}>
+          <Fragment key={option.value}>
             <Select.Item value={option.value} label={option.label} className="min-h-12">
               {({ isSelected }) => (
                 <>
@@ -302,40 +341,32 @@ export function SettingsModelSelectField({
               )}
             </Select.Item>
             {index < options.length - 1 ? <Separator /> : null}
-          </View>
+          </Fragment>
         ))}
       </ScrollView>
     </>
   );
 
   return (
-    <View className="gap-2">
-      <Text type="body-sm" weight="semibold">
-        {label}
-      </Text>
-      <Select
-        isDisabled={disabled}
-        presentation={isPopoverPresentation ? 'popover' : 'dialog'}
-        value={currentOption}
-        onValueChange={(option) => option?.value && onChange(option.value)}>
-        <Select.Trigger className="bg-default">
-          <Select.Value placeholder={placeholder} numberOfLines={1} />
-          <Select.TriggerIndicator />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Overlay />
-          {isPopoverPresentation ? (
-            <Select.Content presentation="popover" width="trigger" style={contentStyle}>
-              {listContent}
-            </Select.Content>
-          ) : (
-            <Select.Content presentation="dialog" style={contentStyle}>
-              {listContent}
-            </Select.Content>
-          )}
-        </Select.Portal>
-      </Select>
-    </View>
+    <Select
+      isDisabled={isDisabled}
+      presentation={isPopoverPresentation ? 'popover' : 'dialog'}
+      value={currentOption}
+      onValueChange={(option) => option?.value && onChange(option.value)}>
+      {children}
+      <Select.Portal>
+        <Select.Overlay />
+        {isPopoverPresentation ? (
+          <Select.Content presentation="popover" width="trigger" style={contentStyle}>
+            {listContent}
+          </Select.Content>
+        ) : (
+          <Select.Content presentation="dialog" isSwipeable={false} style={contentStyle}>
+            {listContent}
+          </Select.Content>
+        )}
+      </Select.Portal>
+    </Select>
   );
 }
 

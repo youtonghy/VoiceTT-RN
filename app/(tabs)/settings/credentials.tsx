@@ -6,13 +6,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  type ViewStyle,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { Button, Card, Select, Separator, Spinner, Text } from 'heroui-native';
+import { Button, Card, Spinner, Text } from 'heroui-native';
 
 import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
+import { SettingsModelSelectField } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import {
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
@@ -111,17 +110,6 @@ const PROVIDER_FALLBACK_ICON_MAP: Record<CredentialProviderId, AppIconName> = {
   qwen: 'server',
   glm: 'cloud-arrow-up',
   doubao: 'key',
-};
-
-const MODEL_SELECT_VISIBLE_ITEMS = 7;
-const MODEL_SELECT_MAX_HEIGHT = 420;
-const MODEL_SELECT_MIN_HEIGHT = 240;
-const MODEL_SELECT_HEADER_SPACE = 52;
-const MODEL_SELECT_MIN_LIST_HEIGHT = 164;
-
-const toSelectOption = (value: string): ModelOption | undefined => {
-  const trimmed = value.trim();
-  return trimmed ? { label: trimmed, value: trimmed } : undefined;
 };
 
 const normalizeSecret = (text: string) => text.trim() || undefined;
@@ -592,7 +580,7 @@ export default function CredentialSettingsScreen() {
                       </Text>
                     </View>
                     {activeProvider.models.map((field) => (
-                      <ModelSelectField
+                      <SettingsModelSelectField
                         key={field.id}
                         label={field.label}
                         options={getModelOptions(field, activeProvider.modelProvider)}
@@ -686,99 +674,6 @@ function ProviderMark({
           className={selected ? 'text-accent' : 'text-muted'}
         />
       ) : null}
-    </View>
-  );
-}
-
-function ModelSelectField({
-  label,
-  value,
-  options,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: ModelOption[];
-  placeholder: string;
-  onChange: (value: string) => void;
-}) {
-  const currentOption = toSelectOption(value);
-  const isPopoverPresentation = Platform.OS === 'web';
-  const { height: windowHeight } = useWindowDimensions();
-  const safeWindowHeight = windowHeight || 640;
-  const contentHeight = Math.min(
-    MODEL_SELECT_MAX_HEIGHT,
-    Math.max(MODEL_SELECT_MIN_HEIGHT, Math.floor(safeWindowHeight * 0.72))
-  );
-  const listHeight = Math.max(MODEL_SELECT_MIN_LIST_HEIGHT, contentHeight - MODEL_SELECT_HEADER_SPACE);
-  const shouldUseFixedWindow = options.length > MODEL_SELECT_VISIBLE_ITEMS;
-  const contentStyle: ViewStyle = shouldUseFixedWindow
-    ? { height: contentHeight, overflow: 'hidden' }
-    : { maxHeight: contentHeight, overflow: 'hidden' };
-  const listStyle = shouldUseFixedWindow ? { height: listHeight } : { maxHeight: listHeight };
-  const listContent = (
-    <>
-      <View className="mb-2 flex-row items-center justify-between gap-3 px-2">
-        <Select.ListLabel className="min-w-0 flex-1 px-0 py-0" numberOfLines={1}>
-          {label}
-        </Select.ListLabel>
-        <Text type="body-xs" color="muted">
-          {options.length}
-        </Text>
-      </View>
-      <ScrollView
-        nestedScrollEnabled
-        showsVerticalScrollIndicator={shouldUseFixedWindow}
-        keyboardShouldPersistTaps="handled"
-        style={listStyle}
-        contentContainerClassName="pb-1">
-        {options.map((option, index) => (
-          <View key={option.value}>
-            <Select.Item value={option.value} label={option.label} className="min-h-12">
-              {({ isSelected }) => (
-                <>
-                  <Select.ItemLabel
-                    numberOfLines={1}
-                    className={isSelected ? 'text-accent' : undefined}
-                  />
-                  <Select.ItemIndicator />
-                </>
-              )}
-            </Select.Item>
-            {index < options.length - 1 ? <Separator /> : null}
-          </View>
-        ))}
-      </ScrollView>
-    </>
-  );
-
-  return (
-    <View className="gap-2">
-      <Text type="body-sm" weight="semibold">
-        {label}
-      </Text>
-      <Select
-        presentation={isPopoverPresentation ? 'popover' : 'dialog'}
-        value={currentOption}
-        onValueChange={(option) => option?.value && onChange(option.value)}>
-        <Select.Trigger className="bg-default">
-          <Select.Value placeholder={placeholder} numberOfLines={1} />
-          <Select.TriggerIndicator />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Overlay />
-          {isPopoverPresentation ? (
-            <Select.Content presentation="popover" width="trigger" style={contentStyle}>
-              {listContent}
-            </Select.Content>
-          ) : (
-            <Select.Content presentation="dialog" style={contentStyle}>
-              {listContent}
-            </Select.Content>
-          )}
-        </Select.Portal>
-      </Select>
     </View>
   );
 }
