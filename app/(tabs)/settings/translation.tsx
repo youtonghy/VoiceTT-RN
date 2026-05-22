@@ -41,7 +41,7 @@ import {
 import {
   formatNumberInput,
   useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 type TranslationProviderConfig = SettingsModelProviderItem<TranslationEngine> & {
   modelLabel?: string;

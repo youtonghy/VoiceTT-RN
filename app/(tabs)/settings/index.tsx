@@ -2,11 +2,11 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, Linking, Pressable, View } from 'react-native';
-import { Card, Text } from 'heroui-native';
-import { Badge } from 'heroui-native-pro';
+import { Alert, Image, Linking, View } from 'react-native';
+import { Button, PressableFeedback, Text } from 'heroui-native';
+import { Badge } from 'heroui-native-pro/badge';
 
-import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
+import { ActionCard, AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
 import { buildSettingsMenuGroups, type RouteHref, type SettingsMenuEntry } from '@/components/settings/settings-menu';
 import { useIsTablet } from '@/hooks/use-is-tablet';
 import { getProStatus } from '@/services/pro';
@@ -25,39 +25,20 @@ function SettingsEntryCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={entry.title}
-      onPress={onPress}>
-      <Card className={`border ${entry.isPriority ? 'border-accent/40 bg-accent/5' : 'border-border'}`}>
-        <Card.Body className="flex-row items-center gap-3 p-3">
-          <View
-            className={`size-11 items-center justify-center rounded-xl ${
-              entry.isPriority ? 'bg-accent' : 'bg-surface-secondary'
-            }`}>
-            <AppIcon
-              name={entry.icon}
-              size={19}
-              className={entry.isPriority ? 'text-accent-foreground' : 'text-accent'}
-            />
-          </View>
-          <View className="min-w-0 flex-1 gap-1">
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text weight="semibold">{entry.title}</Text>
-              {entry.isPriority ? (
-                <Badge color="accent" size="sm" variant="soft">
-                  <Badge.Label>{priorityLabel}</Badge.Label>
-                </Badge>
-              ) : null}
-            </View>
-            <Text type="body-sm" color="muted" numberOfLines={2}>
-              {entry.subtitle}
-            </Text>
-          </View>
-          <AppIcon name="chevron-right" size={18} className="text-muted" />
-        </Card.Body>
-      </Card>
-    </Pressable>
+    <ActionCard
+      title={entry.title}
+      subtitle={entry.subtitle}
+      icon={entry.icon}
+      onPress={onPress}
+      className={entry.isPriority ? 'border-accent/40 bg-accent/5' : ''}
+      badge={
+        entry.isPriority ? (
+          <Badge color="accent" size="sm" variant="soft">
+            <Badge.Label>{priorityLabel}</Badge.Label>
+          </Badge>
+        ) : null
+      }
+    />
   );
 }
 
@@ -144,9 +125,10 @@ export default function SettingsIndexScreen() {
         ))}
       </View>
 
-      <Pressable
+      <PressableFeedback
         accessibilityRole="button"
         accessibilityLabel={t('settings.pro.title')}
+        className="rounded-2xl"
         onPress={() => router.push('/settings/pro' as RouteHref)}>
         <AppCard
           className={isPro ? 'bg-warning/15' : 'bg-success/15'}
@@ -161,7 +143,7 @@ export default function SettingsIndexScreen() {
             </View>
           ) : null}
         </AppCard>
-      </Pressable>
+      </PressableFeedback>
 
       <AppCard title={t('settings.about.title')}>
         <View className="items-center gap-3">
@@ -178,20 +160,24 @@ export default function SettingsIndexScreen() {
             ))}
           </View>
           <View className="flex-row gap-3">
-            <Pressable
+            <Button
               accessibilityRole="link"
               accessibilityLabel={t('settings.about.links.website')}
+              isIconOnly
               onPress={() => openExternalLink(WEBSITE_URL)}
-              className="size-12 items-center justify-center rounded-xl bg-surface-secondary">
+              size="lg"
+              variant="secondary">
               <AppIcon name="globe" size={20} className="text-accent" />
-            </Pressable>
-            <Pressable
+            </Button>
+            <Button
               accessibilityRole="link"
               accessibilityLabel={t('settings.about.links.repository')}
+              isIconOnly
               onPress={() => openExternalLink(REPOSITORY_URL)}
-              className="size-12 items-center justify-center rounded-xl bg-surface-secondary">
+              size="lg"
+              variant="secondary">
               <AppIcon name="github" size={22} className="text-accent" />
-            </Pressable>
+            </Button>
           </View>
           <View className="items-center gap-1">
             <Text type="body-xs" color="muted" align="center">

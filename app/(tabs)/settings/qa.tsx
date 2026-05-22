@@ -31,7 +31,7 @@ import {
 import {
   formatNumberInput,
   useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 type QaProviderConfig = SettingsModelProviderItem<QaEngine> & {
   modelLabel: string;

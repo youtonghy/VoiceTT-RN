@@ -21,7 +21,7 @@ import {
     View,
 } from 'react-native';
 import { Button, Card, Input, Spinner, Text, TextField } from 'heroui-native';
-import { EmptyState as HeroEmptyState } from 'heroui-native-pro';
+import { EmptyState as HeroEmptyState } from 'heroui-native-pro/empty-state';
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
 import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';

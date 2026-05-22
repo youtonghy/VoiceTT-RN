@@ -1,17 +1,22 @@
-import { ProviderIcon, ModelProvider } from '@lobehub/icons-rn';
+import { ModelProvider } from '@lobehub/icons-rn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   View,
 } from 'react-native';
-import { Button, Card, Spinner, Text } from 'heroui-native';
+import { Button, Spinner, Text } from 'heroui-native';
 
 import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
-import { SettingsModelSelectField } from '@/components/settings/model-picker';
+import {
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import {
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
@@ -24,11 +29,10 @@ import {
   mergeModelOptions,
   type ModelCatalogProvider,
   type ModelOption,
-  type RemoteModelCatalogProvider,
 } from '@/services/model-catalog';
 import type { EngineCredentials } from '@/types/settings';
 
-import { useSettingsForm, type SettingsCardVariant } from './shared';
+import { useSettingsForm } from '@/components/settings/settings-form';
 
 type CredentialProviderId = 'openai' | 'gemini' | 'soniox' | 'qwen' | 'glm' | 'doubao';
 
@@ -61,15 +65,8 @@ type ModelCredentialKey =
   | 'qwenTranscriptionModel'
   | 'glmTranscriptionModel';
 
-type CredentialProvider = {
-  id: CredentialProviderId;
-  title: string;
-  providerIcon?: string;
-  fallbackIcon?: AppIconName;
-  variant: SettingsCardVariant;
+type CredentialProvider = SettingsModelProviderItem<CredentialProviderId> & {
   fields: CredentialField[];
-  modelProvider?: ModelCatalogProvider;
-  remoteModelProvider?: RemoteModelCatalogProvider;
   models: ModelField[];
 };
 
@@ -135,7 +132,6 @@ export default function CredentialSettingsScreen() {
         title: t('settings.credentials.sections.openai.title'),
         providerIcon: PROVIDER_ICON_MAP.openai,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.openai,
-        variant: 'openai',
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
         fields: [
@@ -205,7 +201,6 @@ export default function CredentialSettingsScreen() {
         title: t('settings.credentials.sections.gemini.title'),
         providerIcon: PROVIDER_ICON_MAP.gemini,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.gemini,
-        variant: 'gemini',
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
         fields: [
@@ -267,7 +262,6 @@ export default function CredentialSettingsScreen() {
         id: 'soniox',
         title: t('settings.credentials.sections.soniox.title'),
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.soniox,
-        variant: 'soniox',
         fields: [
           {
             id: 'sonioxApiKey',
@@ -285,7 +279,6 @@ export default function CredentialSettingsScreen() {
         title: t('settings.credentials.sections.qwen.title'),
         providerIcon: PROVIDER_ICON_MAP.qwen,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.qwen,
-        variant: 'qwen',
         modelProvider: 'qwen',
         fields: [
           {
@@ -311,7 +304,6 @@ export default function CredentialSettingsScreen() {
         title: t('settings.credentials.sections.glm.title'),
         providerIcon: PROVIDER_ICON_MAP.glm,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.glm,
-        variant: 'glm',
         modelProvider: 'glm',
         fields: [
           {
@@ -337,7 +329,6 @@ export default function CredentialSettingsScreen() {
         title: t('settings.credentials.sections.doubao.title'),
         providerIcon: PROVIDER_ICON_MAP.doubao,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.doubao,
-        variant: 'interaction',
         fields: [
           {
             id: 'doubaoAppId',
@@ -489,24 +480,11 @@ export default function CredentialSettingsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">
         <View className="min-h-0 flex-1 gap-4">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            className="-mx-4 max-h-28 flex-grow-0"
-            contentContainerClassName="gap-3 px-4 pb-1">
-            {providers.map((provider) => {
-              const selected = provider.id === activeProvider.id;
-              return (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  selected={selected}
-                  onPress={() => setActiveProviderId(provider.id)}
-                />
-              );
-            })}
-          </ScrollView>
+          <SettingsModelProviderStrip
+            providers={providers}
+            activeId={activeProvider.id}
+            onSelect={setActiveProviderId}
+          />
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -514,28 +492,20 @@ export default function CredentialSettingsScreen() {
             keyboardShouldPersistTaps="handled"
             className="min-h-0 flex-1"
             contentContainerClassName="gap-4 pb-6">
-            <Card className="gap-4 border border-border">
-              <Card.Header className="flex-row items-start justify-between gap-3">
-                <View className="min-w-0 flex-1 flex-row items-start gap-3">
-                  <ProviderMark
-                    providerIcon={activeProvider.providerIcon}
-                    fallbackIcon={activeProvider.fallbackIcon}
-                    selected
-                    size={42}
-                    iconSize={24}
-                  />
-                  <View className="min-w-0 flex-1 gap-1">
-                    <Card.Title>{activeProvider.title}</Card.Title>
-                    <Card.Description>
-                      {activeProvider.modelProvider
-                        ? activeProvider.remoteModelProvider
-                          ? t('settings.credentials.models.catalog_hint')
-                          : t('settings.credentials.models.local_hint')
-                        : t('settings.credentials.models.credentials_only')}
-                    </Card.Description>
-                  </View>
-                </View>
-                {activeProvider.remoteModelProvider ? (
+            <SettingsModelDetailCard
+              title={activeProvider.title}
+              description={
+                activeProvider.modelProvider
+                  ? activeProvider.remoteModelProvider
+                    ? t('settings.credentials.models.catalog_hint')
+                    : t('settings.credentials.models.local_hint')
+                  : t('settings.credentials.models.credentials_only')
+              }
+              providerIcon={activeProvider.providerIcon}
+              fallbackIcon={activeProvider.fallbackIcon}
+              statusText={activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined}
+              action={
+                activeProvider.remoteModelProvider ? (
                   <Button
                     isDisabled={activeCatalog?.status === 'loading'}
                     isIconOnly
@@ -549,152 +519,51 @@ export default function CredentialSettingsScreen() {
                       <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
                     )}
                   </Button>
-                ) : null}
-              </Card.Header>
+                ) : null
+              }>
+              {activeProvider.fields.length ? (
+                <View className="gap-4">
+                  {activeProvider.fields.map((field) => (
+                    <FormInput
+                      key={field.id}
+                      label={field.label}
+                      value={field.value}
+                      onChangeText={(text) => updateFormField(field.id, text)}
+                      onBlur={() => persistField(field)}
+                      placeholder={field.placeholder}
+                      secureTextEntry={field.secureTextEntry}
+                    />
+                  ))}
+                </View>
+              ) : null}
 
-              <Card.Body className="gap-5">
-                {activeProvider.fields.length ? (
-                  <View className="gap-4">
-                    {activeProvider.fields.map((field) => (
-                      <FormInput
-                        key={field.id}
-                        label={field.label}
-                        value={field.value}
-                        onChangeText={(text) => updateFormField(field.id, text)}
-                        onBlur={() => persistField(field)}
-                        placeholder={field.placeholder}
-                        secureTextEntry={field.secureTextEntry}
-                      />
-                    ))}
-                  </View>
-                ) : null}
-
-                {activeProvider.models.length ? (
-                  <View className="gap-3">
-                    <View className="flex-row items-center justify-between gap-3">
-                      <Text type="body-sm" weight="semibold">
-                        {t('settings.credentials.models.title')}
-                      </Text>
-                      <Text type="body-xs" color="muted">
-                        {resolveCatalogStatusText(t, activeCatalog)}
-                      </Text>
-                    </View>
-                    {activeProvider.models.map((field) => (
-                      <SettingsModelSelectField
-                        key={field.id}
-                        label={field.label}
-                        options={getModelOptions(field, activeProvider.modelProvider)}
-                        value={field.value}
-                        placeholder={field.fallback || t('settings.credentials.models.placeholder')}
-                        onChange={(value) => updateModel(field, value)}
-                      />
-                    ))}
-                  </View>
-                ) : null}
-
-                {activeCatalog?.status === 'error' ? (
-                  <Text type="body-xs" color="muted" numberOfLines={2}>
-                    {t('settings.credentials.models.fetch_failed')}
+              {activeProvider.models.length ? (
+                <View className="gap-3">
+                  <Text type="body-sm" weight="semibold">
+                    {t('settings.credentials.models.title')}
                   </Text>
-                ) : null}
-              </Card.Body>
-            </Card>
+                  {activeProvider.models.map((field) => (
+                    <SettingsModelSelectField
+                      key={field.id}
+                      label={field.label}
+                      options={getModelOptions(field, activeProvider.modelProvider)}
+                      value={field.value}
+                      placeholder={field.fallback || t('settings.credentials.models.placeholder')}
+                      onChange={(value) => updateModel(field, value)}
+                    />
+                  ))}
+                </View>
+              ) : null}
+
+              {activeCatalog?.status === 'error' ? (
+                <Text type="body-xs" color="muted" numberOfLines={2}>
+                  {t('settings.credentials.models.fetch_failed')}
+                </Text>
+              ) : null}
+            </SettingsModelDetailCard>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </AppScreen>
   );
-}
-
-function ProviderCard({
-  provider,
-  selected,
-  onPress,
-}: {
-  provider: CredentialProvider;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={provider.title}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      className={[
-        'min-w-32 rounded-2xl border p-3',
-        selected ? 'border-accent bg-accent/10' : 'border-border bg-surface',
-      ].join(' ')}>
-      <View className="gap-3">
-        <ProviderMark
-          providerIcon={provider.providerIcon}
-          fallbackIcon={provider.fallbackIcon}
-          selected={selected}
-          size={40}
-          iconSize={23}
-        />
-        <Text
-          type="body-sm"
-          weight="bold"
-          numberOfLines={1}
-          className={selected ? 'text-accent' : 'text-foreground'}>
-          {provider.title}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-function ProviderMark({
-  providerIcon,
-  fallbackIcon,
-  selected,
-  size,
-  iconSize,
-}: {
-  providerIcon?: string;
-  fallbackIcon?: AppIconName;
-  selected: boolean;
-  size: number;
-  iconSize: number;
-}) {
-  return (
-    <View
-      className={[
-        'items-center justify-center rounded-xl',
-        selected ? 'bg-accent/15' : 'bg-surface-secondary',
-      ].join(' ')}
-      style={{ height: size, width: size }}>
-      {providerIcon ? (
-        <ProviderIcon provider={providerIcon} size={iconSize} type="avatar" />
-      ) : fallbackIcon ? (
-        <AppIcon
-          name={fallbackIcon}
-          size={iconSize - 5}
-          className={selected ? 'text-accent' : 'text-muted'}
-        />
-      ) : null}
-    </View>
-  );
-}
-
-function resolveCatalogStatusText(
-  t: ReturnType<typeof useTranslation>['t'],
-  catalog?: ModelCatalogState
-) {
-  if (!catalog) {
-    return '';
-  }
-  switch (catalog.status) {
-    case 'loading':
-      return t('settings.credentials.models.loading');
-    case 'ready':
-      return t('settings.credentials.models.ready', { count: catalog.options.length });
-    case 'missing-key':
-      return t('settings.credentials.models.missing_key');
-    case 'error':
-      return t('settings.credentials.models.using_cached');
-    default:
-      return t('settings.credentials.models.defaults');
-  }
 }

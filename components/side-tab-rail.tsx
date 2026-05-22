@@ -1,21 +1,17 @@
 import { useMemo } from 'react';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { PressableFeedback, Text, useThemeColor } from 'heroui-native';
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ThemedText } from '@/components/themed-text';
-
-type RailIconName = 'comments' | 'gear' | 'volume-high' | 'wave-square';
+import { AppIcon, type AppIconName } from '@/components/native/app-shell';
 
 type RailItem = {
   key: 'transcription' | 'qa' | 'reading' | 'settings';
   href: '/transcription' | '/conversation-qa' | '/text-to-speech' | '/settings';
   label: string;
-  icon: RailIconName;
+  icon: AppIconName;
   isActive: (pathname: string) => boolean;
 };
 
@@ -28,10 +24,14 @@ export function SideTabRail({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const colorScheme = useColorScheme();
   const { t } = useTranslation();
-
-  const palette = Colors[colorScheme ?? 'light'];
+  const [backgroundColor, accentColor, mutedColor, activeBackgroundColor, borderColor] = useThemeColor([
+    'background',
+    'accent',
+    'muted',
+    'surface-secondary',
+    'border',
+  ]);
   const items = useMemo<RailItem[]>(() => {
     const next: RailItem[] = [
       {
@@ -76,31 +76,33 @@ export function SideTabRail({
   }, [showQaTab, showReadingTab, t]);
 
   return (
-    <SafeAreaView style={[styles.rail, { backgroundColor: palette.background }]} edges={['top', 'left', 'bottom']}>
+    <SafeAreaView style={[styles.rail, { backgroundColor, borderRightColor: borderColor }]} edges={['top', 'left', 'bottom']}>
       <View style={styles.items}>
         {items.map((item) => {
           const active = item.isActive(pathname);
-          const iconColor = active ? palette.tint : palette.tabIconDefault;
+          const iconColor = active ? accentColor : mutedColor;
           return (
-            <Pressable
+            <PressableFeedback
               key={item.key}
               accessibilityRole="button"
               accessibilityLabel={item.label}
               onPress={() => router.replace(item.href)}
-              style={({ pressed }) => [
+              style={[
                 styles.itemPressable,
-                active && styles.itemActive,
-                pressed && styles.itemPressed,
+                active && { backgroundColor: activeBackgroundColor, borderColor: accentColor },
               ]}>
               <View style={styles.itemIconRow}>
-                <FontAwesome6 name={item.icon} size={20} color={iconColor} solid />
+                <AppIcon name={item.icon} size={20} color={iconColor} solid />
               </View>
-              <ThemedText
+              <Text
+                type="body-xs"
+                weight="bold"
+                align="center"
                 style={[styles.itemLabel, { color: iconColor }]}
                 numberOfLines={1}>
                 {item.label}
-              </ThemedText>
-            </Pressable>
+              </Text>
+            </PressableFeedback>
           );
         })}
       </View>
@@ -113,7 +115,6 @@ const styles = StyleSheet.create({
     width: 96,
     flexShrink: 0,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(148, 163, 184, 0.25)',
   },
   items: {
     flex: 1,
@@ -125,14 +126,10 @@ const styles = StyleSheet.create({
     width: 78,
     paddingVertical: 10,
     borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
     alignItems: 'center',
     gap: 6,
-  },
-  itemActive: {
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
-  },
-  itemPressed: {
-    opacity: 0.85,
   },
   itemIconRow: {
     width: 34,

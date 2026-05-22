@@ -37,7 +37,7 @@ import {
 
 import {
   useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 type TtsProviderConfig = SettingsModelProviderItem<TtsEngine> & {
   docsUrl: string;

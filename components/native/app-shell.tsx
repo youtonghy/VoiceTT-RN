@@ -1,7 +1,6 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import type { ComponentProps, ReactNode } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -9,7 +8,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, Input, Switch, Text, TextField } from 'heroui-native';
+import { Button, Card, Input, PressableFeedback, Switch, Text, TextField } from 'heroui-native';
 import { withUniwind } from 'uniwind';
 
 export type AppIconName =
@@ -38,17 +37,21 @@ export type AppIconName =
   | 'language'
   | 'layer-group'
   | 'lock'
+  | 'magnifying-glass'
   | 'microphone'
   | 'mobile-screen'
   | 'moon'
   | 'paintbrush'
   | 'palette'
+  | 'paper-plane'
   | 'question'
+  | 'radio'
   | 'robot'
   | 'rocket'
   | 'server'
   | 'shield-halved'
   | 'sliders'
+  | 'square'
   | 'square-poll-horizontal'
   | 'sun'
   | 'toggle-on'
@@ -153,6 +156,54 @@ export function AppCard({
   );
 }
 
+export function ActionCard({
+  title,
+  subtitle,
+  icon,
+  badge,
+  onPress,
+  accessibilityRole = 'button',
+  className = '',
+}: {
+  title: string;
+  subtitle?: string;
+  icon: AppIconName;
+  badge?: ReactNode;
+  onPress: () => void;
+  accessibilityRole?: 'button' | 'link';
+  className?: string;
+}) {
+  return (
+    <PressableFeedback
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={title}
+      className="rounded-2xl"
+      onPress={onPress}>
+      <Card className={`border border-border ${className}`}>
+        <Card.Body className="flex-row items-center gap-3 p-3">
+          <View className="size-11 items-center justify-center rounded-xl bg-surface-secondary">
+            <AppIcon name={icon} size={19} className="text-accent" />
+          </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text weight="semibold" numberOfLines={1}>
+                {title}
+              </Text>
+              {badge}
+            </View>
+            {subtitle ? (
+              <Text type="body-sm" color="muted" numberOfLines={2}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          <AppIcon name="chevron-right" size={18} className="text-muted" />
+        </Card.Body>
+      </Card>
+    </PressableFeedback>
+  );
+}
+
 export function IconButton({
   icon,
   label,
@@ -214,11 +265,11 @@ export function SegmentControl<T extends string>({
       {options.map((option) => {
         const selected = option.value === value;
         return (
-          <Pressable
+          <PressableFeedback
             key={option.value}
             accessibilityRole="button"
             accessibilityState={{ selected, disabled: option.disabled }}
-            disabled={option.disabled}
+            isDisabled={option.disabled}
             onPress={() => onChange(option.value)}
             style={styles.segmentItem}
             className={[
@@ -237,9 +288,9 @@ export function SegmentControl<T extends string>({
               type="body-sm"
               weight="semibold"
               className={selected ? 'text-accent-foreground' : 'text-foreground'}>
-              {option.label}
-            </Text>
-          </Pressable>
+                {option.label}
+              </Text>
+          </PressableFeedback>
         );
       })}
     </View>

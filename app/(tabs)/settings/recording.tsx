@@ -28,7 +28,7 @@ import {
     OptionPill,
     formatNumberInput,
     useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 const METERING_RECORDING_OPTIONS: RecordingOptions = {
   isMeteringEnabled: true,

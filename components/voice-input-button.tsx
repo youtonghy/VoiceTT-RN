@@ -1,4 +1,3 @@
-import Feather from '@expo/vector-icons/Feather';
 import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
@@ -15,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button, Spinner, useThemeColor } from 'heroui-native';
 
+import { AppIcon } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';
 import { VOICE_INPUT_RECORDING_OPTIONS } from '@/constants/voice-input';
@@ -165,7 +165,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
     return `${base} (${engineLabel})`;
   }, [engineLabel, status, t]);
 
-  const iconName = status === 'recording' ? 'square' : 'mic';
+  const iconName = status === 'recording' ? 'square' : 'microphone';
 
   return (
     <Button
@@ -179,7 +179,7 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
       {status === 'processing' ? (
         <Spinner size="sm" />
       ) : (
-        <Feather
+        <AppIcon
           name={iconName}
           size={17}
           color={status === 'recording' ? dangerForeground : accentSoftForeground}

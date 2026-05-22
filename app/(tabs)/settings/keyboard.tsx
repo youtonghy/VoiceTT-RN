@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 import { Text } from 'heroui-native';
 
-import { AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
+import { ActionCard, AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
 
 const WEBSITE_URL = 'https://vtt.tokisantike.net/zh-CN/keyboard';
 const REPOSITORY_URL = 'https://github.com/youtonghy/VTT-keyboard';
@@ -79,27 +79,15 @@ export default function KeyboardRecommendationScreen() {
       <AppCard icon="globe" title={t('settings.keyboard.links_title')}>
         <View className="gap-2">
           {LINK_ENTRIES.map((entry) => (
-            <Pressable
+            <ActionCard
               key={entry.key}
               accessibilityRole="link"
-              accessibilityLabel={t(`settings.keyboard.links.${entry.key}.label`)}
+              icon={entry.icon}
+              title={t(`settings.keyboard.links.${entry.key}.label`)}
+              subtitle={entry.url}
               onPress={() => openExternalLink(entry.url)}
-              className="rounded-xl border border-border bg-surface-secondary p-3">
-              <View className="flex-row items-center gap-3">
-                <View className="size-10 items-center justify-center rounded-lg bg-surface">
-                  <AppIcon name={entry.icon} size={18} className="text-accent" />
-                </View>
-                <View className="min-w-0 flex-1 gap-1">
-                  <Text weight="semibold">
-                    {t(`settings.keyboard.links.${entry.key}.label`)}
-                  </Text>
-                  <Text type="body-xs" color="muted" numberOfLines={1}>
-                    {entry.url}
-                  </Text>
-                </View>
-                <AppIcon name="chevron-right" size={16} className="text-muted" />
-              </View>
-            </Pressable>
+              className="bg-surface-secondary"
+            />
           ))}
         </View>
       </AppCard>

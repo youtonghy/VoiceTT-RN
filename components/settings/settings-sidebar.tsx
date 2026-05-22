@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Card, Text } from 'heroui-native';
-import { Badge } from 'heroui-native-pro';
+import { Card, PressableFeedback, Text } from 'heroui-native';
+import { Badge } from 'heroui-native-pro/badge';
 
 import { AppIcon } from '@/components/native/app-shell';
 import { buildSettingsMenuGroups, type SettingsMenuEntry } from '@/components/settings/settings-menu';
@@ -50,9 +50,10 @@ export function SettingsSidebar() {
         <Text.Heading type="h2">{t('settings.page_title')}</Text.Heading>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-2 px-3 pb-6">
-        <Pressable
+        <PressableFeedback
           accessibilityRole="button"
           accessibilityLabel={t('settings.pro.title')}
+          className="rounded-2xl"
           onPress={() => router.replace('/settings/pro' as RouteHref)}>
           <Card className={`border ${isProRoute ? 'border-accent' : 'border-border'} ${isPro ? 'bg-warning/15' : 'bg-success/15'}`}>
             <Card.Body className="gap-2">
@@ -69,7 +70,7 @@ export function SettingsSidebar() {
               ) : null}
             </Card.Body>
           </Card>
-        </Pressable>
+        </PressableFeedback>
         {menuGroups.map((group) => (
           <View key={group.key} className="gap-2">
             <View className="gap-1 px-1 pt-2">
@@ -105,9 +106,10 @@ function SidebarEntry({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <PressableFeedback
       accessibilityRole="button"
       accessibilityLabel={entry.title}
+      className="rounded-2xl"
       onPress={onPress}>
       <Card
         className={`border ${
@@ -145,6 +147,6 @@ function SidebarEntry({
           </View>
         </Card.Body>
       </Card>
-    </Pressable>
+    </PressableFeedback>
   );
 }

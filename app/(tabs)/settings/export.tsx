@@ -14,7 +14,7 @@ import type { ExportFormat } from '@/types/settings';
 
 import {
   OptionPill,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 const exportFormats: ExportFormat[] = ['markdown', 'pdf'];
 

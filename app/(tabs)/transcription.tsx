@@ -3,7 +3,6 @@ import { createAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,12 +17,13 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import { withUniwind } from "uniwind";
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from "@/components/context-menu";
 import { MarkdownText } from "@/components/markdown-text";
 import VoiceInputButton from "@/components/voice-input-button";
 import {
+    AppIcon,
+    type AppIconName,
     AppScreen,
     FormInput,
 } from "@/components/native/app-shell";
@@ -52,23 +52,10 @@ import {
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
 import { Button, Card, Input, SearchField, Select, Surface, Text, useThemeColor } from "heroui-native";
-import { Segment } from "heroui-native-pro";
+import { Segment } from "heroui-native-pro/segment";
 
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-type StudioIconName =
-  | 'box-archive'
-  | 'clock-rotate-left'
-  | 'comments'
-  | 'microphone'
-  | 'magnifying-glass'
-  | 'paper-plane'
-  | 'radio'
-  | 'robot'
-  | 'wand-magic-sparkles'
-  | 'wave-square';
-const StudioIcon = withUniwind(FontAwesome6);
 
 type AssistantMessageStatus = "pending" | "succeeded" | "failed";
 
@@ -1729,7 +1716,7 @@ export default function TranscriptionScreen() {
             onPress={handleToggleRecording}
             size="md"
             variant={isSessionActive ? 'danger' : 'secondary'}>
-            <StudioIcon
+            <AppIcon
               name="radio"
               size={17}
               color={isSessionActive ? dangerForeground : undefined}
@@ -1861,7 +1848,7 @@ export default function TranscriptionScreen() {
                       ].join(' ')}>
                       <View className="flex-row items-start gap-3">
                         <View className={['mt-0.5 size-9 items-center justify-center rounded-2xl', isActive ? 'bg-accent' : 'bg-background'].join(' ')}>
-                          <StudioIcon
+                          <AppIcon
                             name="box-archive"
                             size={16}
                             className={isActive ? 'text-accent-foreground' : 'text-muted'}
@@ -1897,7 +1884,7 @@ export default function TranscriptionScreen() {
             }}
             size="lg"
             variant="primary">
-            <StudioIcon name="comments" size={18} className="text-accent-foreground" />
+            <AppIcon name="comments" size={18} className="text-accent-foreground" />
             <Button.Label numberOfLines={1}>
               {t('transcription.history.new_conversation', { id: historyIdCounter.current })}
             </Button.Label>
@@ -1932,7 +1919,7 @@ export default function TranscriptionScreen() {
                 isIconOnly
                 size="md"
                 variant="secondary">
-                <StudioIcon name="robot" size={17} className="text-accent" solid />
+                <AppIcon name="robot" size={17} className="text-accent" solid />
               </Button>
             </Select.Trigger>
           </SettingsModelSelect>
@@ -1969,16 +1956,12 @@ export default function TranscriptionScreen() {
             delayLongPress={isDesktopApp ? undefined : 250}>
             <View className="gap-2 rounded-2xl bg-surface-secondary p-3">
               <View className="flex-row items-center gap-2">
-                <StudioIcon name="wand-magic-sparkles" size={15} className="text-accent" solid />
+                <AppIcon name="wand-magic-sparkles" size={15} className="text-accent" solid />
                 <Text type="body-xs" color="muted" weight="semibold">
                   {t('assistant.section.summary_title')}
                 </Text>
               </View>
-              <MarkdownText
-                style={styles.assistantSummaryText}
-                lightColor="#1e293b"
-                darkColor="#e2e8f0"
-              >
+              <MarkdownText style={styles.assistantSummaryText}>
                 {assistantSummary || assistantSummaryPlaceholder}
               </MarkdownText>
             </View>
@@ -2013,11 +1996,7 @@ export default function TranscriptionScreen() {
                         {message.content}
                       </Text>
                     ) : (
-                      <MarkdownText
-                        style={styles.assistantMessageText}
-                        lightColor="#0f172a"
-                        darkColor="#e2e8f0"
-                      >
+                      <MarkdownText style={styles.assistantMessageText}>
                         {message.content}
                       </MarkdownText>
                     )}
@@ -2061,7 +2040,7 @@ export default function TranscriptionScreen() {
               size="lg"
               style={styles.assistantActionButton}
               variant="primary">
-              <StudioIcon name="paper-plane" size={17} className="text-accent-foreground" solid />
+              <AppIcon name="paper-plane" size={17} className="text-accent-foreground" solid />
             </Button>
           </View>
         ) : null}
@@ -2233,14 +2212,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  translationPending: {
-    fontSize: 14,
-    color: "#64748b",
-  },
-  translationError: {
-    fontSize: 14,
-    color: "#f87171",
-  },
   historyScrollContent: {
     padding: 12,
     gap: 12,
@@ -2344,10 +2315,14 @@ function TranslationSection({ message }: { message: TranscriptionMessage }) {
 
   let content: ReactNode | null = null;
   if (message.translationStatus === 'pending') {
-    content = <Text style={styles.translationPending}>{t('translation.status.in_progress')}</Text>;
+    content = (
+      <Text type="body-sm" color="muted">
+        {t('translation.status.in_progress')}
+      </Text>
+    );
   } else if (message.translationStatus === 'failed') {
     content = (
-      <Text style={styles.translationError}>
+      <Text type="body-sm" className="text-danger">
         {message.translationError || t('translation.status.failed')}
       </Text>
     );
@@ -2373,7 +2348,7 @@ function NativeSegment<T extends string>({
   onValueChange,
 }: {
   value: T;
-  options: { value: T; label: string; icon?: StudioIconName; disabled?: boolean }[];
+  options: { value: T; label: string; icon?: AppIconName; disabled?: boolean }[];
   onValueChange: (next: T) => void;
 }) {
   return (
@@ -2391,7 +2366,7 @@ function NativeSegment<T extends string>({
               isDisabled={option.disabled}
               value={option.value}>
               {option.icon ? (
-                <StudioIcon name={option.icon} size={16} className="text-muted" />
+                <AppIcon name={option.icon} size={16} className="text-muted" />
               ) : null}
               <Segment.Label numberOfLines={1}>{option.label}</Segment.Label>
             </Segment.Item>
@@ -2407,14 +2382,14 @@ function StudioEmptyState({
   title,
   subtitle,
 }: {
-  icon: StudioIconName;
+  icon: AppIconName;
   title: string;
   subtitle?: string;
 }) {
   return (
     <View className="items-center justify-center gap-3 px-6 py-10">
       <View className="size-14 items-center justify-center rounded-3xl bg-surface-secondary">
-        <StudioIcon name={icon} size={27} className="text-muted" />
+        <AppIcon name={icon} size={27} className="text-muted" />
       </View>
       <Text weight="semibold" align="center">
         {title}

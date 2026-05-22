@@ -1,20 +1,9 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef } from 'react';
-import Feather from '@expo/vector-icons/Feather';
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  View,
-  type ColorValue,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Button } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { AppIcon } from '@/components/native/app-shell';
 import { useTranscription } from '@/contexts/transcription-context';
-
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 type RecordingToggleProps = {
   qaAutoEnabled?: boolean;
@@ -25,48 +14,6 @@ type RecordingToggleProps = {
 export function RecordingToggle({ compact = false, qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
   const { isSessionActive, toggleSession, sessionState } = useTranscription();
   const { t } = useTranslation();
-  const shimmerProgress = useRef(new Animated.Value(0)).current;
-  const shimmerLoop = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    return () => {
-      shimmerLoop.current?.stop();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isSessionActive) {
-      shimmerProgress.setValue(0);
-      shimmerLoop.current?.stop();
-      shimmerLoop.current = Animated.loop(
-        Animated.timing(shimmerProgress, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      );
-      shimmerLoop.current.start();
-    } else {
-      shimmerLoop.current?.stop();
-      shimmerProgress.stopAnimation();
-      shimmerProgress.setValue(0);
-    }
-  }, [isSessionActive, shimmerProgress]);
-
-  const shimmerTranslate = shimmerProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-120, 300], // Increased range for full width
-  });
-
-  const colors: readonly [ColorValue, ColorValue] = isSessionActive
-    ? ['#F87171', '#EF4444']
-    : ['#34D399', '#22C55E'];
-  const shimmerColors: readonly [ColorValue, ColorValue, ColorValue] = [
-    'rgba(255,255,255,0)',
-    'rgba(255,255,255,0.35)',
-    'rgba(255,255,255,0)',
-  ];
 
   const accessibilityLabel = isSessionActive
     ? t('transcription.accessibility.stop_recording')
@@ -85,118 +32,55 @@ export function RecordingToggle({ compact = false, qaAutoEnabled = false, varian
   const isBusy = sessionState === 'starting' || sessionState === 'stopping';
 
   return (
-    <Pressable
+    <Button
       accessibilityLabel={accessibilityLabel}
-      disabled={isBusy}
+      className={[
+        isFull ? 'w-full' : '',
+        isCompactFull ? 'w-[148px]' : '',
+      ].join(' ')}
+      isDisabled={isBusy}
+      isIconOnly={!isFull}
       onPress={() => {
         void toggleSession({ qaAutoEnabled });
       }}
+      size={isFull ? 'lg' : 'md'}
       style={[
-        styles.recordButtonWrapper,
-        isFull && (isCompactFull ? styles.recordButtonWrapperCompactFull : styles.recordButtonWrapperFull),
-        isBusy && styles.recordButtonWrapperDisabled,
-      ]}>
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.recordButton, isFull && (isCompactFull ? styles.recordButtonCompactFull : styles.recordButtonFull)]}>
-        <View style={[styles.recordButtonContent, isFull && styles.recordButtonContentFull]}>
-          <Feather
-            name={isSessionActive ? 'square' : 'mic'}
-            size={isFull ? 20 : 22}
-            color="#fff"
-          />
-          {isFull ? (
-            <ThemedText
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={styles.recordButtonLabel}
-              lightColor="#fff"
-              darkColor="#fff">
-              {label}
-            </ThemedText>
-          ) : null}
-        </View>
-        {isSessionActive ? (
-          <AnimatedLinearGradient
-            colors={shimmerColors}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={[
-              styles.recordButtonShimmer,
-              isFull ? styles.recordButtonShimmerFull : styles.recordButtonShimmerIcon,
-              { transform: [{ translateX: shimmerTranslate }] }
-            ]}
-          />
+        isFull && styles.fullButton,
+        isCompactFull && styles.compactFullButton,
+      ]}
+      variant={isSessionActive ? 'danger' : 'primary'}>
+      <View style={styles.content}>
+        <AppIcon
+          name={isSessionActive ? 'square' : 'microphone'}
+          size={isFull ? 18 : 20}
+          className="text-accent-foreground"
+          solid
+        />
+        {isFull ? (
+          <Button.Label numberOfLines={1} ellipsizeMode="tail" style={styles.label}>
+            {label}
+          </Button.Label>
         ) : null}
-      </LinearGradient>
-    </Pressable>
+      </View>
+    </Button>
   );
 }
 
 const styles = StyleSheet.create({
-  recordButtonWrapper: {
-    borderRadius: 22,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-  },
-  recordButtonWrapperFull: {
-    width: '100%',
-  },
-  recordButtonWrapperCompactFull: {
-    flexShrink: 0,
-    width: 148,
-  },
-  recordButtonWrapperDisabled: {
-    opacity: 0.75,
-  },
-  recordButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 22,
+  content: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  recordButtonFull: {
-    width: '100%',
-    height: 52,
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-  },
-  recordButtonCompactFull: {
-    width: 148,
-    height: 42,
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-  },
-  recordButtonContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordButtonContentFull: {
     flexDirection: 'row',
     gap: 10,
   },
-  recordButtonLabel: {
-    flexShrink: 1,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  recordButtonShimmer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    opacity: 0.85,
-  },
-  recordButtonShimmerIcon: {
-    width: 54,
-  },
-  recordButtonShimmerFull: {
+  fullButton: {
     width: '100%',
+  },
+  compactFullButton: {
+    flexShrink: 0,
+    width: 148,
+  },
+  label: {
+    flexShrink: 1,
   },
 });

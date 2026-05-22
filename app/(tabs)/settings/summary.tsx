@@ -39,7 +39,7 @@ import {
 import {
   formatNumberInput,
   useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 type SummaryModelEngine = 'openai' | 'gemini';
 type ModelCatalogControls = ReturnType<typeof useSettingsModelCatalogs>;

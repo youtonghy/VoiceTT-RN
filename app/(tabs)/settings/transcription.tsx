@@ -30,7 +30,7 @@ import {
 } from '@/services/transcription';
 import type { EngineCredentials, TranscriptionEngine } from '@/types/settings';
 
-import { useSettingsForm } from './shared';
+import { useSettingsForm } from '@/components/settings/settings-form';
 
 type TranscriptionProviderConfig = SettingsModelProviderItem<TranscriptionEngine> & {
   docsUrl?: string;

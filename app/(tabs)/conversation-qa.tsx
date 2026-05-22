@@ -568,11 +568,7 @@ export default function QaScreen() {
                             {t('qa.labels.answer')}
                             </Text>
                           </View>
-                          <MarkdownText
-                            style={styles.qaContent}
-                            lightColor="#0f172a"
-                            darkColor="#e2e8f0"
-                          >
+                          <MarkdownText style={styles.qaContent}>
                             {item.answer}
                           </MarkdownText>
                         </View>

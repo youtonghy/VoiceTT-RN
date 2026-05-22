@@ -3,13 +3,12 @@ import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } fr
 import { useTranslation } from 'react-i18next';
 import {
   Platform,
-  Pressable,
   ScrollView,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
-import { Card, Select, Separator, Text } from 'heroui-native';
+import { Card, PressableFeedback, Select, Separator, Text } from 'heroui-native';
 
 import { AppIcon, type AppIconName } from '@/components/native/app-shell';
 import {
@@ -403,11 +402,11 @@ function SettingsModelProviderCard<T extends string>({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <PressableFeedback
       accessibilityRole="button"
       accessibilityLabel={provider.title}
       accessibilityState={{ selected, disabled }}
-      disabled={disabled}
+      isDisabled={disabled}
       onPress={onPress}
       className={[
         'min-w-32 rounded-2xl border p-3',
@@ -430,7 +429,7 @@ function SettingsModelProviderCard<T extends string>({
           {provider.title}
         </Text>
       </View>
-    </Pressable>
+    </PressableFeedback>
   );
 }
 
