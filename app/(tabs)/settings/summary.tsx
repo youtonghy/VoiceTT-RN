@@ -365,7 +365,8 @@ function SummaryModelSection({
   const modelOptions = getModelSelectOptions(
     catalogs,
     activeProvider.modelProvider,
-    [activeProvider.modelValue, activeProvider.modelFallback]
+    [activeProvider.modelValue, activeProvider.modelFallback],
+    activeProvider.modelKey
   );
 
   useEffect(() => {

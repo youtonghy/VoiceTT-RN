@@ -1417,7 +1417,8 @@ export default function TranscriptionScreen() {
   const assistantModelOptions = getModelSelectOptions(
     assistantModelCatalogs,
     assistantModelProvider,
-    [activeAssistantModel, assistantModelFallback]
+    [activeAssistantModel, assistantModelFallback],
+    assistantModelCredentialKey
   );
   useEffect(() => {
     void ensureAssistantModelsFetched(assistantModelProvider);

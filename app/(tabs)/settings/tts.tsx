@@ -142,10 +142,12 @@ export default function TtsSettingsScreen() {
   const activeProvider =
     providers.find((provider) => provider.id === settings.ttsEngine) ?? providers[0];
   const activeCatalog = catalogs[activeProvider.modelProvider!];
-  const modelOptions = getModelSelectOptions(catalogs, activeProvider.modelProvider, [
-    activeProvider.modelValue,
-    activeProvider.modelFallback,
-  ]);
+  const modelOptions = getModelSelectOptions(
+    catalogs,
+    activeProvider.modelProvider,
+    [activeProvider.modelValue, activeProvider.modelFallback],
+    activeProvider.modelKey
+  );
 
   useEffect(() => {
     void ensureModelsFetched(activeProvider.remoteModelProvider);

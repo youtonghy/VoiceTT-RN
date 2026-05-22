@@ -176,10 +176,12 @@ export default function TranscriptionSettingsScreen() {
     : undefined;
   const modelOptions =
     activeProvider.modelLabel && activeProvider.modelProvider
-      ? getModelSelectOptions(catalogs, activeProvider.modelProvider, [
-          activeProvider.modelValue,
-          activeProvider.modelFallback,
-        ])
+      ? getModelSelectOptions(
+          catalogs,
+          activeProvider.modelProvider,
+          [activeProvider.modelValue, activeProvider.modelFallback],
+          activeProvider.modelKey
+        )
       : [];
 
   useEffect(() => {

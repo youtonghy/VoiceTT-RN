@@ -469,12 +469,99 @@ export function SettingsModelProviderMark({
 export function getModelSelectOptions(
   catalogs: Record<ModelCatalogProvider, SettingsModelCatalogState>,
   provider: ModelCatalogProvider | undefined,
-  values: (string | undefined)[]
+  values: (string | undefined)[],
+  sortSource?: string
 ) {
   const selectedValues = values.filter((value): value is string => Boolean(value?.trim()));
-  return mergeModelOptions(
+  const options = mergeModelOptions(
     provider ? catalogs[provider].options : undefined,
     provider ? getFallbackModelOptions(provider) : undefined,
     selectedValues
   );
+  return sortModelOptions(options, getModelSelectSortKeywords(sortSource), selectedValues);
+}
+
+export function getModelSelectSortKeywords(source?: string) {
+  const normalized = source?.toLowerCase() ?? '';
+  if (!normalized) {
+    return [];
+  }
+
+  if (normalized.includes('transcription')) {
+    return ['transcribe', 'asr', 'stt', 'whisper', 'speech-to-text'];
+  }
+
+  if (normalized.includes('translation')) {
+    return ['translate', 'translation'];
+  }
+
+  if (normalized.includes('tts')) {
+    return ['tts', 'text-to-speech', 'voice'];
+  }
+
+  if (normalized.includes('title')) {
+    return ['summary', 'summar', 'title'];
+  }
+
+  if (normalized.includes('conversation')) {
+    return ['conversation', 'chat'];
+  }
+
+  if (normalized.includes('assistant')) {
+    return ['assistant', 'chat'];
+  }
+
+  if (normalized.includes('qa')) {
+    return ['qa', 'question', 'chat'];
+  }
+
+  return [];
+}
+
+function sortModelOptions(options: ModelOption[], keywords: string[], selectedValues: string[]) {
+  if (!keywords.length) {
+    return options;
+  }
+
+  const selectedIndex = new Map(selectedValues.map((value, index) => [value.toLowerCase(), index]));
+
+  return [...options].sort((left, right) => {
+    const leftScore = scoreModelOption(left.value, keywords);
+    const rightScore = scoreModelOption(right.value, keywords);
+    if (leftScore !== rightScore) {
+      return rightScore - leftScore;
+    }
+
+    const leftSelectedIndex = selectedIndex.get(left.value.toLowerCase());
+    const rightSelectedIndex = selectedIndex.get(right.value.toLowerCase());
+    if (leftSelectedIndex !== undefined || rightSelectedIndex !== undefined) {
+      if (leftSelectedIndex === undefined) {
+        return 1;
+      }
+      if (rightSelectedIndex === undefined) {
+        return -1;
+      }
+      return leftSelectedIndex - rightSelectedIndex;
+    }
+
+    return left.label.localeCompare(right.label);
+  });
+}
+
+function scoreModelOption(value: string, keywords: string[]) {
+  const lowerValue = value.toLowerCase();
+  let score = 0;
+
+  keywords.forEach((keyword, index) => {
+    const lowerKeyword = keyword.toLowerCase().trim();
+    if (!lowerKeyword) {
+      return;
+    }
+    const position = lowerValue.indexOf(lowerKeyword);
+    if (position >= 0) {
+      score = Math.max(score, 1000 - index * 50 - position);
+    }
+  });
+
+  return score;
 }

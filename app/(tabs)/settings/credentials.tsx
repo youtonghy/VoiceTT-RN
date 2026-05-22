@@ -11,6 +11,7 @@ import { Button, Spinner, Text } from 'heroui-native';
 
 import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
+  getModelSelectOptions,
   resolveModelCatalogStatusText,
   SettingsModelDetailCard,
   SettingsModelProviderStrip,
@@ -365,11 +366,7 @@ export default function CredentialSettingsScreen() {
     : undefined;
 
   const getModelOptions = (field: ModelField, provider?: ModelCatalogProvider) =>
-    mergeModelOptions(
-      provider ? catalogs[provider].options : undefined,
-      provider ? getFallbackModelOptions(provider) : undefined,
-      [field.value, field.fallback]
-    );
+    getModelSelectOptions(catalogs, provider, [field.value, field.fallback], field.id);
 
   const persistField = (field: CredentialField) => {
     const nextValue = field.normalize ? field.normalize(field.value) : normalizeSecret(field.value);

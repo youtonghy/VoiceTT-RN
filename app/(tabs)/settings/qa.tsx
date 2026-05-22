@@ -91,10 +91,12 @@ export default function QaSettingsScreen() {
   const activeProvider =
     providers.find((provider) => provider.id === settings.qaEngine) ?? providers[0];
   const activeCatalog = catalogs[activeProvider.modelProvider!];
-  const modelOptions = getModelSelectOptions(catalogs, activeProvider.modelProvider, [
-    activeProvider.modelValue,
-    activeProvider.modelFallback,
-  ]);
+  const modelOptions = getModelSelectOptions(
+    catalogs,
+    activeProvider.modelProvider,
+    [activeProvider.modelValue, activeProvider.modelFallback],
+    activeProvider.modelKey
+  );
 
   useEffect(() => {
     void ensureModelsFetched(activeProvider.remoteModelProvider);

@@ -155,10 +155,12 @@ export default function TranslationSettingsScreen() {
     : undefined;
   const modelOptions =
     activeProvider.modelLabel && activeProvider.modelProvider
-      ? getModelSelectOptions(catalogs, activeProvider.modelProvider, [
-          activeProvider.modelValue,
-          activeProvider.modelFallback,
-        ])
+      ? getModelSelectOptions(
+          catalogs,
+          activeProvider.modelProvider,
+          [activeProvider.modelValue, activeProvider.modelFallback],
+          activeProvider.modelKey
+        )
       : [];
   const isModelDisabled = !settings.enableTranslation || settings.translationEngine === 'none';
 
