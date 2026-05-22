@@ -460,7 +460,11 @@ export default function QaScreen() {
   }, [manualRunVersion, messages, settings, settingsSignature, updateMessageQa]);
 
   return (
-    <AppScreen title={t('qa.title')} subtitle={t('qa.subtitle')} scroll={false}>
+    <AppScreen
+      title={t('qa.title')}
+      subtitle={t('qa.subtitle')}
+      contentBottomInset={0}
+      scroll={false}>
       <View className="min-h-0 flex-1 gap-4">
         <AppCard className="flex-shrink-0" bodyClassName="gap-3">
           <View className="flex-row items-center gap-3">

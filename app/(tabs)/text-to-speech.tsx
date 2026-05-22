@@ -631,7 +631,11 @@ export default function ReadingScreen() {
   }, [appendTtsMessage, draft, ensureActiveConversation, generateAndPlay]);
 
   return (
-    <AppScreen title={t('reading.title')} subtitle={t('reading.subtitle')} scroll={false}>
+    <AppScreen
+      title={t('reading.title')}
+      subtitle={t('reading.subtitle')}
+      contentBottomInset={0}
+      scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">

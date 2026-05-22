@@ -67,6 +67,7 @@ export function AppScreen({
   action,
   scroll = true,
   edges = ['top', 'left', 'right'],
+  contentBottomInset,
 }: {
   title?: string;
   subtitle?: string;
@@ -74,15 +75,17 @@ export function AppScreen({
   action?: ReactNode;
   scroll?: boolean;
   edges?: ComponentProps<typeof SafeAreaView>['edges'];
+  contentBottomInset?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const bottomInset = contentBottomInset ?? 24 + insets.bottom;
   const content = (
     <View
       className={`gap-4 px-4 pt-3 ${scroll ? '' : 'min-h-0 flex-1'}`}
       style={[
         styles.screenContent,
         !scroll && styles.screenContentFixed,
-        { paddingBottom: 24 + insets.bottom },
+        { paddingBottom: bottomInset },
       ]}>
       {title || subtitle || action ? (
         <View className="flex-row flex-wrap items-start justify-between gap-4">

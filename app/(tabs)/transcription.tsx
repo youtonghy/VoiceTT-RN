@@ -2076,6 +2076,7 @@ export default function TranscriptionScreen() {
 
   return (
     <AppScreen
+      contentBottomInset={0}
       scroll={false}>
       {isTablet ? TabletContent : MobileContent}
       <ContextMenu

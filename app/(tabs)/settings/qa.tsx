@@ -119,7 +119,7 @@ export default function QaSettingsScreen() {
   };
 
   return (
-    <AppScreen scroll={false}>
+    <AppScreen contentBottomInset={0} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">
