@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
@@ -8,15 +7,14 @@ import {
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Pressable,
-  StyleSheet,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Button, Spinner, useThemeColor } from 'heroui-native';
 
+import { AppIcon } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';
 import { VOICE_INPUT_RECORDING_OPTIONS } from '@/constants/voice-input';
@@ -32,6 +30,10 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
   const { t } = useTranslation();
   const { settings } = useSettings();
   const recorder = useAudioRecorder(VOICE_INPUT_RECORDING_OPTIONS);
+  const [accentSoftForeground, dangerForeground] = useThemeColor([
+    'accent-soft-foreground',
+    'danger-foreground',
+  ]);
   const [status, setStatus] = useState<ButtonStatus>('idle');
   const messageCounterRef = useRef(1);
 
@@ -163,41 +165,26 @@ export default function VoiceInputButton({ onInsert, style }: VoiceInputButtonPr
     return `${base} (${engineLabel})`;
   }, [engineLabel, status, t]);
 
-  const backgroundColor =
-    status === 'recording'
-      ? '#dc2626'
-      : status === 'processing'
-        ? '#475569'
-        : '#2563eb';
-
-  const iconName = status === 'recording' ? 'stop' : 'mic';
+  const iconName = status === 'recording' ? 'square' : 'microphone';
 
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Button
       accessibilityLabel={accessibilityLabel}
+      isDisabled={status === 'processing'}
+      isIconOnly
       onPress={handlePress}
-      disabled={status === 'processing'}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor, opacity: pressed && status !== 'processing' ? 0.85 : 1 },
-        style,
-      ]}>
+      size="lg"
+      style={style}
+      variant={status === 'recording' ? 'danger' : 'secondary'}>
       {status === 'processing' ? (
-        <ActivityIndicator size="small" color="#ffffff" />
+        <Spinner size="sm" />
       ) : (
-        <Ionicons name={iconName as any} size={18} color="#ffffff" />
+        <AppIcon
+          name={iconName}
+          size={17}
+          color={status === 'recording' ? dangerForeground : accentSoftForeground}
+        />
       )}
-    </Pressable>
+    </Button>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

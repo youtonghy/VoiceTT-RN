@@ -76,6 +76,8 @@
       "new_conversation": "Nueva conversación {{id}}",
       "actions": {
         "title": "Acciones de conversación",
+        "share": "Compartir",
+        "copy": "Copiar",
         "rename": "Renombrar",
         "generate_title": "Generar título",
         "delete": "Eliminar"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "Esperando respuesta…"
     },
+    "model_menu": {
+      "title": "Modelo del asistente"
+    },
     "errors": {
       "send_failed": "Error al enviar"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "Ocultar resumen para esta conversación"
     },
     "accessibility": {
-      "send_input": "Enviar entrada"
+      "send_input": "Enviar entrada",
+      "switch_model": "Cambiar modelo del asistente"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "Envía un mensaje para escucharlo en voz alta."
     },
     "input": {
+      "title": "Texto de lectura",
       "placeholder": "Escribe algo para leer en voz alta"
     },
     "status": {
@@ -199,6 +206,10 @@
       "recording": {
         "title": "Detección de grabación",
         "subtitle": "Sensibilidad y detección de silencio"
+      },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "Recomendación para dictado de escritorio"
       },
       "voice_input": {
         "title": "Entrada de voz",
@@ -236,6 +247,27 @@
         "title": "Credenciales",
         "subtitle": "Administrar claves API"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "Configuración clave",
+        "subtitle": "Empieza aquí antes de grabar o llamar servicios de IA"
+      },
+      "workflow": {
+        "title": "Flujo de IA",
+        "subtitle": "Ajusta transcripción, traducción, lectura, resúmenes y Q&A"
+      },
+      "preferences": {
+        "title": "Preferencias",
+        "subtitle": "Ajusta la visualización y los valores de exportación"
+      },
+      "extras": {
+        "title": "Complementos",
+        "subtitle": "Herramientas e integraciones opcionales"
+      }
+    },
+    "badges": {
+      "core": "Clave"
     },
     "about": {
       "title": "Acerca de",
@@ -281,9 +313,27 @@
         "transcription_model": "Modelo de transcripción",
         "translation_model": "Modelo de traducción",
         "tts_model": "Modelo de texto a voz",
+        "title_model": "Modelo de título",
+        "conversation_model": "Modelo de resumen",
+        "assistant_model": "Modelo de asistente",
+        "qa_model": "Modelo de preguntas y respuestas",
         "doubao_app_id": "Doubao App ID",
         "doubao_token": "Doubao Token",
         "doubao_cluster": "Doubao Cluster"
+      },
+      "models": {
+        "title": "Modelos",
+        "placeholder": "Seleccionar modelo",
+        "refresh": "Actualizar modelos",
+        "loading": "Cargando",
+        "ready": "{{count}} modelos",
+        "defaults": "Predeterminados",
+        "missing_key": "Agrega una clave API",
+        "using_cached": "Usando lista guardada",
+        "fetch_failed": "No se pudo obtener la lista de modelos. Revisa la clave API o la URL base.",
+        "catalog_hint": "Obtén modelos compatibles del proveedor cuando haya credenciales.",
+        "local_hint": "Elige entre los modelos conocidos de este proveedor.",
+        "credentials_only": "Este proveedor solo necesita credenciales aquí."
       }
     },
     "recording": {
@@ -389,6 +439,7 @@
         "prompt": "Prompt (opcional)",
         "prompt_placeholder": "p. ej. Tono formal con terminología de la industria.",
         "prompt_hint": "La instrucción de solo traducir se añade automáticamente.",
+        "appended_instruction_label": "Instrucción automática",
         "appended_instruction": "Traduce la entrada del usuario al {{language}}. Responde solo con la traducción."
       },
       "engines": {

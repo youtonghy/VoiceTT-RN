@@ -1,60 +1,107 @@
+import { ModelProvider } from '@lobehub/icons-rn';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
-    DEFAULT_GEMINI_QA_MODEL,
-    DEFAULT_OPENAI_QA_MODEL,
-    DEFAULT_OPENAI_QA_TEMPERATURE,
-    DEFAULT_QA_PROMPT,
-    type QaEngine,
+  getModelSelectOptions,
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  useSettingsModelCatalogs,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
+import { useSettings } from '@/contexts/settings-context';
+import {
+  DEFAULT_GEMINI_QA_MODEL,
+  DEFAULT_OPENAI_QA_MODEL,
+  DEFAULT_OPENAI_QA_TEMPERATURE,
+  DEFAULT_QA_PROMPT,
+  type EngineCredentials,
+  type QaEngine,
 } from '@/types/settings';
 
 import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
-    OptionPill,
-    SettingsCard,
-    formatNumberInput,
-    settingsStyles,
-    useSettingsForm,
-} from './shared';
+  formatNumberInput,
+  useSettingsForm,
+} from '@/components/settings/settings-form';
 
-const qaEngines: QaEngine[] = ['openai', 'gemini'];
+type QaProviderConfig = SettingsModelProviderItem<QaEngine> & {
+  modelLabel: string;
+  modelValue: string;
+  modelFallback: string;
+  modelKey: keyof EngineCredentials;
+};
+
+const FALLBACK_ICON_MAP: Record<QaEngine, AppIconName> = {
+  openai: 'robot',
+  gemini: 'gem',
+};
 
 export default function QaSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
 
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
+    openaiApiKey: formState.openaiApiKey,
+    openaiBaseUrl: formState.openaiBaseUrl,
+    geminiApiKey: formState.geminiApiKey,
+    qwenApiKey: formState.qwenApiKey,
+    glmApiKey: formState.glmApiKey,
+  });
+
+  const providers = useMemo<QaProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.qa.engine.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        modelLabel: t('settings.qa.openai_label'),
+        modelValue: formState.openaiQaModel,
+        modelFallback: DEFAULT_OPENAI_QA_MODEL,
+        modelKey: 'openaiQaModel',
+      },
+      {
+        id: 'gemini',
+        title: t('settings.qa.engine.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        modelLabel: t('settings.qa.gemini_label'),
+        modelValue: formState.geminiQaModel,
+        modelFallback: DEFAULT_GEMINI_QA_MODEL,
+        modelKey: 'geminiQaModel',
+      },
+    ],
+    [formState.geminiQaModel, formState.openaiQaModel, t]
+  );
+
+  const activeProvider =
+    providers.find((provider) => provider.id === settings.qaEngine) ?? providers[0];
+  const activeCatalog = catalogs[activeProvider.modelProvider!];
+  const modelOptions = getModelSelectOptions(
+    catalogs,
+    activeProvider.modelProvider,
+    [activeProvider.modelValue, activeProvider.modelFallback],
+    activeProvider.modelKey
+  );
+
+  useEffect(() => {
+    void ensureModelsFetched(activeProvider.remoteModelProvider);
+  }, [activeProvider.remoteModelProvider, ensureModelsFetched]);
+
   const resolveTemperature = (value: string, fallback: number) => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -67,67 +114,62 @@ export default function QaSettingsScreen() {
     return parsed;
   };
 
+  const handleSelectModel = (value: string) => {
+    const nextValue = value.trim() || activeProvider.modelFallback;
+    setFormState((prev) => ({ ...prev, [activeProvider.modelKey]: nextValue }));
+    updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
-          contentInsetAdjustmentBehavior="always"
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
+          contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <SettingsCard variant="interaction">
-            <ThemedText
-              type="subtitle"
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.qa.engine.title')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {qaEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t('settings.qa.engine.engines.' + engine)}
-                  active={settings.qaEngine === engine}
-                  onPress={() => updateSettings({ qaEngine: engine })}
-                />
-              ))}
-            </View>
-          </SettingsCard>
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <SettingsModelProviderStrip
+            providers={providers}
+            activeId={settings.qaEngine}
+            onSelect={(engine) => updateSettings({ qaEngine: engine })}
+          />
 
-          {settings.qaEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.qa.openai_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiQaModel}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, openaiQaModel: text }))}
-                onBlur={() =>
-                  updateCredentials({
-                    openaiQaModel: formState.openaiQaModel.trim() || DEFAULT_OPENAI_QA_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_OPENAI_QA_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.qa.temperature_label')}
-              </ThemedText>
-              <TextInput
+          <SettingsModelDetailCard
+            title={activeProvider.title}
+            description={t('settings.credentials.models.catalog_hint')}
+            providerIcon={activeProvider.providerIcon}
+            fallbackIcon={activeProvider.fallbackIcon}
+            statusText={resolveModelCatalogStatusText(t, activeCatalog)}
+            action={
+              <Button
+                accessibilityLabel={t('settings.credentials.models.refresh')}
+                isDisabled={activeCatalog.status === 'loading'}
+                isIconOnly
+                onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
+                size="sm"
+                variant="tertiary">
+                {activeCatalog.status === 'loading' ? (
+                  <Spinner size="sm" />
+                ) : (
+                  <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
+                )}
+              </Button>
+            }>
+            <SettingsModelSelectField
+              label={activeProvider.modelLabel}
+              value={activeProvider.modelValue}
+              options={modelOptions}
+              placeholder={activeProvider.modelFallback}
+              onChange={handleSelectModel}
+            />
+
+            {settings.qaEngine === 'openai' ? (
+              <FormInput
+                label={t('settings.qa.temperature_label')}
                 value={formState.openaiQaTemperature}
                 onChangeText={(text) =>
                   setFormState((prev) => ({
@@ -144,46 +186,12 @@ export default function QaSettingsScreen() {
                   })
                 }
                 keyboardType="decimal-pad"
-                style={baseInputStyle}
                 placeholder={`${DEFAULT_OPENAI_QA_TEMPERATURE}`}
-                placeholderTextColor={placeholderTextColor}
               />
-            </SettingsCard>
-          ) : null}
+            ) : null}
 
-          {settings.qaEngine === 'gemini' ? (
-            <SettingsCard variant="gemini">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.qa.gemini_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiQaModel}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, geminiQaModel: text }))}
-                onBlur={() =>
-                  updateCredentials({
-                    geminiQaModel: formState.geminiQaModel.trim() || DEFAULT_GEMINI_QA_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_GEMINI_QA_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-            </SettingsCard>
-          ) : null}
-
-          <SettingsCard variant="prompt">
-            <ThemedText
-              style={[groupLabelStyle, styles.cardLabel]}
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.qa.prompt_label')}
-            </ThemedText>
-            <TextInput
+            <FormInput
+              label={t('settings.qa.prompt_label')}
               value={formState.qaPrompt}
               onChangeText={(text) => setFormState((prev) => ({ ...prev, qaPrompt: text }))}
               onBlur={() =>
@@ -191,32 +199,13 @@ export default function QaSettingsScreen() {
                   qaPrompt: formState.qaPrompt.trim() || DEFAULT_QA_PROMPT,
                 })
               }
-              style={multilineInputStyle}
               placeholder={DEFAULT_QA_PROMPT}
-              placeholderTextColor={placeholderTextColor}
               multiline
-              textAlignVertical="top"
+              inputClassName="min-h-36"
             />
-          </SettingsCard>
+          </SettingsModelDetailCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  promptInput: {
-    minHeight: 140,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-});

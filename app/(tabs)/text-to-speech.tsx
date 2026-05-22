@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { createAudioPlayer } from 'expo-audio';
@@ -12,15 +11,21 @@ import {
 } from 'expo-file-system/legacy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from 'react-native';
+import { Button, Card, Input, Spinner, Text, TextField } from 'heroui-native';
+import { EmptyState as HeroEmptyState } from 'heroui-native-pro/empty-state';
 
-import KeyboardStickyInput from '@/KeyboardStickyInput';
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { synthesizeSpeech } from '@/services/tts';
 import type { TranscriptionMessage } from '@/types/transcription';
 import type { TextToSpeechFormat, TtsMessage } from '@/types/tts';
@@ -29,7 +34,6 @@ const HISTORY_STORAGE_KEY = '@agents/history-conversations';
 const HISTORY_STORAGE_VERSION = 2;
 const DEFAULT_AUDIO_FORMAT: TextToSpeechFormat = 'mp3';
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const INPUT_BOTTOM_INSET = 24;
 
 type AssistantMessageStatus = 'pending' | 'succeeded' | 'failed';
 
@@ -301,15 +305,6 @@ async function resolveCachedAudioUri(uri?: string): Promise<string | null> {
 export default function ReadingScreen() {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const backgroundColor = useThemeColor({}, 'background');
-  const cardLight = '#f8fafc';
-  const cardDark = '#0f172a';
-  const subtitleColor = useThemeColor({ light: '#475569', dark: '#94a3b8' }, 'text');
-  const placeholderColor = useThemeColor({ light: 'rgba(148, 163, 184, 0.7)', dark: 'rgba(148, 163, 184, 0.5)' }, 'text');
-  const inputTextColor = useThemeColor({ light: '#1f2937', dark: '#f8fafc' }, 'text');
-  const inputCardBackground = useThemeColor({ light: '#ffffff', dark: 'rgba(15, 23, 42, 0.92)' }, 'background');
-  const inputCardBorder = useThemeColor({ light: 'rgba(148, 163, 184, 0.3)', dark: 'rgba(148, 163, 184, 0.35)' }, 'background');
-  const sendButtonBg = useThemeColor({ light: '#2563eb', dark: '#3b82f6' }, 'tint');
   const isDesktopApp =
     Platform.OS === 'web' &&
     typeof window !== 'undefined' &&
@@ -636,32 +631,65 @@ export default function ReadingScreen() {
   }, [appendTtsMessage, draft, ensureActiveConversation, generateAndPlay]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.headerTitle} lightColor="#0f172a" darkColor="#e2e8f0">
-            {t('reading.title')}
-          </ThemedText>
-          <ThemedText style={styles.headerSubtitle} lightColor={subtitleColor} darkColor={subtitleColor}>
-            {t('reading.subtitle')}
-          </ThemedText>
-        </View>
+    <AppScreen
+      title={t('reading.title')}
+      subtitle={t('reading.subtitle')}
+      contentBottomInset={0}
+      scroll={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="min-h-0 flex-1">
+        <View className="min-h-0 flex-1 gap-4">
+          <AppCard
+            icon="volume-high"
+            title={t('reading.input.title')}
+            className="flex-shrink-0"
+            bodyClassName="gap-4">
+            <TextField className="gap-2">
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="min-h-28"
+                multiline
+                onChangeText={setDraft}
+                onSubmitEditing={handleSend}
+                placeholder={t('reading.input.placeholder')}
+                returnKeyType="send"
+                textAlignVertical="top"
+                value={draft}
+                variant="secondary"
+              />
+            </TextField>
+            <View className="flex-row items-center justify-end gap-3">
+              <Button
+                accessibilityLabel={t('assistant.accessibility.send_input')}
+                isDisabled={!draft.trim()}
+                onPress={handleSend}
+                variant="primary">
+                <AppIcon name="volume-high" size={16} className="text-accent-foreground" />
+                <Button.Label>{t('navigation.tabs.reading')}</Button.Label>
+              </Button>
+            </View>
+          </AppCard>
+
         <ScrollView
           ref={scrollRef}
-          style={styles.scroll}
+          className="min-h-0 flex-1"
           contentContainerStyle={styles.scrollContent}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {ttsMessages.length === 0 ? (
-            <ThemedView lightColor="rgba(148, 163, 184, 0.12)" darkColor="rgba(15, 23, 42, 0.7)" style={styles.emptyCard}>
-              <ThemedText style={styles.emptyTitle} lightColor="#0f172a" darkColor="#e2e8f0">
-                {t('reading.empty.title')}
-              </ThemedText>
-              <ThemedText style={styles.emptyBody} lightColor={subtitleColor} darkColor={subtitleColor}>
-                {t('reading.empty.body')}
-              </ThemedText>
-            </ThemedView>
+            <HeroEmptyState className="flex-1 rounded-3xl border border-dashed border-border bg-surface p-6">
+              <HeroEmptyState.Header>
+                <HeroEmptyState.Media variant="icon">
+                  <AppIcon name="volume-high" size={22} className="text-muted" />
+                </HeroEmptyState.Media>
+                <HeroEmptyState.Title>{t('reading.empty.title')}</HeroEmptyState.Title>
+                <HeroEmptyState.Description>{t('reading.empty.body')}</HeroEmptyState.Description>
+              </HeroEmptyState.Header>
+            </HeroEmptyState>
           ) : (
             ttsMessages.map((message) => {
               const statusText =
@@ -705,68 +733,50 @@ export default function ReadingScreen() {
                   }}
                   delayLongPress={isDesktopApp ? undefined : 250}
                   disabled={message.status === 'pending'}
-                  style={({ pressed }) => [
-                    pressed && message.status !== 'pending' && styles.messagePressed,
-                  ]}
+                  className="rounded-2xl"
+                  style={({ pressed }) => [pressed && message.status !== 'pending' && styles.messagePressed]}
                 >
-                  <ThemedView
-                    lightColor={cardLight}
-                    darkColor={cardDark}
-                    style={styles.messageCard}
-                  >
-                    <ThemedText style={styles.messageText} lightColor="#0f172a" darkColor="#e2e8f0">
-                      {message.content}
-                    </ThemedText>
+                  <Card className="border border-border bg-surface">
+                    <Card.Body className="gap-3">
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View className="min-w-0 flex-1 gap-2">
+                        <Text className="leading-6 text-foreground">
+                          {message.content}
+                        </Text>
+                        {message.voice || message.model ? (
+                          <Text type="body-xs" color="muted" numberOfLines={1}>
+                            {[message.voice, message.model].filter(Boolean).join(' · ')}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View className="size-9 items-center justify-center rounded-xl bg-surface-secondary">
+                        {message.status === 'pending' ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <AppIcon
+                            name={message.status === 'failed' ? 'circle-info' : 'volume-high'}
+                            size={15}
+                            className={message.status === 'failed' ? 'text-danger' : 'text-accent'}
+                          />
+                        )}
+                      </View>
+                    </View>
                     {statusText ? (
-                      <ThemedText
-                        style={[
-                          styles.messageMeta,
-                          message.status === 'failed' && styles.messageMetaError,
-                        ]}
-                        lightColor="#64748b"
-                        darkColor="#94a3b8"
-                      >
+                      <Text
+                        type="body-xs"
+                        className={message.status === 'failed' ? 'text-danger' : 'text-muted'}>
                         {statusText}
-                      </ThemedText>
+                      </Text>
                     ) : null}
-                  </ThemedView>
+                    </Card.Body>
+                  </Card>
                 </Pressable>
               );
             })
           )}
         </ScrollView>
-      </View>
-      <KeyboardStickyInput
-        containerStyle={styles.inputContainer}
-        inputContainerStyle={[
-          styles.inputCard,
-          { backgroundColor: inputCardBackground, borderColor: inputCardBorder },
-        ]}
-        inputStyle={[styles.input, { color: inputTextColor }]}
-        value={draft}
-        onChangeText={setDraft}
-        autoCapitalize="none"
-        autoCorrect={false}
-        enableDesktopSelection
-        placeholder={t('reading.input.placeholder')}
-        placeholderTextColor={placeholderColor}
-        returnKeyType="send"
-        layoutBottomInset={INPUT_BOTTOM_INSET}
-        onSubmitEditing={handleSend}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('assistant.accessibility.send_input')}
-          onPress={handleSend}
-          style={({ pressed }) => [
-            styles.sendButton,
-            { backgroundColor: sendButtonBg },
-            pressed && styles.sendButtonPressed,
-          ]}
-        >
-          <Ionicons name="volume-high" size={18} color="#ffffff" />
-        </Pressable>
-      </KeyboardStickyInput>
+        </View>
+      </KeyboardAvoidingView>
       <ContextMenu
         visible={Boolean(contextMenu)}
         title={contextMenu?.title}
@@ -774,97 +784,17 @@ export default function ReadingScreen() {
         anchor={contextMenu?.anchor}
         onRequestClose={handleDismissContextMenu}
       />
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 16,
-  },
-  header: {
-    paddingTop: 12,
-    gap: 6,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  scroll: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingBottom: 120,
-    gap: 14,
-  },
-  emptyCard: {
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  emptyBody: {
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  messageCard: {
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
+    flexGrow: 1,
+    gap: 12,
+    paddingBottom: 8,
   },
   messagePressed: {
-    opacity: 0.85,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  messageMeta: {
-    fontSize: 12,
-  },
-  messageMetaError: {
-    color: '#f87171',
-  },
-  inputContainer: {
-    paddingHorizontal: 12,
-  },
-  inputCard: {
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    fontSize: 16,
-    padding: 0,
-  },
-  sendButton: {
-    marginLeft: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonPressed: {
     opacity: 0.85,
   },
 });

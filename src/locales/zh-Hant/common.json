@@ -76,6 +76,8 @@
       "new_conversation": "新對話{{id}}",
       "actions": {
         "title": "對話操作",
+        "share": "分享",
+        "copy": "複製",
         "rename": "重新命名",
         "generate_title": "生成標題",
         "delete": "刪除"
@@ -156,6 +158,9 @@
     "status": {
       "waiting_reply": "等待回覆…"
     },
+    "model_menu": {
+      "title": "智能對話模型"
+    },
     "errors": {
       "send_failed": "發送失敗"
     },
@@ -165,7 +170,8 @@
       "summary_hide": "不顯示（此對話不顯示）"
     },
     "accessibility": {
-      "send_input": "發送輸入"
+      "send_input": "發送輸入",
+      "switch_model": "切換智能對話模型"
     }
   },
   "reading": {
@@ -176,6 +182,7 @@
       "body": "傳送一則訊息即可生成並朗讀。"
     },
     "input": {
+      "title": "朗讀文字",
       "placeholder": "輸入要朗讀的內容"
     },
     "status": {
@@ -199,6 +206,10 @@
       "recording": {
         "title": "錄音偵測",
         "subtitle": "靈敏度與靜音判定"
+      },
+      "keyboard": {
+        "title": "VoiceTT-Keyboard",
+        "subtitle": "桌面語音輸入推薦"
       },
       "voice_input": {
         "title": "語音輸入",
@@ -236,6 +247,27 @@
         "title": "憑證",
         "subtitle": "管理模型金鑰"
       }
+    },
+    "groups": {
+      "essentials": {
+        "title": "核心設定",
+        "subtitle": "錄音與模型呼叫前優先配置"
+      },
+      "workflow": {
+        "title": "AI 工作流程",
+        "subtitle": "調整轉寫、翻譯、朗讀、總結和問答"
+      },
+      "preferences": {
+        "title": "偏好設定",
+        "subtitle": "調整顯示與匯出預設值"
+      },
+      "extras": {
+        "title": "附加工具",
+        "subtitle": "可選的配套工具與整合"
+      }
+    },
+    "badges": {
+      "core": "核心"
     },
     "about": {
       "title": "關於",
@@ -281,9 +313,27 @@
         "transcription_model": "轉寫模型",
         "translation_model": "翻譯模型",
         "tts_model": "TTS 模型",
+        "title_model": "標題模型",
+        "conversation_model": "總結模型",
+        "assistant_model": "助理模型",
+        "qa_model": "問答模型",
         "doubao_app_id": "App ID",
         "doubao_token": "Token",
         "doubao_cluster": "Cluster"
+      },
+      "models": {
+        "title": "模型",
+        "placeholder": "選擇模型",
+        "refresh": "重新整理模型",
+        "loading": "載入中",
+        "ready": "{{count}} 個模型",
+        "defaults": "預設候選",
+        "missing_key": "請先填寫 API 金鑰",
+        "using_cached": "使用已儲存列表",
+        "fetch_failed": "無法取得模型列表，請檢查 API 金鑰或基礎 URL。",
+        "catalog_hint": "填寫憑證後，可從服務商自動取得可用模型。",
+        "local_hint": "從此服務商的常用模型候選中選擇。",
+        "credentials_only": "此服務商目前只需在這裡填寫憑證。"
       }
     },
     "recording": {
@@ -389,6 +439,7 @@
         "prompt": "Prompting（可選）",
         "prompt_placeholder": "例如：正式語氣並保留產業術語。",
         "prompt_hint": "會自動附加下方「僅輸出譯文」的翻譯指令。",
+        "appended_instruction_label": "自動附加指令",
         "appended_instruction": "將使用者輸入翻譯為{{language}}，並且僅輸出譯文。"
       },
       "engines": {

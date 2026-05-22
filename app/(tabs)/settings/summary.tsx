@@ -1,72 +1,79 @@
+import { ModelProvider } from '@lobehub/icons-rn';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Spinner, Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
-    DEFAULT_ASSISTANT_PROMPT,
-    DEFAULT_GEMINI_ASSISTANT_MODEL,
-    DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-    DEFAULT_GEMINI_CONVERSATION_MODEL,
-    DEFAULT_GEMINI_TITLE_MODEL,
-    DEFAULT_OPENAI_ASSISTANT_MODEL,
-    DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
-    DEFAULT_OPENAI_CONVERSATION_MODEL,
-    DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
-    DEFAULT_OPENAI_TITLE_MODEL,
-    DEFAULT_OPENAI_TITLE_TEMPERATURE,
-    DEFAULT_TITLE_SUMMARY_PROMPT,
-    type AssistantEngine,
-    type ConversationSummaryEngine,
-    type TitleSummaryEngine,
+  getModelSelectOptions,
+  resolveModelCatalogStatusText,
+  SettingsModelDetailCard,
+  SettingsModelProviderStrip,
+  SettingsModelSelectField,
+  useSettingsModelCatalogs,
+  type SettingsModelProviderItem,
+} from '@/components/settings/model-picker';
+import { useSettings } from '@/contexts/settings-context';
+import {
+  DEFAULT_ASSISTANT_PROMPT,
+  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+  DEFAULT_GEMINI_ASSISTANT_MODEL,
+  DEFAULT_GEMINI_CONVERSATION_MODEL,
+  DEFAULT_GEMINI_TITLE_MODEL,
+  DEFAULT_OPENAI_ASSISTANT_MODEL,
+  DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
+  DEFAULT_OPENAI_CONVERSATION_MODEL,
+  DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
+  DEFAULT_OPENAI_TITLE_MODEL,
+  DEFAULT_OPENAI_TITLE_TEMPERATURE,
+  DEFAULT_TITLE_SUMMARY_PROMPT,
+  type EngineCredentials,
 } from '@/types/settings';
 
 import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
-    OptionPill,
-    SettingsCard,
-    formatNumberInput,
-    settingsStyles,
-    useSettingsForm,
-} from './shared';
+  formatNumberInput,
+  useSettingsForm,
+} from '@/components/settings/settings-form';
 
-const titleSummaryEngines: TitleSummaryEngine[] = ['openai', 'gemini'];
-const conversationSummaryEngines: ConversationSummaryEngine[] = ['openai', 'gemini'];
-const assistantEngines: AssistantEngine[] = ['openai', 'gemini'];
+type SummaryModelEngine = 'openai' | 'gemini';
+type ModelCatalogControls = ReturnType<typeof useSettingsModelCatalogs>;
+
+type SummaryProviderConfig = SettingsModelProviderItem<SummaryModelEngine> & {
+  modelLabel: string;
+  modelValue: string;
+  modelFallback: string;
+  modelKey: keyof EngineCredentials;
+  temperatureLabel?: string;
+  temperatureValue?: string;
+  temperatureFallback?: number;
+  onTemperatureChange?: (value: string) => void;
+  onTemperatureBlur?: () => void;
+};
+
+const FALLBACK_ICON_MAP: Record<SummaryModelEngine, AppIconName> = {
+  openai: 'robot',
+  gemini: 'gem',
+};
 
 export default function SummarySettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
 
-  const baseInputStyle = [settingsStyles.input, isDark ? settingsStyles.inputDark : null];
-  const multilineInputStyle = [
-    settingsStyles.input,
-    styles.promptInput,
-    isDark ? settingsStyles.inputDark : null,
-    isDark ? styles.promptInputDark : null,
-  ];
-  const groupLabelStyle = [settingsStyles.groupLabel, isDark && settingsStyles.groupLabelDark];
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
+  const modelCatalogs = useSettingsModelCatalogs({
+    openaiApiKey: formState.openaiApiKey,
+    openaiBaseUrl: formState.openaiBaseUrl,
+    geminiApiKey: formState.geminiApiKey,
+    qwenApiKey: formState.qwenApiKey,
+    glmApiKey: formState.glmApiKey,
+  });
+
   const resolveTemperature = (value: string, fallback: number) => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -79,472 +86,359 @@ export default function SummarySettingsScreen() {
     return parsed;
   };
 
+  const titleProviders = useMemo<SummaryProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.summary.title_engine.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        modelLabel: t('settings.summary.title_engine.openai_label'),
+        modelValue: formState.openaiTitleModel,
+        modelFallback: DEFAULT_OPENAI_TITLE_MODEL,
+        modelKey: 'openaiTitleModel',
+        temperatureLabel: t('settings.summary.title_engine.temperature_label'),
+        temperatureValue: formState.openaiTitleTemperature,
+        temperatureFallback: DEFAULT_OPENAI_TITLE_TEMPERATURE,
+        onTemperatureChange: (text) =>
+          setFormState((prev) => ({
+            ...prev,
+            openaiTitleTemperature: formatNumberInput(text),
+          })),
+        onTemperatureBlur: () =>
+          updateSettings({
+            openaiTitleTemperature: resolveTemperature(
+              formState.openaiTitleTemperature,
+              DEFAULT_OPENAI_TITLE_TEMPERATURE
+            ),
+          }),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.summary.title_engine.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        modelLabel: t('settings.summary.title_engine.gemini_label'),
+        modelValue: formState.geminiTitleModel,
+        modelFallback: DEFAULT_GEMINI_TITLE_MODEL,
+        modelKey: 'geminiTitleModel',
+      },
+    ],
+    [
+      formState.geminiTitleModel,
+      formState.openaiTitleModel,
+      formState.openaiTitleTemperature,
+      setFormState,
+      t,
+      updateSettings,
+    ]
+  );
+
+  const conversationProviders = useMemo<SummaryProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.summary.conversation_engine.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        modelLabel: t('settings.summary.conversation_engine.openai_label'),
+        modelValue: formState.openaiConversationModel,
+        modelFallback: DEFAULT_OPENAI_CONVERSATION_MODEL,
+        modelKey: 'openaiConversationModel',
+        temperatureLabel: t('settings.summary.conversation_engine.temperature_label'),
+        temperatureValue: formState.openaiConversationTemperature,
+        temperatureFallback: DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
+        onTemperatureChange: (text) =>
+          setFormState((prev) => ({
+            ...prev,
+            openaiConversationTemperature: formatNumberInput(text),
+          })),
+        onTemperatureBlur: () =>
+          updateSettings({
+            openaiConversationTemperature: resolveTemperature(
+              formState.openaiConversationTemperature,
+              DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
+            ),
+          }),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.summary.conversation_engine.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        modelLabel: t('settings.summary.conversation_engine.gemini_label'),
+        modelValue: formState.geminiConversationModel,
+        modelFallback: DEFAULT_GEMINI_CONVERSATION_MODEL,
+        modelKey: 'geminiConversationModel',
+      },
+    ],
+    [
+      formState.geminiConversationModel,
+      formState.openaiConversationModel,
+      formState.openaiConversationTemperature,
+      setFormState,
+      t,
+      updateSettings,
+    ]
+  );
+
+  const assistantProviders = useMemo<SummaryProviderConfig[]>(
+    () => [
+      {
+        id: 'openai',
+        title: t('settings.summary.assistant_engine.engines.openai'),
+        providerIcon: ModelProvider.OpenAI,
+        fallbackIcon: FALLBACK_ICON_MAP.openai,
+        modelProvider: 'openai',
+        remoteModelProvider: 'openai',
+        modelLabel: t('settings.summary.assistant_engine.openai_label'),
+        modelValue: formState.openaiAssistantModel,
+        modelFallback: DEFAULT_OPENAI_ASSISTANT_MODEL,
+        modelKey: 'openaiAssistantModel',
+        temperatureLabel: t('settings.summary.assistant_engine.temperature_label'),
+        temperatureValue: formState.openaiAssistantTemperature,
+        temperatureFallback: DEFAULT_OPENAI_ASSISTANT_TEMPERATURE,
+        onTemperatureChange: (text) =>
+          setFormState((prev) => ({
+            ...prev,
+            openaiAssistantTemperature: formatNumberInput(text),
+          })),
+        onTemperatureBlur: () =>
+          updateSettings({
+            openaiAssistantTemperature: resolveTemperature(
+              formState.openaiAssistantTemperature,
+              DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
+            ),
+          }),
+      },
+      {
+        id: 'gemini',
+        title: t('settings.summary.assistant_engine.engines.gemini'),
+        providerIcon: ModelProvider.Gemini,
+        fallbackIcon: FALLBACK_ICON_MAP.gemini,
+        modelProvider: 'gemini',
+        remoteModelProvider: 'gemini',
+        modelLabel: t('settings.summary.assistant_engine.gemini_label'),
+        modelValue: formState.geminiAssistantModel,
+        modelFallback: DEFAULT_GEMINI_ASSISTANT_MODEL,
+        modelKey: 'geminiAssistantModel',
+      },
+    ],
+    [
+      formState.geminiAssistantModel,
+      formState.openaiAssistantModel,
+      formState.openaiAssistantTemperature,
+      setFormState,
+      t,
+      updateSettings,
+    ]
+  );
+
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={[
-            settingsStyles.scrollContent,
-            { paddingBottom: 32 + insets.bottom },
-          ]}
-          contentInsetAdjustmentBehavior="always"
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
+          contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled">
-          <SettingsCard variant="interaction">
-            <ThemedText
-              type="subtitle"
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.summary.title_engine.title')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {titleSummaryEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.summary.title_engine.engines.${engine}`)}
-                  active={settings.titleSummaryEngine === engine}
-                  onPress={() => updateSettings({ titleSummaryEngine: engine })}
-                />
-              ))}
-            </View>
-          </SettingsCard>
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <SummaryModelSection
+            title={t('settings.summary.title_engine.title')}
+            activeEngine={settings.titleSummaryEngine}
+            providers={titleProviders}
+            promptLabel={t('settings.summary.title_engine.prompt_label')}
+            promptValue={formState.titleSummaryPrompt}
+            promptFallback={DEFAULT_TITLE_SUMMARY_PROMPT}
+            onPromptChange={(text) =>
+              setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))
+            }
+            onPromptBlur={() =>
+              updateSettings({
+                titleSummaryPrompt:
+                  formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
+              })
+            }
+            onSelectEngine={(engine) => updateSettings({ titleSummaryEngine: engine })}
+            modelCatalogs={modelCatalogs}
+            updateCredentials={updateCredentials}
+            setFormModelValue={(key, value) =>
+              setFormState((prev) => ({ ...prev, [key]: value }))
+            }
+          />
 
-          {settings.titleSummaryEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.title_engine.openai_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiTitleModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, openaiTitleModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    openaiTitleModel:
-                      formState.openaiTitleModel.trim() || DEFAULT_OPENAI_TITLE_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_OPENAI_TITLE_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.title_engine.temperature_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiTitleTemperature}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    openaiTitleTemperature: formatNumberInput(text),
-                  }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    openaiTitleTemperature: resolveTemperature(
-                      formState.openaiTitleTemperature,
-                      DEFAULT_OPENAI_TITLE_TEMPERATURE
-                    ),
-                  })
-                }
-                keyboardType="decimal-pad"
-                style={baseInputStyle}
-                placeholder={`${DEFAULT_OPENAI_TITLE_TEMPERATURE}`}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.title_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.titleSummaryPrompt}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    titleSummaryPrompt:
-                      formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          ) : (
-            <SettingsCard variant="gemini">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.title_engine.gemini_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiTitleModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, geminiTitleModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    geminiTitleModel:
-                      formState.geminiTitleModel.trim() || DEFAULT_GEMINI_TITLE_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_GEMINI_TITLE_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.title_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.titleSummaryPrompt}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, titleSummaryPrompt: text }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    titleSummaryPrompt:
-                      formState.titleSummaryPrompt.trim() || DEFAULT_TITLE_SUMMARY_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_TITLE_SUMMARY_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          )}
+          <SummaryModelSection
+            title={t('settings.summary.conversation_engine.title')}
+            activeEngine={settings.conversationSummaryEngine}
+            providers={conversationProviders}
+            promptLabel={t('settings.summary.conversation_engine.prompt_label')}
+            promptValue={formState.conversationSummaryPrompt}
+            promptFallback={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
+            onPromptChange={(text) =>
+              setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
+            }
+            onPromptBlur={() =>
+              updateSettings({
+                conversationSummaryPrompt:
+                  formState.conversationSummaryPrompt.trim() ||
+                  DEFAULT_CONVERSATION_SUMMARY_PROMPT,
+              })
+            }
+            onSelectEngine={(engine) => updateSettings({ conversationSummaryEngine: engine })}
+            modelCatalogs={modelCatalogs}
+            updateCredentials={updateCredentials}
+            setFormModelValue={(key, value) =>
+              setFormState((prev) => ({ ...prev, [key]: value }))
+            }
+          />
 
-          <SettingsCard variant="interaction">
-            <ThemedText
-              type="subtitle"
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.summary.conversation_engine.title')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {conversationSummaryEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.summary.conversation_engine.engines.${engine}`)}
-                  active={settings.conversationSummaryEngine === engine}
-                  onPress={() => updateSettings({ conversationSummaryEngine: engine })}
-                />
-              ))}
-            </View>
-          </SettingsCard>
-
-          {settings.conversationSummaryEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.conversation_engine.openai_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiConversationModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, openaiConversationModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    openaiConversationModel:
-                      formState.openaiConversationModel.trim() ||
-                      DEFAULT_OPENAI_CONVERSATION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_OPENAI_CONVERSATION_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.conversation_engine.temperature_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiConversationTemperature}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    openaiConversationTemperature: formatNumberInput(text),
-                  }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    openaiConversationTemperature: resolveTemperature(
-                      formState.openaiConversationTemperature,
-                      DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
-                    ),
-                  })
-                }
-                keyboardType="decimal-pad"
-                style={baseInputStyle}
-                placeholder={`${DEFAULT_OPENAI_CONVERSATION_TEMPERATURE}`}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.conversation_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.conversationSummaryPrompt}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    conversationSummaryPrompt:
-                      formState.conversationSummaryPrompt.trim() ||
-                      DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          ) : (
-            <SettingsCard variant="gemini">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.conversation_engine.gemini_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiConversationModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, geminiConversationModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    geminiConversationModel:
-                      formState.geminiConversationModel.trim() ||
-                      DEFAULT_GEMINI_CONVERSATION_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_GEMINI_CONVERSATION_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.conversation_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.conversationSummaryPrompt}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, conversationSummaryPrompt: text }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    conversationSummaryPrompt:
-                      formState.conversationSummaryPrompt.trim() ||
-                      DEFAULT_CONVERSATION_SUMMARY_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_CONVERSATION_SUMMARY_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          )}
-
-          <SettingsCard variant="interaction">
-            <ThemedText
-              type="subtitle"
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.summary.assistant_engine.title')}
-            </ThemedText>
-            <View style={settingsStyles.optionsRow}>
-              {assistantEngines.map((engine) => (
-                <OptionPill
-                  key={engine}
-                  label={t(`settings.summary.assistant_engine.engines.${engine}`)}
-                  active={settings.assistantEngine === engine}
-                  onPress={() => updateSettings({ assistantEngine: engine })}
-                />
-              ))}
-            </View>
-          </SettingsCard>
-
-          {settings.assistantEngine === 'openai' ? (
-            <SettingsCard variant="openai">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.assistant_engine.openai_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiAssistantModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, openaiAssistantModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    openaiAssistantModel:
-                      formState.openaiAssistantModel.trim() || DEFAULT_OPENAI_ASSISTANT_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_OPENAI_ASSISTANT_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.assistant_engine.temperature_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.openaiAssistantTemperature}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    openaiAssistantTemperature: formatNumberInput(text),
-                  }))
-                }
-                onBlur={() =>
-                  updateSettings({
-                    openaiAssistantTemperature: resolveTemperature(
-                      formState.openaiAssistantTemperature,
-                      DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
-                    ),
-                  })
-                }
-                keyboardType="decimal-pad"
-                style={baseInputStyle}
-                placeholder={`${DEFAULT_OPENAI_ASSISTANT_TEMPERATURE}`}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.assistant_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.assistantPrompt}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, assistantPrompt: text }))}
-                onBlur={() =>
-                  updateSettings({
-                    assistantPrompt: formState.assistantPrompt.trim() || DEFAULT_ASSISTANT_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_ASSISTANT_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          ) : (
-            <SettingsCard variant="gemini">
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.summary.assistant_engine.gemini_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.geminiAssistantModel}
-                onChangeText={(text) =>
-                  setFormState((prev) => ({ ...prev, geminiAssistantModel: text }))
-                }
-                onBlur={() =>
-                  updateCredentials({
-                    geminiAssistantModel:
-                      formState.geminiAssistantModel.trim() || DEFAULT_GEMINI_ASSISTANT_MODEL,
-                  })
-                }
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={baseInputStyle}
-                placeholder={DEFAULT_GEMINI_ASSISTANT_MODEL}
-                placeholderTextColor={placeholderTextColor}
-              />
-              <ThemedText
-                style={[groupLabelStyle, styles.cardLabel]}
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.summary.assistant_engine.prompt_label')}
-              </ThemedText>
-              <TextInput
-                value={formState.assistantPrompt}
-                onChangeText={(text) => setFormState((prev) => ({ ...prev, assistantPrompt: text }))}
-                onBlur={() =>
-                  updateSettings({
-                    assistantPrompt: formState.assistantPrompt.trim() || DEFAULT_ASSISTANT_PROMPT,
-                  })
-                }
-                style={multilineInputStyle}
-                placeholder={DEFAULT_ASSISTANT_PROMPT}
-                placeholderTextColor={placeholderTextColor}
-                multiline
-                textAlignVertical="top"
-              />
-            </SettingsCard>
-          )}
+          <SummaryModelSection
+            title={t('settings.summary.assistant_engine.title')}
+            activeEngine={settings.assistantEngine}
+            providers={assistantProviders}
+            promptLabel={t('settings.summary.assistant_engine.prompt_label')}
+            promptValue={formState.assistantPrompt}
+            promptFallback={DEFAULT_ASSISTANT_PROMPT}
+            onPromptChange={(text) =>
+              setFormState((prev) => ({ ...prev, assistantPrompt: text }))
+            }
+            onPromptBlur={() =>
+              updateSettings({
+                assistantPrompt: formState.assistantPrompt.trim() || DEFAULT_ASSISTANT_PROMPT,
+              })
+            }
+            onSelectEngine={(engine) => updateSettings({ assistantEngine: engine })}
+            modelCatalogs={modelCatalogs}
+            updateCredentials={updateCredentials}
+            setFormModelValue={(key, value) =>
+              setFormState((prev) => ({ ...prev, [key]: value }))
+            }
+          />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  promptInput: {
-    minHeight: 140,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  promptInputDark: {
-    color: '#e2e8f0',
-  },
-});
+function SummaryModelSection({
+  title,
+  activeEngine,
+  providers,
+  promptLabel,
+  promptValue,
+  promptFallback,
+  onPromptChange,
+  onPromptBlur,
+  onSelectEngine,
+  modelCatalogs,
+  updateCredentials,
+  setFormModelValue,
+}: {
+  title: string;
+  activeEngine: SummaryModelEngine;
+  providers: SummaryProviderConfig[];
+  promptLabel: string;
+  promptValue: string;
+  promptFallback: string;
+  onPromptChange: (value: string) => void;
+  onPromptBlur: () => void;
+  onSelectEngine: (engine: SummaryModelEngine) => void;
+  modelCatalogs: ModelCatalogControls;
+  updateCredentials: (partial: Partial<EngineCredentials>) => void;
+  setFormModelValue: (key: keyof EngineCredentials, value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { catalogs, ensureModelsFetched, refreshModels } = modelCatalogs;
+  const activeProvider = providers.find((provider) => provider.id === activeEngine) ?? providers[0];
+  const activeCatalog = catalogs[activeProvider.modelProvider!];
+  const modelOptions = getModelSelectOptions(
+    catalogs,
+    activeProvider.modelProvider,
+    [activeProvider.modelValue, activeProvider.modelFallback],
+    activeProvider.modelKey
+  );
+
+  useEffect(() => {
+    void ensureModelsFetched(activeProvider.remoteModelProvider);
+  }, [activeProvider.remoteModelProvider, ensureModelsFetched]);
+
+  const handleSelectModel = (value: string) => {
+    const nextValue = value.trim() || activeProvider.modelFallback;
+    setFormModelValue(activeProvider.modelKey, nextValue);
+    updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
+  return (
+    <View className="gap-3">
+      <Text.Heading type="h3">{title}</Text.Heading>
+      <SettingsModelProviderStrip
+        providers={providers}
+        activeId={activeEngine}
+        onSelect={onSelectEngine}
+      />
+      <SettingsModelDetailCard
+        title={activeProvider.title}
+        description={t('settings.credentials.models.catalog_hint')}
+        providerIcon={activeProvider.providerIcon}
+        fallbackIcon={activeProvider.fallbackIcon}
+        statusText={resolveModelCatalogStatusText(t, activeCatalog)}
+        action={
+          <Button
+            accessibilityLabel={t('settings.credentials.models.refresh')}
+            isDisabled={activeCatalog.status === 'loading'}
+            isIconOnly
+            onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
+            size="sm"
+            variant="tertiary">
+            {activeCatalog.status === 'loading' ? (
+              <Spinner size="sm" />
+            ) : (
+              <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
+            )}
+          </Button>
+        }>
+        <SettingsModelSelectField
+          label={activeProvider.modelLabel}
+          value={activeProvider.modelValue}
+          options={modelOptions}
+          placeholder={activeProvider.modelFallback}
+          onChange={handleSelectModel}
+        />
+
+        {activeProvider.temperatureLabel &&
+        activeProvider.temperatureValue !== undefined &&
+        activeProvider.temperatureFallback !== undefined ? (
+          <FormInput
+            label={activeProvider.temperatureLabel}
+            value={activeProvider.temperatureValue}
+            onChangeText={activeProvider.onTemperatureChange ?? (() => undefined)}
+            onBlur={activeProvider.onTemperatureBlur}
+            keyboardType="decimal-pad"
+            placeholder={`${activeProvider.temperatureFallback}`}
+          />
+        ) : null}
+
+        <FormInput
+          label={promptLabel}
+          value={promptValue}
+          onChangeText={onPromptChange}
+          onBlur={onPromptBlur}
+          placeholder={promptFallback}
+          multiline
+          inputClassName="min-h-36"
+        />
+      </SettingsModelDetailCard>
+    </View>
+  );
+}

@@ -3,6 +3,7 @@ import {
     requestRecordingPermissionsAsync,
     setAudioModeAsync,
     useAudioRecorder,
+    useAudioRecorderState,
     type RecordingOptions,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
@@ -14,28 +15,20 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
-    TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { AppCard, AppScreen, FormInput } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { AppSettings, RecordingPreset } from '@/types/settings';
 
 import {
-    CARD_SUBTLE_DARK,
-    CARD_SUBTLE_LIGHT,
-    CARD_TEXT_DARK,
-    CARD_TEXT_LIGHT,
     NumericSettingKey,
     OptionPill,
-    SettingsCard,
     formatNumberInput,
-    settingsStyles,
     useSettingsForm,
-} from './shared';
+} from '@/components/settings/settings-form';
 
 const METERING_RECORDING_OPTIONS: RecordingOptions = {
   isMeteringEnabled: true,
@@ -72,11 +65,10 @@ export default function RecordingSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
   const [presetName, setPresetName] = useState('');
   const recorder = useAudioRecorder(METERING_RECORDING_OPTIONS);
+  const recorderState = useAudioRecorderState(recorder, 100);
+  const recorderStateRef = useRef(recorderState);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [meteringDb, setMeteringDb] = useState<number | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,17 +103,6 @@ export default function RecordingSettingsScreen() {
     intervalId: null,
   });
 
-  const inputStyle = [settingsStyles.input, isDark && settingsStyles.inputDark];
-  const labelStyle = [settingsStyles.fieldLabel, isDark && settingsStyles.fieldLabelDark];
-  const placeholderTextColor = isDark ? '#94a3b8' : '#64748b';
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
-  const scrollContentStyle = useMemo(
-    () => [settingsStyles.scrollContent, { paddingBottom: 32 + insets.bottom }],
-    [insets.bottom]
-  );
   const monitoringButtonLabel = useMemo(
     () =>
       isMonitoring
@@ -201,6 +182,18 @@ export default function RecordingSettingsScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    recorderStateRef.current = recorderState;
+  }, [recorderState]);
+
+  const shouldIgnoreReleasedRecorderError = (error: unknown) => {
+    const message =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message ?? '')
+        : String(error ?? '');
+    return message.includes('already released') || message.includes('Cannot use shared object');
+  };
+
   const cleanupRecordingFile = useCallback(async (uri?: string | null) => {
     if (!uri) {
       return;
@@ -239,16 +232,26 @@ export default function RecordingSettingsScreen() {
       webMeteringRef.current.context = null;
     }
     webMeteringRef.current.analyser = null;
-    if (recorder.isRecording) {
+    const state = recorderStateRef.current;
+    if (state.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
-        if (__DEV__) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
           console.warn('[recording-settings] Failed to stop metering recorder', error);
         }
       }
     }
-    const currentUri = recorder.uri;
+    let currentUri = state.url;
+    if (!currentUri) {
+      try {
+        currentUri = recorder.uri;
+      } catch (error) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+          console.warn('[recording-settings] Failed to read metering recorder URI', error);
+        }
+      }
+    }
     await cleanupRecordingFile(currentUri);
   }, [cleanupRecordingFile, clearStatusInterval, recorder]);
 
@@ -531,7 +534,7 @@ export default function RecordingSettingsScreen() {
         return;
       }
 
-      if (recorder.isRecording) {
+      if (recorderStateRef.current.isRecording) {
         return;
       }
 
@@ -560,7 +563,18 @@ export default function RecordingSettingsScreen() {
 
       clearStatusInterval();
       statusIntervalRef.current = setInterval(() => {
-        const status = recorder.getStatus();
+        let status;
+        try {
+          status = recorder.getStatus();
+        } catch (error) {
+          clearStatusInterval();
+          if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+            console.warn('[recording-settings] Failed to read metering recorder status', error);
+          }
+          setIsMonitoring(false);
+          setMeteringDb(null);
+          return;
+        }
         const normalized =
           typeof status.metering === 'number' && Number.isFinite(status.metering)
             ? status.metering
@@ -602,16 +616,26 @@ export default function RecordingSettingsScreen() {
       webMeteringRef.current.context = null;
     }
     webMeteringRef.current.analyser = null;
-    if (recorder.isRecording) {
+    const state = recorderStateRef.current;
+    if (state.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
-        if (__DEV__) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
           console.warn('[recording-settings] Failed to stop metering recorder', error);
         }
       }
     }
-    const currentUri = recorder.uri;
+    let currentUri = state.url;
+    if (!currentUri) {
+      try {
+        currentUri = recorder.uri;
+      } catch (error) {
+        if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
+          console.warn('[recording-settings] Failed to read metering recorder URI', error);
+        }
+      }
+    }
     await cleanupRecordingFile(currentUri);
     setIsMonitoring(false);
     setMeteringDb(null);
@@ -780,56 +804,39 @@ export default function RecordingSettingsScreen() {
     onChange: (text: string) => void,
     onCommitKey: NumericSettingKey,
   ) => (
-    <View style={settingsStyles.fieldRow}>
-      <ThemedText
-        style={labelStyle}
-        lightColor={CARD_SUBTLE_LIGHT}
-        darkColor={CARD_SUBTLE_DARK}>
-        {t(labelKey)}
-      </ThemedText>
-      <TextInput
-        value={value}
-        onChangeText={(text) => onChange(formatNumberInput(text))}
-        onBlur={() => handleNumericCommit(onCommitKey, value)}
-        keyboardType="decimal-pad"
-        style={inputStyle}
-        placeholderTextColor={placeholderTextColor}
-      />
-    </View>
+    <FormInput
+      label={t(labelKey)}
+      value={value}
+      onChangeText={(text) => onChange(formatNumberInput(text))}
+      onBlur={() => handleNumericCommit(onCommitKey, value)}
+      keyboardType="decimal-pad"
+    />
   );
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
+    <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={settingsStyles.flex}>
+        className="min-h-0 flex-1">
         <ScrollView
-          contentContainerStyle={scrollContentStyle}
-          contentInsetAdjustmentBehavior="always"
+          className="min-h-0 flex-1"
+          contentContainerClassName="gap-4 pb-6"
+          contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled">
           {isDesktopApp ? (
-            <SettingsCard variant="system">
-              <View style={recordingStyles.inputHeader}>
-                <ThemedText
-                  type="subtitle"
-                  lightColor={CARD_TEXT_LIGHT}
-                  darkColor={CARD_TEXT_DARK}>
-                  {t('settings.recording.input.title')}
-                </ThemedText>
+            <AppCard
+              icon="desktop"
+              title={t('settings.recording.input.title')}
+              subtitle={t('settings.recording.input.description')}>
+              <View className="gap-4">
                 <OptionPill
                   label={t('settings.recording.input.refresh')}
                   active={false}
                   onPress={() => refreshDesktopInputs(true)}
                 />
               </View>
-              <ThemedText
-                style={recordingStyles.inputDescription}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
-                {t('settings.recording.input.description')}
-              </ThemedText>
-              <View style={settingsStyles.optionsRow}>
+              <View className="flex-row flex-wrap gap-2">
                 <OptionPill
                   label={t('settings.recording.input.default')}
                   active={!selectedDesktopInputId}
@@ -845,12 +852,9 @@ export default function RecordingSettingsScreen() {
                 ))}
               </View>
               {desktopInputs.length === 0 ? (
-                <ThemedText
-                  style={recordingStyles.inputEmpty}
-                  lightColor={CARD_SUBTLE_LIGHT}
-                  darkColor={CARD_SUBTLE_DARK}>
+                <Text type="body-sm" color="muted">
                   {t('settings.recording.input.empty')}
-                </ThemedText>
+                </Text>
               ) : null}
               <View style={recordingStyles.inputTestRow}>
                 <View style={recordingStyles.inputStatus}>
@@ -864,12 +868,9 @@ export default function RecordingSettingsScreen() {
                         : recordingStyles.inputStatusDotIdle,
                     ]}
                   />
-                  <ThemedText
-                    style={recordingStyles.inputStatusLabel}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
+                  <Text type="body-sm" color="muted">
                     {inputTestStatusLabel}
-                  </ThemedText>
+                  </Text>
                 </View>
                 <OptionPill
                   label={
@@ -882,71 +883,46 @@ export default function RecordingSettingsScreen() {
                 />
               </View>
               {desktopInputError ? (
-                <ThemedText
-                  style={recordingStyles.inputError}
-                  lightColor={CARD_SUBTLE_LIGHT}
-                  darkColor={CARD_SUBTLE_DARK}>
+                <Text type="body-sm" className="text-danger">
                   {desktopInputError}
-                </ThemedText>
+                </Text>
               ) : null}
-            </SettingsCard>
+            </AppCard>
           ) : null}
-          <SettingsCard variant="system">
-            <View style={settingsStyles.rowBetween}>
-              <ThemedText
-                type="subtitle"
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.recording.metering.title')}
-              </ThemedText>
+          <AppCard
+            icon="wave-square"
+            title={t('settings.recording.metering.title')}
+            action={
               <OptionPill
                 label={monitoringButtonLabel}
                 active={isMonitoring}
                 onPress={handleToggleMonitoring}
               />
-            </View>
+            }>
             <View style={recordingStyles.presetMetaRow}>
               {snapshotItems.map((item) => (
                 <View key={item.key} style={recordingStyles.presetMetaItem}>
-                  <ThemedText
-                    style={recordingStyles.presetMetaLabel}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
+                  <Text type="body-xs" color="muted">
                     {item.label}
-                  </ThemedText>
-                  <ThemedText
-                    style={recordingStyles.presetMetaValue}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
+                  </Text>
+                  <Text weight="semibold">
                     {item.value}
-                  </ThemedText>
+                  </Text>
                 </View>
               ))}
             </View>
-          </SettingsCard>
-          <SettingsCard variant="interaction">
-            <View style={recordingStyles.presetCardHeader}>
-              <ThemedText
-                type="subtitle"
-                lightColor={CARD_TEXT_LIGHT}
-                darkColor={CARD_TEXT_DARK}>
-                {t('settings.recording.presets.save_title')}
-              </ThemedText>
-            </View>
-            <ThemedText
-              style={recordingStyles.saveCardDescription}
-              lightColor={CARD_SUBTLE_LIGHT}
-              darkColor={CARD_SUBTLE_DARK}>
-              {t('settings.recording.presets.save_description')}
-            </ThemedText>
-            <TextInput
+          </AppCard>
+          <AppCard
+            icon="box-archive"
+            title={t('settings.recording.presets.save_title')}
+            subtitle={t('settings.recording.presets.save_description')}>
+            <FormInput
+              label={t('settings.recording.presets.name_placeholder')}
               value={presetName}
               onChangeText={setPresetName}
               placeholder={t('settings.recording.presets.name_placeholder')}
-              style={inputStyle}
-              placeholderTextColor={placeholderTextColor}
             />
-            <View style={settingsStyles.optionsRow}>
+            <View className="flex-row flex-wrap gap-2">
               <OptionPill
                 label={t('settings.recording.presets.save_button')}
                 active={canSavePreset}
@@ -954,38 +930,29 @@ export default function RecordingSettingsScreen() {
                 disabled={!canSavePreset}
               />
             </View>
-          </SettingsCard>
+          </AppCard>
 
           {settings.recordingPresets.length === 0 ? (
-            <SettingsCard variant="system">
-              <ThemedText
-                style={recordingStyles.emptyStateText}
-                lightColor={CARD_SUBTLE_LIGHT}
-                darkColor={CARD_SUBTLE_DARK}>
+            <AppCard icon="box-archive" title={t('settings.recording.presets.save_title')}>
+              <Text type="body-sm" color="muted" align="center">
                 {t('settings.recording.presets.empty')}
-              </ThemedText>
-            </SettingsCard>
+              </Text>
+            </AppCard>
           ) : (
             settings.recordingPresets.map((preset) => {
               const isActive = settings.activeRecordingPresetId === preset.id;
-              const presetVariant = isActive ? 'interaction' : 'system';
               return (
-                <SettingsCard key={preset.id} variant={presetVariant}>
+                <AppCard
+                  key={preset.id}
+                  icon="sliders"
+                  title={preset.name}
+                  className={isActive ? 'border-accent/40 bg-accent/5' : ''}>
                   <View style={recordingStyles.presetCardHeader}>
-                    <ThemedText
-                      type="subtitle"
-                      lightColor={CARD_TEXT_LIGHT}
-                      darkColor={CARD_TEXT_DARK}>
-                      {preset.name}
-                    </ThemedText>
                     {isActive ? (
-                      <View style={recordingStyles.activeBadge}>
-                        <ThemedText
-                          style={recordingStyles.activeBadgeText}
-                          lightColor="#0f172a"
-                          darkColor="#0f172a">
+                      <View className="rounded-full bg-accent px-3 py-1">
+                        <Text type="body-xs" weight="bold" className="text-accent-foreground">
                           {t('settings.recording.presets.active_badge')}
-                        </ThemedText>
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -1018,22 +985,16 @@ export default function RecordingSettingsScreen() {
                       },
                     ].map((item) => (
                       <View key={item.key} style={recordingStyles.presetMetaItem}>
-                        <ThemedText
-                          style={recordingStyles.presetMetaLabel}
-                          lightColor={CARD_SUBTLE_LIGHT}
-                          darkColor={CARD_SUBTLE_DARK}>
+                        <Text type="body-xs" color="muted">
                           {item.label}
-                        </ThemedText>
-                        <ThemedText
-                          style={recordingStyles.presetMetaValue}
-                          lightColor={CARD_TEXT_LIGHT}
-                          darkColor={CARD_TEXT_DARK}>
+                        </Text>
+                        <Text weight="semibold">
                           {item.value}
-                        </ThemedText>
+                        </Text>
                       </View>
                     ))}
                   </View>
-                  <View style={settingsStyles.optionsRow}>
+                  <View className="flex-row flex-wrap gap-2">
                     <OptionPill
                       label={t('settings.recording.presets.apply_button')}
                       active={isActive}
@@ -1045,12 +1006,12 @@ export default function RecordingSettingsScreen() {
                       onPress={() => confirmDeletePreset(preset)}
                     />
                   </View>
-                </SettingsCard>
+                </AppCard>
               );
             })
           )}
 
-          <SettingsCard variant="system">
+          <AppCard icon="sliders" title={t('settings.recording.metering.title')}>
             {renderNumericField(
               'settings.recording.labels.activation_threshold',
               formState.activationThreshold,
@@ -1085,10 +1046,10 @@ export default function RecordingSettingsScreen() {
               (text) => setFormState((prev) => ({ ...prev, maxSegmentDurationSec: text })),
               'maxSegmentDurationSec'
             )}
-          </SettingsCard>
+          </AppCard>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 

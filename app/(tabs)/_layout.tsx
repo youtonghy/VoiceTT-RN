@@ -8,20 +8,19 @@ import { Stack, Tabs } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
+import { useThemeColor } from 'heroui-native';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { AppIcon } from '@/components/native/app-shell';
 import { SideTabRail } from '@/components/side-tab-rail';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import { useSettings } from '@/contexts/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useIsTablet } from '@/hooks/use-is-tablet';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const isTablet = useIsTablet();
   const { settings } = useSettings();
+  const accentColor = useThemeColor('accent');
   const hiddenTabItemStyle = { display: 'none' } as const;
 
   const tabs = {
@@ -50,7 +49,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: accentColor,
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
@@ -58,14 +57,14 @@ export default function TabLayout() {
         name="transcription"
         options={{
           title: tabs.transcription,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="waveform" color={color} />,
+          tabBarIcon: ({ color }) => <AppIcon size={21} name="wave-square" color={color} solid />,
         }}
       />
       <Tabs.Screen
         name="conversation-qa"
         options={{
           title: tabs.qa,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
+          tabBarIcon: ({ color }) => <AppIcon size={21} name="comments" color={color} solid />,
           tabBarItemStyle: settings.showQaTab ? undefined : hiddenTabItemStyle,
         }}
       />
@@ -73,7 +72,7 @@ export default function TabLayout() {
         name="text-to-speech"
         options={{
           title: tabs.reading,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="speaker.wave.2.fill" color={color} />,
+          tabBarIcon: ({ color }) => <AppIcon size={20} name="volume-high" color={color} solid />,
           tabBarItemStyle: settings.showReadingTab ? undefined : hiddenTabItemStyle,
         }}
       />
@@ -81,7 +80,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: tabs.settings,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
+          tabBarIcon: ({ color }) => <AppIcon size={20} name="gear" color={color} solid />,
         }}
       />
       {/* Legacy alias routes must stay hidden or Expo Router will auto-inject them into the tab bar. */}

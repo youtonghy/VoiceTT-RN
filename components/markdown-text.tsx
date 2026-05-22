@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MarkdownDisplay from 'react-native-markdown-display';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useThemeColor } from 'heroui-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export interface MarkdownTextProps {
   children: string;
@@ -22,10 +23,17 @@ export function MarkdownText({
   darkColor,
   maxChars = 200000,
 }: MarkdownTextProps) {
-  const textColor = useThemeColor(
-    { light: lightColor || '#0f172a', dark: darkColor || '#e2e8f0' },
-    'text'
-  );
+  const colorScheme = useColorScheme();
+  const [themeTextColor, accentColor, surfaceSecondaryColor, borderColor] = useThemeColor([
+    'foreground',
+    'accent',
+    'surface-secondary',
+    'border',
+  ]);
+  const textColor =
+    colorScheme === 'dark'
+      ? darkColor ?? themeTextColor
+      : lightColor ?? themeTextColor;
 
   const safeMarkdown =
     typeof children === 'string' && children.length > maxChars
@@ -71,7 +79,7 @@ export function MarkdownText({
       marginBottom: 8,
     },
     code_inline: {
-      backgroundColor: 'rgba(148, 163, 184, 0.12)',
+      backgroundColor: surfaceSecondaryColor,
       color: textColor,
       paddingHorizontal: 4,
       paddingVertical: 2,
@@ -79,7 +87,7 @@ export function MarkdownText({
       fontFamily: 'monospace',
     },
     code_block: {
-      backgroundColor: 'rgba(148, 163, 184, 0.12)',
+      backgroundColor: surfaceSecondaryColor,
       color: textColor,
       padding: 12,
       borderRadius: 8,
@@ -87,9 +95,9 @@ export function MarkdownText({
       fontFamily: 'monospace',
     },
     blockquote: {
-      backgroundColor: 'rgba(148, 163, 184, 0.08)',
+      backgroundColor: surfaceSecondaryColor,
       borderLeftWidth: 4,
-      borderLeftColor: 'rgba(148, 163, 184, 0.4)',
+      borderLeftColor: borderColor,
       paddingLeft: 12,
       marginVertical: 8,
       paddingVertical: 4,
@@ -101,37 +109,37 @@ export function MarkdownText({
       fontStyle: 'italic' as const,
     },
     link: {
-      color: '#2563eb',
+      color: accentColor,
       textDecorationLine: 'underline' as const,
     },
     hr: {
-      backgroundColor: 'rgba(148, 163, 184, 0.3)',
+      backgroundColor: borderColor,
       height: 1,
       marginVertical: 16,
     },
     table: {
       borderWidth: 1,
-      borderColor: 'rgba(148, 163, 184, 0.3)',
+      borderColor,
       borderRadius: 8,
       marginVertical: 8,
     },
     thead: {
-      backgroundColor: 'rgba(148, 163, 184, 0.1)',
+      backgroundColor: surfaceSecondaryColor,
     },
     th: {
       padding: 8,
       fontWeight: '600' as const,
       borderRightWidth: 1,
-      borderRightColor: 'rgba(148, 163, 184, 0.3)',
+      borderRightColor: borderColor,
     },
     tr: {
       borderBottomWidth: 1,
-      borderBottomColor: 'rgba(148, 163, 184, 0.3)',
+      borderBottomColor: borderColor,
     },
     td: {
       padding: 8,
       borderRightWidth: 1,
-      borderRightColor: 'rgba(148, 163, 184, 0.3)',
+      borderRightColor: borderColor,
     },
   };
 

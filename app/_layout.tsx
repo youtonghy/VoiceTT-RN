@@ -13,6 +13,7 @@ import { SettingsProvider } from '@/contexts/settings-context';
 import { TranscriptionProvider } from '@/contexts/transcription-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import i18n from '@/i18n';
+import '../global.css';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -21,8 +22,11 @@ export const unstable_settings = {
 const heroUIConfig: HeroUINativeConfig = {
   textProps: {
     allowFontScaling: true,
-    maxFontSizeMultiplier: 1.5,
-    minimumFontScale: 0.5,
+    maxFontSizeMultiplier: 1.35,
+    minimumFontScale: 0.75,
+  },
+  devInfo: {
+    stylingPrinciples: false,
   },
   toast: {
     defaultProps: {
@@ -47,7 +51,6 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </ThemeProvider>

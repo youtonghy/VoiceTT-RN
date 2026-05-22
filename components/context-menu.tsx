@@ -9,10 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { useThemeColor } from "@/hooks/use-theme-color";
+import { Card, Text, useThemeColor } from "heroui-native";
 
 export type ContextMenuAction = {
   label: string;
@@ -65,10 +62,11 @@ export function ContextMenu({
   const [isMounted, setIsMounted] = useState(visible);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const previousVisibleRef = useRef(visible);
-  const surfaceBorder = useThemeColor(
-    { light: "rgba(148, 163, 184, 0.25)", dark: "rgba(148, 163, 184, 0.35)" },
-    "background"
-  );
+  const [surfaceBorder, pressedBackground, sheetItemBackground] = useThemeColor([
+    "border",
+    "surface-secondary",
+    "surface-secondary",
+  ]);
 
   const visibleActions = useMemo(
     () =>
@@ -154,15 +152,14 @@ export function ContextMenu({
               }
             }}
           >
-            <ThemedView
-              lightColor="#ffffff"
-              darkColor="#0f172a"
+            <Card
+              className="bg-surface"
               style={[styles.desktopMenuCard, { borderColor: surfaceBorder }]}
             >
               {title ? (
-                <ThemedText style={styles.desktopMenuTitle} lightColor="#0f172a" darkColor="#e2e8f0">
+                <Text type="body-sm" weight="semibold" style={styles.desktopMenuTitle}>
                   {title}
-                </ThemedText>
+                </Text>
               ) : null}
               <View style={styles.desktopMenuList}>
                 {visibleActions.map((action) => (
@@ -174,23 +171,23 @@ export function ContextMenu({
                     }}
                     style={({ pressed }) => [
                       styles.desktopMenuItem,
-                      pressed && styles.desktopMenuItemPressed,
+                      pressed && { backgroundColor: pressedBackground },
                     ]}
                   >
-                    <ThemedText
+                    <Text
+                      type="body-sm"
+                      weight="semibold"
+                      className={action.variant === "destructive" ? "text-danger" : undefined}
                       style={[
                         styles.desktopMenuLabel,
-                        action.variant === "destructive" && styles.desktopMenuLabelDestructive,
                       ]}
-                      lightColor="#0f172a"
-                      darkColor="#e2e8f0"
                     >
                       {action.label}
-                    </ThemedText>
+                    </Text>
                   </Pressable>
                 ))}
               </View>
-            </ThemedView>
+            </Card>
           </Pressable>
         </Pressable>
       </Modal>
@@ -201,16 +198,15 @@ export function ContextMenu({
     <Modal transparent visible onRequestClose={onRequestClose}>
       <AnimatedPressable style={[styles.sheetBackdrop, { opacity }]} onPress={onRequestClose}>
         <Pressable style={styles.sheetCardPressable} onPress={() => {}}>
-          <ThemedView lightColor="#ffffff" darkColor="#0f172a" style={styles.sheetCard}>
+          <Card className="bg-surface" style={[styles.sheetCard, { borderColor: surfaceBorder }]}>
             {title ? (
-              <ThemedText
-                type="subtitle"
+              <Text
+                type="h6"
+                weight="bold"
                 style={styles.sheetTitle}
-                lightColor="#0f172a"
-                darkColor="#e2e8f0"
               >
                 {title}
-              </ThemedText>
+              </Text>
             ) : null}
             <View style={styles.sheetList}>
               {visibleActions.map((action) => (
@@ -222,24 +218,28 @@ export function ContextMenu({
                   }}
                   style={({ pressed }) => [
                     styles.sheetItem,
+                    { backgroundColor: sheetItemBackground },
                     pressed && styles.sheetItemPressed,
                   ]}
                 >
-                  <ThemedText
+                  <Text
+                    type="body"
+                    weight="semibold"
+                    className={
+                      action.variant === "cancel" || action.variant === "destructive"
+                        ? "text-danger"
+                        : undefined
+                    }
                     style={[
                       styles.sheetLabel,
-                      (action.variant === "cancel" || action.variant === "destructive") &&
-                        styles.sheetLabelCancel,
                     ]}
-                    lightColor="#0f172a"
-                    darkColor="#e2e8f0"
                   >
                     {action.label}
-                  </ThemedText>
+                  </Text>
                 </Pressable>
               ))}
             </View>
-          </ThemedView>
+          </Card>
         </Pressable>
       </AnimatedPressable>
     </Modal>
@@ -278,15 +278,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
   },
-  desktopMenuItemPressed: {
-    backgroundColor: "rgba(148, 163, 184, 0.15)",
-  },
   desktopMenuLabel: {
     fontSize: 14,
-    fontWeight: "600",
-  },
-  desktopMenuLabelDestructive: {
-    color: "#ef4444",
   },
   sheetBackdrop: {
     flex: 1,
@@ -303,7 +296,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.25)",
     shadowColor: "rgba(15, 23, 42, 0.2)",
     shadowOpacity: 1,
     shadowRadius: 18,
@@ -321,16 +313,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: "rgba(148, 163, 184, 0.12)",
   },
   sheetItemPressed: {
     opacity: 0.85,
   },
   sheetLabel: {
     fontSize: 15,
-    fontWeight: "600",
-  },
-  sheetLabelCancel: {
-    color: "#ef4444",
   },
 });

@@ -1,21 +1,9 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Linking, View } from 'react-native';
+import { Text } from 'heroui-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-import {
-  CARD_SUBTLE_DARK,
-  CARD_SUBTLE_LIGHT,
-  CARD_TEXT_DARK,
-  CARD_TEXT_LIGHT,
-  SettingsCard,
-  settingsStyles,
-} from './shared';
+import { ActionCard, AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
 
 const WEBSITE_URL = 'https://vtt.tokisantike.net/zh-CN/keyboard';
 const REPOSITORY_URL = 'https://github.com/youtonghy/VTT-keyboard';
@@ -23,26 +11,22 @@ const REPOSITORY_URL = 'https://github.com/youtonghy/VTT-keyboard';
 type LinkEntry = {
   key: 'website' | 'repository';
   url: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
 };
 
 const LINK_ENTRIES: LinkEntry[] = [
-  { key: 'website', url: WEBSITE_URL, icon: 'globe-outline' },
-  { key: 'repository', url: REPOSITORY_URL, icon: 'logo-github' },
+  { key: 'website', url: WEBSITE_URL, icon: 'globe' },
+  { key: 'repository', url: REPOSITORY_URL, icon: 'github' },
 ];
 
-const FEATURE_KEYS = ['global_input', 'multi_engine', 'ai_cards'] as const;
+const FEATURE_ENTRIES: { key: 'global_input' | 'multi_engine' | 'ai_cards'; icon: AppIconName }[] = [
+  { key: 'global_input', icon: 'microphone' },
+  { key: 'multi_engine', icon: 'layer-group' },
+  { key: 'ai_cards', icon: 'wand-magic-sparkles' },
+];
 
 export default function KeyboardRecommendationScreen() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const insets = useSafeAreaInsets();
-
-  const safeAreaStyle = [
-    settingsStyles.safeArea,
-    isDark ? settingsStyles.safeAreaDark : settingsStyles.safeAreaLight,
-  ];
 
   const openExternalLink = useCallback(
     (url: string) => {
@@ -58,233 +42,60 @@ export default function KeyboardRecommendationScreen() {
   );
 
   return (
-    <SafeAreaView style={safeAreaStyle} edges={['top', 'left', 'right']}>
-      <ScrollView
-        contentContainerStyle={[
-          settingsStyles.scrollContent,
-          { paddingBottom: 32 + insets.bottom },
-        ]}
-        contentInsetAdjustmentBehavior="always"
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={settingsStyles.pageHeader}>
-          <ThemedText
-            type="title"
-            style={settingsStyles.pageTitle}
-            lightColor="#0f172a"
-            darkColor="#e2e8f0">
-            {t('settings.keyboard.title')}
-          </ThemedText>
-          <ThemedText
-            style={styles.subtitle}
-            lightColor={CARD_SUBTLE_LIGHT}
-            darkColor={CARD_SUBTLE_DARK}>
-            {t('settings.keyboard.subtitle')}
-          </ThemedText>
-        </View>
+    <AppScreen
+      title={t('settings.keyboard.title')}
+      subtitle={t('settings.keyboard.subtitle')}
+      edges={['left', 'right']}
+      contentTopInset={0}
+      scrollContentInsetAdjustmentBehavior="never">
+      <AppCard
+        className="border-success/30 bg-success/10"
+        icon="shield-halved"
+        title={t('settings.keyboard.free_badge')}
+        subtitle={t('settings.keyboard.free_description')}
+      />
 
-        <SettingsCard variant="system" style={styles.freeCard}>
-          <View style={styles.freeCardRow}>
-            <Ionicons name="shield-checkmark-outline" size={22} color={isDark ? '#86efac' : '#166534'} />
-            <ThemedText
-              type="subtitle"
-              lightColor={CARD_TEXT_LIGHT}
-              darkColor={CARD_TEXT_DARK}>
-              {t('settings.keyboard.free_badge')}
-            </ThemedText>
-          </View>
-          <ThemedText
-            style={styles.freeDescription}
-            lightColor={CARD_SUBTLE_LIGHT}
-            darkColor={CARD_SUBTLE_DARK}>
-            {t('settings.keyboard.free_description')}
-          </ThemedText>
-        </SettingsCard>
+      <AppCard icon="keyboard" title={t('settings.keyboard.overview_title')}>
+        <Text type="body-sm" color="muted">
+          {t('settings.keyboard.overview_body')}
+        </Text>
+      </AppCard>
 
-        <SettingsCard variant="interaction">
-          <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-            {t('settings.keyboard.overview_title')}
-          </ThemedText>
-          <ThemedText
-            style={styles.bodyText}
-            lightColor={CARD_SUBTLE_LIGHT}
-            darkColor={CARD_SUBTLE_DARK}>
-            {t('settings.keyboard.overview_body')}
-          </ThemedText>
-        </SettingsCard>
-
-        <SettingsCard variant="prompt">
-          <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-            {t('settings.keyboard.features_title')}
-          </ThemedText>
-          <View style={styles.featureList}>
-            {FEATURE_KEYS.map((featureKey) => (
-              <View key={featureKey} style={styles.featureItem}>
-                <View style={styles.featureIconWrap}>
-                  <Ionicons
-                    name={
-                      featureKey === 'global_input'
-                        ? 'mic-outline'
-                        : featureKey === 'multi_engine'
-                          ? 'layers-outline'
-                          : 'sparkles-outline'
-                    }
-                    size={18}
-                    color={isDark ? '#c4b5fd' : '#4c1d95'}
-                  />
-                </View>
-                <View style={styles.featureTextWrap}>
-                  <ThemedText
-                    style={styles.featureTitle}
-                    lightColor={CARD_TEXT_LIGHT}
-                    darkColor={CARD_TEXT_DARK}>
-                    {t(`settings.keyboard.features.${featureKey}.title`)}
-                  </ThemedText>
-                  <ThemedText
-                    style={styles.featureBody}
-                    lightColor={CARD_SUBTLE_LIGHT}
-                    darkColor={CARD_SUBTLE_DARK}>
-                    {t(`settings.keyboard.features.${featureKey}.body`)}
-                  </ThemedText>
-                </View>
+      <AppCard icon="wand-magic-sparkles" title={t('settings.keyboard.features_title')}>
+        <View className="gap-3">
+          {FEATURE_ENTRIES.map((feature) => (
+            <View key={feature.key} className="flex-row items-start gap-3 rounded-xl bg-surface-secondary p-3">
+              <View className="size-9 items-center justify-center rounded-lg bg-surface">
+                <AppIcon name={feature.icon} size={16} className="text-accent" />
               </View>
-            ))}
-          </View>
-        </SettingsCard>
+              <View className="min-w-0 flex-1 gap-1">
+                <Text weight="semibold">
+                  {t(`settings.keyboard.features.${feature.key}.title`)}
+                </Text>
+                <Text type="body-sm" color="muted">
+                  {t(`settings.keyboard.features.${feature.key}.body`)}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </AppCard>
 
-        <SettingsCard variant="openai">
-          <ThemedText type="subtitle" lightColor={CARD_TEXT_LIGHT} darkColor={CARD_TEXT_DARK}>
-            {t('settings.keyboard.links_title')}
-          </ThemedText>
-          <View style={styles.linksWrap}>
-            {LINK_ENTRIES.map((entry) => (
-              <Pressable
-                key={entry.key}
-                accessibilityRole="link"
-                accessibilityLabel={t(`settings.keyboard.links.${entry.key}.label`)}
-                onPress={() => openExternalLink(entry.url)}
-                style={({ pressed }) => [styles.linkPressable, pressed && styles.linkPressed]}>
-                <ThemedView
-                  lightColor="rgba(255, 255, 255, 0.72)"
-                  darkColor="rgba(15, 23, 42, 0.56)"
-                  style={styles.linkCard}>
-                  <View style={styles.linkIconWrap}>
-                    <Ionicons name={entry.icon} size={18} color="#2563eb" />
-                  </View>
-                  <View style={styles.linkTextWrap}>
-                    <ThemedText
-                      style={styles.linkTitle}
-                      lightColor={CARD_TEXT_LIGHT}
-                      darkColor={CARD_TEXT_DARK}>
-                      {t(`settings.keyboard.links.${entry.key}.label`)}
-                    </ThemedText>
-                    <ThemedText
-                      style={styles.linkUrl}
-                      lightColor={CARD_SUBTLE_LIGHT}
-                      darkColor={CARD_SUBTLE_DARK}>
-                      {entry.url}
-                    </ThemedText>
-                  </View>
-                  <Ionicons name="open-outline" size={18} color={isDark ? '#93c5fd' : '#1d4ed8'} />
-                </ThemedView>
-              </Pressable>
-            ))}
-          </View>
-        </SettingsCard>
-      </ScrollView>
-    </SafeAreaView>
+      <AppCard icon="globe" title={t('settings.keyboard.links_title')}>
+        <View className="gap-2">
+          {LINK_ENTRIES.map((entry) => (
+            <ActionCard
+              key={entry.key}
+              accessibilityRole="link"
+              icon={entry.icon}
+              title={t(`settings.keyboard.links.${entry.key}.label`)}
+              subtitle={entry.url}
+              onPress={() => openExternalLink(entry.url)}
+              className="bg-surface-secondary"
+            />
+          ))}
+        </View>
+      </AppCard>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    maxWidth: 720,
-  },
-  freeCard: {
-    borderColor: 'rgba(34, 197, 94, 0.28)',
-  },
-  freeCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  freeDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  bodyText: {
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  featureList: {
-    gap: 12,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  featureIconWrap: {
-    marginTop: 2,
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-  },
-  featureTextWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  featureTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  featureBody: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  linksWrap: {
-    gap: 10,
-  },
-  linkPressable: {
-    borderRadius: 16,
-  },
-  linkPressed: {
-    opacity: 0.85,
-  },
-  linkCard: {
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  linkIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.14)',
-  },
-  linkTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  linkTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  linkUrl: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-});
