@@ -8,7 +8,7 @@ import { renderRootComponent } from 'expo-router/build/renderRootComponent';
 import React from 'react';
 
 function App() {
-  return <ExpoRoot context={ctx} location="/" />;
+  return <ExpoRoot context={ctx} />;
 }
 
 renderRootComponent(App);
