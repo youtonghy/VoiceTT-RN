@@ -97,6 +97,17 @@ const isElectronDesktop =
   Platform.OS === 'web' &&
   typeof window !== 'undefined' &&
   Boolean((window as { electron?: unknown }).electron);
+const isWebRuntime = Platform.OS === 'web' && typeof window !== 'undefined';
+
+const VERBOSE_TRANSCRIPTION_LOGS = false;
+const METERING_UNAVAILABLE_ACTIVATION_MS = 3000;
+const METERING_UNAVAILABLE_MAX_SEGMENT_MS = 30000;
+
+function logTranscriptionDebug(...args: unknown[]) {
+  if (__DEV__ && VERBOSE_TRANSCRIPTION_LOGS) {
+    console.log(...args);
+  }
+}
 
 type DesktopRecorderWithMediaRecorder = AudioRecorder & {
   mediaRecorder?: MediaRecorder | null;
@@ -207,7 +218,7 @@ function attachDesktopMeteringStream(stream: MediaStream) {
       }
     });
   });
-  console.log('[desktop-input] Desktop metering attached');
+  logTranscriptionDebug('[desktop-input] Desktop metering attached');
 }
 
 function readDesktopMeteringDb(): number | undefined {
@@ -244,7 +255,7 @@ function installDesktopAudioInputOverride() {
       preferredDesktopAudioInputId,
     );
     if (preferredDesktopAudioInputId) {
-      console.log('[desktop-input] getUserMedia override active', {
+      logTranscriptionDebug('[desktop-input] getUserMedia override active', {
         deviceId: preferredDesktopAudioInputId,
         shouldFallback,
       });
@@ -265,7 +276,7 @@ function installDesktopAudioInputOverride() {
         .catch(() => Promise.reject(error))
     );
   };
-  console.log('[desktop-input] Installed getUserMedia override');
+  logTranscriptionDebug('[desktop-input] Installed getUserMedia override');
   desktopAudioOverrideInstalled = true;
 }
 
@@ -380,9 +391,23 @@ function writeAscii(view: DataView, offset: number, value: string) {
   }
 }
 
-function encodeWavFromAudioBuffer(buffer: AudioBuffer): ArrayBuffer {
+function encodeWavFromAudioBuffer(
+  buffer: AudioBuffer,
+  range?: { startMs?: number; endMs?: number },
+): ArrayBuffer {
   const sampleRate = buffer.sampleRate;
-  const length = buffer.length;
+  const sourceLength = buffer.length;
+  const startMs = Math.max(0, range?.startMs ?? 0);
+  const startFrame = Math.max(
+    0,
+    Math.min(sourceLength, Math.floor((startMs / 1000) * sampleRate))
+  );
+  const requestedEndFrame =
+    typeof range?.endMs === 'number' && Number.isFinite(range.endMs)
+      ? Math.ceil((Math.max(startMs, range.endMs) / 1000) * sampleRate)
+      : sourceLength;
+  const endFrame = Math.max(startFrame, Math.min(sourceLength, requestedEndFrame));
+  const length = Math.max(0, endFrame - startFrame);
   const channelCount = buffer.numberOfChannels;
   const pcm = new Int16Array(length);
   const channels: Float32Array[] = [];
@@ -392,7 +417,7 @@ function encodeWavFromAudioBuffer(buffer: AudioBuffer): ArrayBuffer {
   for (let index = 0; index < length; index += 1) {
     let mixed = 0;
     for (let channel = 0; channel < channelCount; channel += 1) {
-      mixed += channels[channel][index] ?? 0;
+      mixed += channels[channel][startFrame + index] ?? 0;
     }
     mixed /= channelCount;
     const clamped = Math.max(-1, Math.min(1, mixed));
@@ -421,8 +446,11 @@ function encodeWavFromAudioBuffer(buffer: AudioBuffer): ArrayBuffer {
   return wavBuffer;
 }
 
-async function normalizeDesktopRecordingUri(fileUri: string): Promise<string | null> {
-  if (!isElectronDesktop || typeof fetch !== 'function') {
+async function normalizeDesktopRecordingUri(
+  fileUri: string,
+  range?: { startOffsetMs?: number; endOffsetMs?: number },
+): Promise<string | null> {
+  if (!isWebRuntime || typeof fetch !== 'function') {
     return null;
   }
   if (!fileUri.startsWith('blob:')) {
@@ -434,8 +462,13 @@ async function normalizeDesktopRecordingUri(fileUri: string): Promise<string | n
   }
   const blob = await response.blob();
   const mimeType = blob.type.toLowerCase();
-  console.log('[transcription] Segment blob', { mimeType, size: blob.size });
-  if (!mimeType.includes('webm') && !mimeType.includes('ogg') && !mimeType.includes('mp4')) {
+  logTranscriptionDebug('[transcription] Segment blob', { mimeType, size: blob.size });
+  const shouldCrop =
+    (range?.startOffsetMs ?? 0) > 0 ||
+    (typeof range?.endOffsetMs === 'number' && Number.isFinite(range.endOffsetMs));
+  const shouldNormalize =
+    shouldCrop || mimeType.includes('webm') || mimeType.includes('ogg') || mimeType.includes('mp4');
+  if (!shouldNormalize) {
     return null;
   }
   const arrayBuffer = await blob.arrayBuffer();
@@ -451,10 +484,13 @@ async function normalizeDesktopRecordingUri(fileUri: string): Promise<string | n
   }
   try {
     const audioBuffer = await context.decodeAudioData(arrayBuffer);
-    const wavBuffer = encodeWavFromAudioBuffer(audioBuffer);
+    const wavBuffer = encodeWavFromAudioBuffer(audioBuffer, {
+      startMs: range?.startOffsetMs,
+      endMs: range?.endOffsetMs,
+    });
     const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
     const wavUri = URL.createObjectURL(wavBlob);
-    console.log('[transcription] Converted segment to WAV', { size: wavBlob.size });
+    logTranscriptionDebug('[transcription] Converted segment to WAV', { size: wavBlob.size });
     return wavUri;
   } finally {
     await context.close().catch(() => undefined);
@@ -631,7 +667,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
     installDesktopAudioInputOverride();
     updatePreferredDesktopAudioInputId(settings.desktopAudioInputId ?? null);
-    console.log('[desktop-input] Preferred device updated', {
+    logTranscriptionDebug('[desktop-input] Preferred device updated', {
       deviceId: settings.desktopAudioInputId ?? 'default',
     });
   }, [settings.desktopAudioInputId]);
@@ -881,11 +917,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [getBestKnownDurationMs]);
 
   const startNewRecording = useCallback(async () => {
-    console.log('[transcription] startNewRecording - preparing to record');
+    logTranscriptionDebug('[transcription] startNewRecording - preparing to record');
     await recorder.prepareToRecordAsync();
-    console.log('[transcription] recorder prepared, starting record');
+    logTranscriptionDebug('[transcription] recorder prepared, starting record');
     recorder.record();
-    console.log('[transcription] record() called');
+    logTranscriptionDebug('[transcription] record() called');
     segmentBaseMsRef.current = 0;
     recordingStartedAtRef.current = Date.now();
     lastRecorderStatusRef.current = null;
@@ -903,7 +939,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         if (segmentRecorder) {
           segmentRecorder.start();
           desktopSegmentRecorderRef.current = segmentRecorder;
-          console.log('[transcription] Desktop segment recorder started');
+          logTranscriptionDebug('[transcription] Desktop segment recorder started');
         } else {
           desktopSegmentRecorderRef.current = null;
         }
@@ -951,13 +987,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           ? 'desktop'
           : 'none';
       if (meteringSourceRef.current !== nextSource) {
-        console.log('[transcription] Metering source', { source: nextSource });
+        logTranscriptionDebug('[transcription] Metering source', { source: nextSource });
         meteringSourceRef.current = nextSource;
       }
       const status = createRecordingStatusFromRecorderStatus(recorderStatus, metering);
       handleStatusUpdateRef.current?.(status);
     }, 100);
-    console.log('[transcription] status interval started');
+    logTranscriptionDebug('[transcription] status interval started');
   }, [buildFallbackRecordingStatus, recorder, sessionStateRef]);
 
   const stopAndResetRecording = useCallback(async () => {
@@ -1001,17 +1037,18 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const endOffsetMs = Math.max(0, absoluteDurationMs - segmentBaseMs);
     const rawStartOffsetMs = (snapshot.confirmedStartMs ?? segmentBaseMs) - segmentBaseMs;
     const startOffsetMs = Math.max(0, Math.min(endOffsetMs, rawStartOffsetMs));
-    console.log('[transcription] Finalizing segment', {
+    const segmentDurationMs = Math.max(0, endOffsetMs - startOffsetMs);
+    logTranscriptionDebug('[transcription] Finalizing segment', {
       messageId: currentMessageId,
       startOffsetMs,
-      durationMs: endOffsetMs,
+      durationMs: segmentDurationMs,
       sessionId: taskSessionId ?? 'none',
     });
     const payload: TranscriptionSegmentPayload = {
       fileUri: '',
       startOffsetMs,
       endOffsetMs,
-      durationMs: endOffsetMs,
+      durationMs: segmentDurationMs,
       messageId: currentMessageId,
     };
     let originalFileUri: string | null = null;
@@ -1021,7 +1058,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         fileUri: '',
         startOffsetMs,
         endOffsetMs,
-        durationMs: endOffsetMs,
+        durationMs: segmentDurationMs,
         createdAt: Date.now(),
         engine: settingsRef.current.transcriptionEngine,
         model: resolveTranscriptionModel(settingsRef.current),
@@ -1055,7 +1092,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
               if (nextRecorder) {
                 nextRecorder.start();
                 desktopSegmentRecorderRef.current = nextRecorder;
-                console.log('[transcription] Desktop segment recorder restarted');
+                logTranscriptionDebug('[transcription] Desktop segment recorder restarted');
               }
             } else {
               console.warn('[transcription] Desktop recording stream unavailable for restart');
@@ -1097,7 +1134,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
 
       try {
-        const maybeNormalized = await normalizeDesktopRecordingUri(normalizedUri);
+        const maybeNormalized = await normalizeDesktopRecordingUri(normalizedUri, {
+          startOffsetMs,
+          endOffsetMs,
+        });
         if (maybeNormalized) {
           normalizedUri = maybeNormalized;
         }
@@ -1168,7 +1208,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       if (activeTask) {
         activeTask.transcriptionController = null;
       }
-      console.log('[transcription] Transcription completed', {
+      logTranscriptionDebug('[transcription] Transcription completed', {
         messageId: currentMessageId,
         length: transcription.text.length,
         language: transcription.language ?? 'auto',
@@ -1261,9 +1301,9 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [finalizeSegment]);
 
   const startSession = useCallback(async (options?: SessionToggleOptions) => {
-    console.log('[transcription] startSession called');
+    logTranscriptionDebug('[transcription] startSession called');
     if (sessionStateRef.current === 'starting' || sessionStateRef.current === 'recording' || sessionStateRef.current === 'stopping') {
-      console.log('[transcription] session already active, returning');
+      logTranscriptionDebug('[transcription] session already active, returning');
       return;
     }
     const nextSessionId = createSessionId();
@@ -1293,7 +1333,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         return;
       }
       setSessionState('recording');
-      console.log('[transcription] recording started successfully');
+      logTranscriptionDebug('[transcription] recording started successfully');
     } catch (startError) {
       console.error('[transcription] Failed to start session', startError);
       if (sessionIdRef.current === nextSessionId) {
@@ -1387,7 +1427,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, t, updateMessage]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
-    console.log('[transcription] toggleSession called, state:', sessionStateRef.current);
+    logTranscriptionDebug('[transcription] toggleSession called, state:', sessionStateRef.current);
     if (sessionStateRef.current === 'starting' || sessionStateRef.current === 'stopping') {
       return;
     }
@@ -1420,10 +1460,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
 
     const durationMs = status.durationMillis ?? 0;
     if (!status.isRecording && !status.isDoneRecording && durationMs <= 0) {
-      console.log('[transcription] handleStatusUpdate - skipping (not recording and duration=0)');
+      logTranscriptionDebug('[transcription] handleStatusUpdate - skipping (not recording and duration=0)');
       return;
     }
-    console.log('[transcription] handleStatusUpdate - duration:', durationMs, 'metering:', status.metering);
+    logTranscriptionDebug('[transcription] handleStatusUpdate - duration:', durationMs, 'metering:', status.metering);
     const currentSettings = settingsRef.current;
     const segment = segmentStateRef.current;
     const normalizedMetering =
@@ -1441,21 +1481,22 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const threshold = currentSettings.activationThreshold;
     const activationDurationMs = currentSettings.activationDurationSec * 1000;
     const shouldForceActivation =
-      normalizedMetering === undefined && meteringUnavailableMs >= activationDurationMs;
+      normalizedMetering === undefined &&
+      meteringUnavailableMs >= Math.max(activationDurationMs, METERING_UNAVAILABLE_ACTIVATION_MS);
     const rms = shouldForceActivation ? threshold + 0.05 : meteringToRms(normalizedMetering);
 
-    console.log('[transcription] rms:', rms, 'threshold:', threshold, 'segment.isActive:', segment.isActive);
+    logTranscriptionDebug('[transcription] rms:', rms, 'threshold:', threshold, 'segment.isActive:', segment.isActive);
 
     if (!segment.isActive) {
       if (shouldForceActivation || rms >= threshold) {
         if (segment.candidateStartMs == null) {
           segment.candidateStartMs = durationMs;
-          console.log('[transcription] candidate start set at:', durationMs);
+          logTranscriptionDebug('[transcription] candidate start set at:', durationMs);
         }
         const elapsedAbove = durationMs - (segment.candidateStartMs ?? durationMs);
-        console.log('[transcription] elapsed above threshold:', elapsedAbove, 'need:', activationDurationMs);
+        logTranscriptionDebug('[transcription] elapsed above threshold:', elapsedAbove, 'need:', activationDurationMs);
         if (elapsedAbove >= activationDurationMs) {
-          console.log('[transcription] ACTIVATING SEGMENT');
+          logTranscriptionDebug('[transcription] ACTIVATING SEGMENT');
           segment.isActive = true;
           const messageId = allocateMessageId();
           segment.messageId = messageId;
@@ -1487,12 +1528,18 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       segment.belowThresholdStartMs = null;
     }
 
-    if (currentSettings.maxSegmentDurationSec > 0) {
-      const startMs = segment.confirmedStartMs ?? 0;
-      const segmentElapsed = durationMs - startMs;
-      if (segmentElapsed >= currentSettings.maxSegmentDurationSec * 1000) {
-        void finalizeSegmentRef.current?.(status);
-      }
+    const startMs = segment.confirmedStartMs ?? 0;
+    const segmentElapsed = durationMs - startMs;
+    const configuredMaxSegmentMs =
+      currentSettings.maxSegmentDurationSec > 0
+        ? currentSettings.maxSegmentDurationSec * 1000
+        : Number.POSITIVE_INFINITY;
+    const effectiveMaxSegmentMs =
+      normalizedMetering === undefined
+        ? Math.min(configuredMaxSegmentMs, METERING_UNAVAILABLE_MAX_SEGMENT_MS)
+        : configuredMaxSegmentMs;
+    if (Number.isFinite(effectiveMaxSegmentMs) && segmentElapsed >= effectiveMaxSegmentMs) {
+      void finalizeSegmentRef.current?.(status);
     }
   }, [allocateMessageId, qaAutoModeRef, sessionStateRef, setMessagesAndRef, settingsRef, stopSession, t]);
 

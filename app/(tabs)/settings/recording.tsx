@@ -61,6 +61,14 @@ type DesktopAudioInputOption = {
   label: string;
 };
 
+const VERBOSE_RECORDING_SETTINGS_LOGS = false;
+
+function logRecordingSettingsDebug(...args: unknown[]) {
+  if (__DEV__ && VERBOSE_RECORDING_SETTINGS_LOGS) {
+    console.log(...args);
+  }
+}
+
 export default function RecordingSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
@@ -264,7 +272,7 @@ export default function RecordingSettingsScreen() {
       if (!isDesktopApp || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
         return;
       }
-      console.log('[desktop-input] Refresh requested', { requestPermission });
+      logRecordingSettingsDebug('[desktop-input] Refresh requested', { requestPermission });
       setDesktopInputError(null);
       try {
         if (requestPermission) {
@@ -272,7 +280,7 @@ export default function RecordingSettingsScreen() {
           if (!permission.granted) {
             permission = await requestRecordingPermissionsAsync();
             if (!permission.granted) {
-              console.log('[desktop-input] Permission denied while refreshing devices');
+              logRecordingSettingsDebug('[desktop-input] Permission denied while refreshing devices');
               Alert.alert(
                 t('alerts.microphone_permission.title'),
                 t('alerts.microphone_permission.message')
@@ -292,7 +300,7 @@ export default function RecordingSettingsScreen() {
               t('settings.recording.input.unknown_device', { index: index + 1 }),
           }));
         setDesktopInputs(audioInputs);
-        console.log('[desktop-input] Devices refreshed', {
+        logRecordingSettingsDebug('[desktop-input] Devices refreshed', {
           count: audioInputs.length,
           selectedDeviceId: selectedDesktopInputId,
         });
@@ -300,7 +308,7 @@ export default function RecordingSettingsScreen() {
         if (__DEV__) {
           console.warn('[recording-settings] Failed to enumerate audio inputs', error);
         }
-        console.log('[desktop-input] Refresh failed', {
+        logRecordingSettingsDebug('[desktop-input] Refresh failed', {
           message: (error as Error)?.message ?? 'unknown',
         });
         setDesktopInputError(t('settings.recording.input.load_failed'));
@@ -315,7 +323,7 @@ export default function RecordingSettingsScreen() {
     }
     void refreshDesktopInputs(false);
     const handleDeviceChange = () => {
-      console.log('[desktop-input] Device change detected');
+      logRecordingSettingsDebug('[desktop-input] Device change detected');
       void refreshDesktopInputs(false);
     };
     navigator.mediaDevices.addEventListener?.('devicechange', handleDeviceChange);
@@ -346,7 +354,7 @@ export default function RecordingSettingsScreen() {
     inputTestRef.current.analyser = null;
     setIsTestingInput(false);
     setHasInputSignal(false);
-    console.log('[desktop-input] Test stopped');
+    logRecordingSettingsDebug('[desktop-input] Test stopped');
   }, []);
 
   useEffect(() => () => {
@@ -370,7 +378,7 @@ export default function RecordingSettingsScreen() {
         if (!permission.granted) {
           permission = await requestRecordingPermissionsAsync();
           if (!permission.granted) {
-            console.log('[desktop-input] Permission denied while starting test');
+            logRecordingSettingsDebug('[desktop-input] Permission denied while starting test');
             Alert.alert(
               t('alerts.microphone_permission.title'),
               t('alerts.microphone_permission.message')
@@ -388,7 +396,7 @@ export default function RecordingSettingsScreen() {
         }
 
         const activeDeviceId = overrideDeviceId ?? selectedDesktopInputId;
-        console.log('[desktop-input] Test starting', { deviceId: activeDeviceId ?? 'default' });
+        logRecordingSettingsDebug('[desktop-input] Test starting', { deviceId: activeDeviceId ?? 'default' });
         const constraints: MediaStreamConstraints = activeDeviceId
           ? { audio: { deviceId: { exact: activeDeviceId } }, video: false }
           : { audio: true, video: false };
@@ -427,7 +435,7 @@ export default function RecordingSettingsScreen() {
         if (__DEV__) {
           console.warn('[recording-settings] Failed to start input test', error);
         }
-        console.log('[desktop-input] Test failed', {
+        logRecordingSettingsDebug('[desktop-input] Test failed', {
           message: (error as Error)?.message ?? 'unknown',
         });
         setDesktopInputError(t('settings.recording.input.test_failed'));
@@ -514,10 +522,10 @@ export default function RecordingSettingsScreen() {
 
   const handleToggleInputTest = useCallback(() => {
     if (isTestingInput) {
-      console.log('[desktop-input] Test toggle: stop');
+      logRecordingSettingsDebug('[desktop-input] Test toggle: stop');
       void stopInputTest();
     } else {
-      console.log('[desktop-input] Test toggle: start');
+      logRecordingSettingsDebug('[desktop-input] Test toggle: start');
       void startInputTest();
     }
   }, [isTestingInput, startInputTest, stopInputTest]);
@@ -643,7 +651,7 @@ export default function RecordingSettingsScreen() {
 
   const handleSelectDesktopInput = useCallback(
     (deviceId: string | null) => {
-      console.log('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
+      logRecordingSettingsDebug('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
       updateSettings({ desktopAudioInputId: deviceId });
       if (isTestingInput) {
         void startInputTest(deviceId);
