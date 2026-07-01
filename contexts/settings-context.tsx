@@ -31,6 +31,128 @@ const VALID_TRANSCRIPTION_ENGINES = new Set<AppSettings['transcriptionEngine']>(
   'glm',
 ]);
 
+const RECORDING_SETTING_LIMITS = {
+  activationThreshold: { min: 0.0001, max: 1 },
+  activationDurationSec: { min: 0, max: 10 },
+  silenceDurationSec: { min: 0.1, max: 30 },
+  preRollDurationSec: { min: 0, max: 10 },
+  maxSegmentDurationSec: { min: 5, max: 1800 },
+  translationTimeoutSec: { min: 1, max: 120 },
+} as const;
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, numeric));
+}
+
+function normalizeMaxSegmentDuration(value: unknown, fallback: number) {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  if (numeric === 0) {
+    return 0;
+  }
+  return Math.min(
+    RECORDING_SETTING_LIMITS.maxSegmentDurationSec.max,
+    Math.max(RECORDING_SETTING_LIMITS.maxSegmentDurationSec.min, numeric)
+  );
+}
+
+function normalizeRecordingPreset(preset: RecordingPreset): RecordingPreset {
+  return {
+    ...preset,
+    activationThreshold: clampNumber(
+      preset.activationThreshold,
+      defaultSettings.activationThreshold,
+      RECORDING_SETTING_LIMITS.activationThreshold.min,
+      RECORDING_SETTING_LIMITS.activationThreshold.max
+    ),
+    activationDurationSec: clampNumber(
+      preset.activationDurationSec,
+      defaultSettings.activationDurationSec,
+      RECORDING_SETTING_LIMITS.activationDurationSec.min,
+      RECORDING_SETTING_LIMITS.activationDurationSec.max
+    ),
+    silenceDurationSec: clampNumber(
+      preset.silenceDurationSec,
+      defaultSettings.silenceDurationSec,
+      RECORDING_SETTING_LIMITS.silenceDurationSec.min,
+      RECORDING_SETTING_LIMITS.silenceDurationSec.max
+    ),
+    preRollDurationSec: clampNumber(
+      preset.preRollDurationSec,
+      defaultSettings.preRollDurationSec,
+      RECORDING_SETTING_LIMITS.preRollDurationSec.min,
+      RECORDING_SETTING_LIMITS.preRollDurationSec.max
+    ),
+    maxSegmentDurationSec: normalizeMaxSegmentDuration(
+      preset.maxSegmentDurationSec,
+      defaultSettings.maxSegmentDurationSec
+    ),
+  };
+}
+
+function normalizeRuntimeSettings(settings: AppSettings): AppSettings {
+  const recordingPresets = Array.isArray(settings.recordingPresets)
+    ? settings.recordingPresets.map(normalizeRecordingPreset)
+    : [];
+  const activeRecordingPresetId =
+    typeof settings.activeRecordingPresetId === 'string' &&
+    recordingPresets.some((preset) => preset.id === settings.activeRecordingPresetId)
+      ? settings.activeRecordingPresetId
+      : null;
+
+  return {
+    ...settings,
+    activationThreshold: clampNumber(
+      settings.activationThreshold,
+      defaultSettings.activationThreshold,
+      RECORDING_SETTING_LIMITS.activationThreshold.min,
+      RECORDING_SETTING_LIMITS.activationThreshold.max
+    ),
+    activationDurationSec: clampNumber(
+      settings.activationDurationSec,
+      defaultSettings.activationDurationSec,
+      RECORDING_SETTING_LIMITS.activationDurationSec.min,
+      RECORDING_SETTING_LIMITS.activationDurationSec.max
+    ),
+    silenceDurationSec: clampNumber(
+      settings.silenceDurationSec,
+      defaultSettings.silenceDurationSec,
+      RECORDING_SETTING_LIMITS.silenceDurationSec.min,
+      RECORDING_SETTING_LIMITS.silenceDurationSec.max
+    ),
+    preRollDurationSec: clampNumber(
+      settings.preRollDurationSec,
+      defaultSettings.preRollDurationSec,
+      RECORDING_SETTING_LIMITS.preRollDurationSec.min,
+      RECORDING_SETTING_LIMITS.preRollDurationSec.max
+    ),
+    maxSegmentDurationSec: normalizeMaxSegmentDuration(
+      settings.maxSegmentDurationSec,
+      defaultSettings.maxSegmentDurationSec
+    ),
+    translationTimeoutSec: clampNumber(
+      settings.translationTimeoutSec,
+      defaultSettings.translationTimeoutSec,
+      RECORDING_SETTING_LIMITS.translationTimeoutSec.min,
+      RECORDING_SETTING_LIMITS.translationTimeoutSec.max
+    ),
+    desktopAudioInputId:
+      typeof settings.desktopAudioInputId === 'string' && settings.desktopAudioInputId.trim()
+        ? settings.desktopAudioInputId
+        : null,
+    audioCaptureMode:
+      settings.audioCaptureMode === 'system' ? 'system' : defaultSettings.audioCaptureMode,
+    recordingPresets,
+    activeRecordingPresetId,
+  };
+}
+
 interface SettingsContextValue {
   settings: AppSettings;
   loaded: boolean;
@@ -201,13 +323,16 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     if (typeof merged.desktopAudioInputId !== 'string' || !merged.desktopAudioInputId.trim()) {
       merged.desktopAudioInputId = null;
     }
+    if (merged.audioCaptureMode !== 'system') {
+      merged.audioCaptureMode = defaultSettings.audioCaptureMode;
+    }
     if (typeof merged.showQaTab !== 'boolean') {
       merged.showQaTab = defaultSettings.showQaTab;
     }
     if (typeof merged.showReadingTab !== 'boolean') {
       merged.showReadingTab = defaultSettings.showReadingTab;
     }
-    return merged;
+    return normalizeRuntimeSettings(merged);
   } catch (error) {
     console.warn('[settings] Failed to restore persisted settings', error);
     return null;
@@ -257,7 +382,7 @@ export function SettingsProvider({ children }: React.PropsWithChildren) {
   const runUpdate = useCallback(
     (updater: (prev: AppSettings) => AppSettings) => {
       setSettings((prev) => {
-        const next = updater(prev);
+        const next = normalizeRuntimeSettings(updater(prev));
         persistSettings(next);
         return next;
       });

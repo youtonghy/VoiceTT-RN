@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Linking, View } from 'react-native';
 import { Button, PressableFeedback, Text } from 'heroui-native';
-import { Badge } from 'heroui-native-pro/badge';
 
 import { ActionCard, AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
 import { buildSettingsMenuGroups, type RouteHref, type SettingsMenuEntry } from '@/components/settings/settings-menu';
@@ -33,9 +32,11 @@ function SettingsEntryCard({
       className={entry.isPriority ? 'border-accent/40 bg-accent/5' : ''}
       badge={
         entry.isPriority ? (
-          <Badge color="accent" size="sm" variant="soft">
-            <Badge.Label>{priorityLabel}</Badge.Label>
-          </Badge>
+          <View className="rounded-full bg-accent/10 px-2 py-0.5">
+            <Text type="body-xs" weight="bold" className="text-accent">
+              {priorityLabel}
+            </Text>
+          </View>
         ) : null
       }
     />

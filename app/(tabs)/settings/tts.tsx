@@ -1,4 +1,3 @@
-import { ModelProvider } from '@lobehub/icons-rn';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -90,7 +89,6 @@ export default function TtsSettingsScreen() {
       {
         id: 'openai',
         title: t('settings.tts.engine.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -111,7 +109,6 @@ export default function TtsSettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.tts.engine.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -208,7 +205,6 @@ export default function TtsSettingsScreen() {
           <SettingsModelDetailCard
             title={activeProvider.title}
             description={t('settings.credentials.models.catalog_hint')}
-            providerIcon={activeProvider.providerIcon}
             fallbackIcon={activeProvider.fallbackIcon}
             statusText={resolveModelCatalogStatusText(t, activeCatalog)}
             action={

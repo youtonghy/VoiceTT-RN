@@ -40,7 +40,8 @@
       "read_translation": "朗读译文"
     },
     "controls": {
-      "start": "开始录音"
+      "start": "开始录音",
+      "meeting": "线上会议记录"
     },
     "status": {
       "recording": "录音中…",
@@ -55,7 +56,8 @@
       "unable_to_start": "无法启动录音: {{message}}",
       "start_failed": "启动录音失败: {{message}}",
       "permission_denied": "麦克风权限未授权",
-      "empty_recording": "录音结果为空"
+      "empty_recording": "录音结果为空",
+      "system_capture_fallback": "系统声音捕获失败，已回退到麦克风录音：{{message}}"
     },
     "messages": {
       "default_title": "消息 #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "停止录音",
-      "start_recording": "开始录音"
+      "start_recording": "开始录音",
+      "start_meeting_recording": "开始线上会议记录"
     }
   },
   "translation": {
@@ -423,6 +426,12 @@
         "delete_title": "删除预设？",
         "delete_message": "确定要删除“{{name}}”这张卡片吗？",
         "cancel": "取消"
+      },
+      "capture": {
+        "title": "录制声源",
+        "microphone": "麦克风",
+        "system": "系统声音（会议）",
+        "system_hint": "在桌面端录制线上会议的扬声器输出。此模式下会停用麦克风设备选择和麦克风测试。"
       }
     },
     "transcription": {

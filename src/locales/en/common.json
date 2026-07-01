@@ -40,7 +40,8 @@
       "read_translation": "Read translation aloud"
     },
     "controls": {
-      "start": "Start recording"
+      "start": "Start recording",
+      "meeting": "Online meeting recording"
     },
     "status": {
       "recording": "Recording…",
@@ -55,7 +56,8 @@
       "unable_to_start": "Unable to start recording: {{message}}",
       "start_failed": "Failed to start recording: {{message}}",
       "permission_denied": "Microphone permission not granted",
-      "empty_recording": "Recording result is empty"
+      "empty_recording": "Recording result is empty",
+      "system_capture_fallback": "System audio capture failed, so recording fell back to the microphone: {{message}}"
     },
     "messages": {
       "default_title": "Message #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "Stop recording",
-      "start_recording": "Start recording"
+      "start_recording": "Start recording",
+      "start_meeting_recording": "Start online meeting recording"
     }
   },
   "translation": {
@@ -392,6 +395,12 @@
         "test_stop": "Stop test",
         "load_failed": "Unable to load audio devices.",
         "test_failed": "Unable to start the input test."
+      },
+      "capture": {
+        "title": "Audio source",
+        "microphone": "Microphone",
+        "system": "System audio (meeting)",
+        "system_hint": "Records speaker output from online meetings on the desktop app. Microphone devices and mic tests are disabled in this mode."
       },
       "metering": {
         "title": "Current input",

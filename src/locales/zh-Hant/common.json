@@ -40,7 +40,8 @@
       "read_translation": "朗讀譯文"
     },
     "controls": {
-      "start": "開始錄音"
+      "start": "開始錄音",
+      "meeting": "線上會議記錄"
     },
     "status": {
       "recording": "錄音中…",
@@ -55,7 +56,8 @@
       "unable_to_start": "無法啟動錄音: {{message}}",
       "start_failed": "啟動錄音失敗: {{message}}",
       "permission_denied": "麥克風權限未授權",
-      "empty_recording": "錄音結果為空"
+      "empty_recording": "錄音結果為空",
+      "system_capture_fallback": "系統聲音擷取失敗，已回退到麥克風錄音：{{message}}"
     },
     "messages": {
       "default_title": "訊息 #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "停止錄音",
-      "start_recording": "開始錄音"
+      "start_recording": "開始錄音",
+      "start_meeting_recording": "開始線上會議記錄"
     }
   },
   "translation": {
@@ -389,6 +392,12 @@
         "delete_title": "刪除預設？",
         "delete_message": "確定要刪除「{{name}}」這張卡片嗎？",
         "cancel": "取消"
+      },
+      "capture": {
+        "title": "錄製聲源",
+        "microphone": "麥克風",
+        "system": "系統聲音（會議）",
+        "system_hint": "在桌面端錄製線上會議的揚聲器輸出。此模式下會停用麥克風裝置選擇與麥克風測試。"
       }
     },
     "transcription": {

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, shell, session, protocol } = require('electron');
+const { app, BrowserWindow, desktopCapturer, shell, session, protocol } = require('electron');
 
 const envStartUrl = process.env.ELECTRON_START_URL;
 const APP_PROTOCOL = 'app';
@@ -30,6 +30,26 @@ const mimeTypes = {
   '.map': 'application/json; charset=utf-8',
 };
 
+function resolveRendererBuildId() {
+  try {
+    const indexHtml = fs.readFileSync(staticIndex, 'utf8');
+    const scriptMatch = indexHtml.match(/\/_expo\/static\/js\/web\/index-([a-f0-9]+)\.js/);
+    if (scriptMatch?.[1]) {
+      return scriptMatch[1];
+    }
+    const stats = fs.statSync(staticIndex);
+    return String(Math.round(stats.mtimeMs));
+  } catch (error) {
+    return appVersion;
+  }
+}
+
+function addRendererCacheBust(targetUrl) {
+  const parsedUrl = new URL(targetUrl);
+  parsedUrl.searchParams.set('v', resolveRendererBuildId());
+  return parsedUrl.toString();
+}
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_PROTOCOL,
@@ -43,7 +63,7 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-let runtimeStartUrl = envStartUrl || APP_PROTOCOL_URL;
+let runtimeStartUrl = envStartUrl || addRendererCacheBust(APP_PROTOCOL_URL);
 
 function isTrustedOrigin(targetUrl) {
   if (!targetUrl) {
@@ -58,8 +78,16 @@ function isTrustedOrigin(targetUrl) {
 
 function configurePermissions() {
   session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-    if (permission !== 'media' && permission !== 'microphone') {
+    if (
+      permission !== 'media' &&
+      permission !== 'microphone' &&
+      permission !== 'display-capture'
+    ) {
       return false;
+    }
+    if (permission === 'display-capture') {
+      const targetUrl = details?.requestingUrl || requestingOrigin || webContents.getURL();
+      return isTrustedOrigin(targetUrl);
     }
     const mediaTypes = details?.mediaTypes ?? [];
     if (permission === 'media' && !mediaTypes.includes('audio')) {
@@ -70,8 +98,17 @@ function configurePermissions() {
   });
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    if (permission !== 'media' && permission !== 'microphone') {
+    if (
+      permission !== 'media' &&
+      permission !== 'microphone' &&
+      permission !== 'display-capture'
+    ) {
       callback(false);
+      return;
+    }
+    if (permission === 'display-capture') {
+      const targetUrl = details?.requestingUrl || webContents.getURL();
+      callback(isTrustedOrigin(targetUrl));
       return;
     }
     const mediaTypes = details?.mediaTypes ?? [];
@@ -81,6 +118,30 @@ function configurePermissions() {
     }
     const targetUrl = details?.requestingUrl || webContents.getURL();
     callback(isTrustedOrigin(targetUrl));
+  });
+}
+
+function configureDisplayMediaCapture() {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    const targetUrl = request?.requestingUrl || request?.frame?.url;
+    if (!isTrustedOrigin(targetUrl)) {
+      callback({});
+      return;
+    }
+    desktopCapturer
+      .getSources({ types: ['screen'] })
+      .then((sources) => {
+        const [screen] = sources;
+        if (!screen) {
+          callback({});
+          return;
+        }
+        callback({ video: screen, audio: 'loopback' });
+      })
+      .catch((error) => {
+        console.warn('[electron] Failed to resolve display media source', error);
+        callback({});
+      });
   });
 }
 
@@ -143,6 +204,17 @@ function registerAppProtocol() {
       callback({ error: -6 });
     }
   });
+}
+
+async function clearRendererHttpCache() {
+  if (envStartUrl) {
+    return;
+  }
+  try {
+    await session.defaultSession.clearCache();
+  } catch (error) {
+    console.warn('[electron] Failed to clear renderer cache', error);
+  }
 }
 
 function createMainWindow(startUrl) {
@@ -209,8 +281,10 @@ function createMainWindow(startUrl) {
 app.whenReady().then(async () => {
   applyAppMetadata();
   configurePermissions();
+  configureDisplayMediaCapture();
   try {
     if (!envStartUrl) {
+      await clearRendererHttpCache();
       registerAppProtocol();
     }
     createMainWindow(runtimeStartUrl);

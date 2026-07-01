@@ -1310,49 +1310,7 @@ async function translateWithOpenAI(
   }
 
   const data = await response.json();
-  const outputBlocks = data?.output ?? data?.choices ?? [];
-  let translated = '';
-  if (Array.isArray(outputBlocks)) {
-    for (const block of outputBlocks) {
-      if (block?.content && Array.isArray(block.content)) {
-        for (const item of block.content) {
-          if (item?.type === 'output_text' && typeof item.text === 'string') {
-            translated += item.text;
-          }
-          if (item?.type === 'text' && typeof item.text === 'string') {
-            translated += item.text;
-          }
-        }
-      }
-      if (typeof block?.text === 'string') {
-        translated += block.text;
-      }
-    }
-  }
-  if (!translated && typeof data?.output_text === 'string') {
-    translated = data.output_text;
-  }
-  if (!translated && Array.isArray(data?.choices)) {
-    translated = data.choices
-      .map((choice: any) => {
-        if (typeof choice?.text === 'string') {
-          return choice.text;
-        }
-        if (Array.isArray(choice?.message?.content)) {
-          return choice.message.content
-            .map((item: any) => (typeof item?.text === 'string' ? item.text : ''))
-            .join('');
-        }
-        if (typeof choice?.message?.content === 'string') {
-          return choice.message.content;
-        }
-        return '';
-      })
-      .join('');
-  }
-  if (!translated && typeof data?.content === 'string') {
-    translated = data.content;
-  }
+  const translated = collectOpenAIText(data);
 
   return {
     text: translated.trim(),

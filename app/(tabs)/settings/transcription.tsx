@@ -1,4 +1,3 @@
-import { ModelProvider } from '@lobehub/icons-rn';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -77,7 +76,6 @@ export default function TranscriptionSettingsScreen() {
       {
         id: 'openai',
         title: t('settings.transcription.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -101,7 +99,6 @@ export default function TranscriptionSettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.transcription.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -125,7 +122,6 @@ export default function TranscriptionSettingsScreen() {
       {
         id: 'qwen3',
         title: t('settings.transcription.engines.qwen3'),
-        providerIcon: ModelProvider.Qwen,
         fallbackIcon: FALLBACK_ICON_MAP.qwen3,
         modelProvider: 'qwen',
         modelLabel: t('settings.credentials.labels.transcription_model'),
@@ -141,13 +137,11 @@ export default function TranscriptionSettingsScreen() {
       {
         id: 'doubao',
         title: t('settings.transcription.engines.doubao'),
-        providerIcon: ModelProvider.Doubao,
         fallbackIcon: FALLBACK_ICON_MAP.doubao,
       },
       {
         id: 'glm',
         title: t('settings.transcription.engines.glm'),
-        providerIcon: ModelProvider.ZhiPu,
         fallbackIcon: FALLBACK_ICON_MAP.glm,
         modelProvider: 'glm',
         modelLabel: t('settings.credentials.labels.transcription_model'),
@@ -238,7 +232,6 @@ export default function TranscriptionSettingsScreen() {
           <SettingsModelDetailCard
             title={activeProvider.title}
             description={description}
-            providerIcon={activeProvider.providerIcon}
             fallbackIcon={activeProvider.fallbackIcon}
             statusText={
               activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined

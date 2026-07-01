@@ -1,4 +1,3 @@
-import { ModelProvider } from '@lobehub/icons-rn';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -86,7 +85,6 @@ export default function TranslationSettingsScreen() {
       {
         id: 'openai',
         title: t('settings.translation.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -109,7 +107,6 @@ export default function TranslationSettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.translation.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -245,7 +242,6 @@ export default function TranslationSettingsScreen() {
           <SettingsModelDetailCard
             title={activeProvider.title}
             description={description}
-            providerIcon={activeProvider.providerIcon}
             fallbackIcon={activeProvider.fallbackIcon}
             statusText={
               activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined

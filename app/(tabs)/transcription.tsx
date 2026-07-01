@@ -3,7 +3,7 @@ import { createAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
@@ -26,6 +26,7 @@ import {
     type AppIconName,
     AppScreen,
     FormInput,
+    SegmentControl,
 } from "@/components/native/app-shell";
 import {
     getModelSelectOptions,
@@ -51,8 +52,7 @@ import {
 } from "@/types/settings";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
 import type { TtsMessage } from "@/types/tts";
-import { Button, Card, Input, SearchField, Select, Surface, Text, useThemeColor } from "heroui-native";
-import { Segment } from "heroui-native-pro/segment";
+import { Button, Card, Input, SearchField, Surface, Text, useThemeColor } from "heroui-native";
 
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -1913,17 +1913,10 @@ export default function TranscriptionScreen() {
             value={activeAssistantModel}
             options={assistantModelOptions}
             placeholder={assistantModelFallback}
-            onChange={handleAssistantModelChange}>
-            <Select.Trigger variant="unstyled" asChild>
-              <Button
-                accessibilityLabel={t('assistant.accessibility.switch_model')}
-                isIconOnly
-                size="md"
-                variant="secondary">
-                <AppIcon name="robot" size={17} className="text-accent" solid />
-              </Button>
-            </Select.Trigger>
-          </SettingsModelSelect>
+            onChange={handleAssistantModelChange}
+            triggerAccessibilityLabel={t('assistant.accessibility.switch_model')}
+            triggerIcon="robot"
+          />
         </View>
         <ScrollView
           ref={assistantScrollRef}
@@ -2353,30 +2346,7 @@ function NativeSegment<T extends string>({
   options: { value: T; label: string; icon?: AppIconName; disabled?: boolean }[];
   onValueChange: (next: T) => void;
 }) {
-  return (
-    <Segment value={value} onValueChange={(next) => onValueChange(next as T)} size="sm">
-      <Segment.Group className="rounded-2xl bg-surface-secondary p-1">
-        <Segment.Indicator />
-        {options.map((option, index) => (
-          <Fragment key={option.value}>
-            {index > 0 ? (
-              <Segment.Separator betweenValues={[options[index - 1].value, option.value]} />
-            ) : null}
-            <Segment.Item
-              accessibilityLabel={option.label}
-              className="min-w-0 flex-1 flex-row items-center justify-center gap-1.5 px-2"
-              isDisabled={option.disabled}
-              value={option.value}>
-              {option.icon ? (
-                <AppIcon name={option.icon} size={16} className="text-muted" />
-              ) : null}
-              <Segment.Label numberOfLines={1}>{option.label}</Segment.Label>
-            </Segment.Item>
-          </Fragment>
-        ))}
-      </Segment.Group>
-    </Segment>
-  );
+  return <SegmentControl value={value} options={options} onChange={onValueChange} />;
 }
 
 function StudioEmptyState({

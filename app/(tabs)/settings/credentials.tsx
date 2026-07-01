@@ -1,4 +1,3 @@
-import { ModelProvider } from '@lobehub/icons-rn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -93,14 +92,6 @@ type ModelCatalogState = {
   error?: string;
 };
 
-const PROVIDER_ICON_MAP: Partial<Record<CredentialProviderId, string>> = {
-  openai: ModelProvider.OpenAI,
-  gemini: ModelProvider.Gemini,
-  qwen: ModelProvider.Qwen,
-  glm: ModelProvider.ZhiPu,
-  doubao: ModelProvider.Doubao,
-};
-
 const PROVIDER_FALLBACK_ICON_MAP: Record<CredentialProviderId, AppIconName> = {
   openai: 'robot',
   gemini: 'gem',
@@ -131,7 +122,6 @@ export default function CredentialSettingsScreen() {
       {
         id: 'openai',
         title: t('settings.credentials.sections.openai.title'),
-        providerIcon: PROVIDER_ICON_MAP.openai,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -200,7 +190,6 @@ export default function CredentialSettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.credentials.sections.gemini.title'),
-        providerIcon: PROVIDER_ICON_MAP.gemini,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -278,7 +267,6 @@ export default function CredentialSettingsScreen() {
       {
         id: 'qwen',
         title: t('settings.credentials.sections.qwen.title'),
-        providerIcon: PROVIDER_ICON_MAP.qwen,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.qwen,
         modelProvider: 'qwen',
         fields: [
@@ -303,7 +291,6 @@ export default function CredentialSettingsScreen() {
       {
         id: 'glm',
         title: t('settings.credentials.sections.glm.title'),
-        providerIcon: PROVIDER_ICON_MAP.glm,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.glm,
         modelProvider: 'glm',
         fields: [
@@ -328,7 +315,6 @@ export default function CredentialSettingsScreen() {
       {
         id: 'doubao',
         title: t('settings.credentials.sections.doubao.title'),
-        providerIcon: PROVIDER_ICON_MAP.doubao,
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.doubao,
         fields: [
           {
@@ -499,7 +485,6 @@ export default function CredentialSettingsScreen() {
                     : t('settings.credentials.models.local_hint')
                   : t('settings.credentials.models.credentials_only')
               }
-              providerIcon={activeProvider.providerIcon}
               fallbackIcon={activeProvider.fallbackIcon}
               statusText={activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined}
               action={

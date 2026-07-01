@@ -21,7 +21,7 @@ import { Text } from 'heroui-native';
 
 import { AppCard, AppScreen, FormInput } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
-import type { AppSettings, RecordingPreset } from '@/types/settings';
+import type { AppSettings, AudioCaptureMode, RecordingPreset } from '@/types/settings';
 
 import {
     NumericSettingKey,
@@ -60,6 +60,34 @@ type DesktopAudioInputOption = {
   id: string;
   label: string;
 };
+
+const VERBOSE_RECORDING_SETTINGS_LOGS = false;
+
+function logRecordingSettingsDebug(...args: unknown[]) {
+  if (__DEV__ && VERBOSE_RECORDING_SETTINGS_LOGS) {
+    console.log(...args);
+  }
+}
+
+async function getDesktopSystemAudioMeteringStream() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('display media unavailable');
+  }
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: {
+      autoGainControl: false,
+      echoCancellation: false,
+      noiseSuppression: false,
+    },
+  });
+  stream.getVideoTracks().forEach((track) => track.stop());
+  if (stream.getAudioTracks().length === 0) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw new Error('system audio unavailable');
+  }
+  return new MediaStream(stream.getAudioTracks());
+}
 
 export default function RecordingSettingsScreen() {
   const { t } = useTranslation();
@@ -166,6 +194,7 @@ export default function RecordingSettingsScreen() {
     t,
   ]);
   const selectedDesktopInputId = settings.desktopAudioInputId;
+  const isSystemCaptureMode = settings.audioCaptureMode === 'system';
   const inputTestStatusLabel = useMemo(() => {
     if (!isTestingInput) {
       return t('settings.recording.input.status_idle');
@@ -264,7 +293,7 @@ export default function RecordingSettingsScreen() {
       if (!isDesktopApp || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
         return;
       }
-      console.log('[desktop-input] Refresh requested', { requestPermission });
+      logRecordingSettingsDebug('[desktop-input] Refresh requested', { requestPermission });
       setDesktopInputError(null);
       try {
         if (requestPermission) {
@@ -272,7 +301,7 @@ export default function RecordingSettingsScreen() {
           if (!permission.granted) {
             permission = await requestRecordingPermissionsAsync();
             if (!permission.granted) {
-              console.log('[desktop-input] Permission denied while refreshing devices');
+              logRecordingSettingsDebug('[desktop-input] Permission denied while refreshing devices');
               Alert.alert(
                 t('alerts.microphone_permission.title'),
                 t('alerts.microphone_permission.message')
@@ -292,7 +321,7 @@ export default function RecordingSettingsScreen() {
               t('settings.recording.input.unknown_device', { index: index + 1 }),
           }));
         setDesktopInputs(audioInputs);
-        console.log('[desktop-input] Devices refreshed', {
+        logRecordingSettingsDebug('[desktop-input] Devices refreshed', {
           count: audioInputs.length,
           selectedDeviceId: selectedDesktopInputId,
         });
@@ -300,7 +329,7 @@ export default function RecordingSettingsScreen() {
         if (__DEV__) {
           console.warn('[recording-settings] Failed to enumerate audio inputs', error);
         }
-        console.log('[desktop-input] Refresh failed', {
+        logRecordingSettingsDebug('[desktop-input] Refresh failed', {
           message: (error as Error)?.message ?? 'unknown',
         });
         setDesktopInputError(t('settings.recording.input.load_failed'));
@@ -315,7 +344,7 @@ export default function RecordingSettingsScreen() {
     }
     void refreshDesktopInputs(false);
     const handleDeviceChange = () => {
-      console.log('[desktop-input] Device change detected');
+      logRecordingSettingsDebug('[desktop-input] Device change detected');
       void refreshDesktopInputs(false);
     };
     navigator.mediaDevices.addEventListener?.('devicechange', handleDeviceChange);
@@ -346,7 +375,7 @@ export default function RecordingSettingsScreen() {
     inputTestRef.current.analyser = null;
     setIsTestingInput(false);
     setHasInputSignal(false);
-    console.log('[desktop-input] Test stopped');
+    logRecordingSettingsDebug('[desktop-input] Test stopped');
   }, []);
 
   useEffect(() => () => {
@@ -370,7 +399,7 @@ export default function RecordingSettingsScreen() {
         if (!permission.granted) {
           permission = await requestRecordingPermissionsAsync();
           if (!permission.granted) {
-            console.log('[desktop-input] Permission denied while starting test');
+            logRecordingSettingsDebug('[desktop-input] Permission denied while starting test');
             Alert.alert(
               t('alerts.microphone_permission.title'),
               t('alerts.microphone_permission.message')
@@ -388,7 +417,7 @@ export default function RecordingSettingsScreen() {
         }
 
         const activeDeviceId = overrideDeviceId ?? selectedDesktopInputId;
-        console.log('[desktop-input] Test starting', { deviceId: activeDeviceId ?? 'default' });
+        logRecordingSettingsDebug('[desktop-input] Test starting', { deviceId: activeDeviceId ?? 'default' });
         const constraints: MediaStreamConstraints = activeDeviceId
           ? { audio: { deviceId: { exact: activeDeviceId } }, video: false }
           : { audio: true, video: false };
@@ -427,7 +456,7 @@ export default function RecordingSettingsScreen() {
         if (__DEV__) {
           console.warn('[recording-settings] Failed to start input test', error);
         }
-        console.log('[desktop-input] Test failed', {
+        logRecordingSettingsDebug('[desktop-input] Test failed', {
           message: (error as Error)?.message ?? 'unknown',
         });
         setDesktopInputError(t('settings.recording.input.test_failed'));
@@ -478,10 +507,13 @@ export default function RecordingSettingsScreen() {
       throw new Error('AudioContext unavailable');
     }
 
-    const constraints: MediaStreamConstraints = selectedDesktopInputId
-      ? { audio: { deviceId: { exact: selectedDesktopInputId } }, video: false }
-      : { audio: true, video: false };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = isSystemCaptureMode
+      ? await getDesktopSystemAudioMeteringStream()
+      : await navigator.mediaDevices.getUserMedia(
+          selectedDesktopInputId
+            ? { audio: { deviceId: { exact: selectedDesktopInputId } }, video: false }
+            : { audio: true, video: false }
+        );
     const context = new AudioContextConstructor();
     if (context.state === 'suspended') {
       await context.resume();
@@ -510,14 +542,14 @@ export default function RecordingSettingsScreen() {
       const rounded = Math.round(clamped * 10) / 10;
       setMeteringDb((prev) => (prev === rounded ? prev : rounded));
     }, WEB_METERING_INTERVAL_MS);
-  }, [isDesktopApp, selectedDesktopInputId]);
+  }, [isDesktopApp, isSystemCaptureMode, selectedDesktopInputId]);
 
   const handleToggleInputTest = useCallback(() => {
     if (isTestingInput) {
-      console.log('[desktop-input] Test toggle: stop');
+      logRecordingSettingsDebug('[desktop-input] Test toggle: stop');
       void stopInputTest();
     } else {
-      console.log('[desktop-input] Test toggle: start');
+      logRecordingSettingsDebug('[desktop-input] Test toggle: start');
       void startInputTest();
     }
   }, [isTestingInput, startInputTest, stopInputTest]);
@@ -643,7 +675,7 @@ export default function RecordingSettingsScreen() {
 
   const handleSelectDesktopInput = useCallback(
     (deviceId: string | null) => {
-      console.log('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
+      logRecordingSettingsDebug('[desktop-input] Device selected', { deviceId: deviceId ?? 'default' });
       updateSettings({ desktopAudioInputId: deviceId });
       if (isTestingInput) {
         void startInputTest(deviceId);
@@ -658,6 +690,26 @@ export default function RecordingSettingsScreen() {
       isTestingInput,
       startInputTest,
       startMonitoring,
+      stopMonitoring,
+      updateSettings,
+    ]
+  );
+
+  const handleSelectCaptureMode = useCallback(
+    (audioCaptureMode: AudioCaptureMode) => {
+      updateSettings({ audioCaptureMode });
+      if (audioCaptureMode === 'system') {
+        void stopInputTest();
+      }
+      if (isMonitoring && isDesktopApp) {
+        void stopMonitoring().then(() => startMonitoring());
+      }
+    },
+    [
+      isDesktopApp,
+      isMonitoring,
+      startMonitoring,
+      stopInputTest,
       stopMonitoring,
       updateSettings,
     ]
@@ -829,6 +881,30 @@ export default function RecordingSettingsScreen() {
               icon="desktop"
               title={t('settings.recording.input.title')}
               subtitle={t('settings.recording.input.description')}>
+              <View className="gap-2">
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.recording.capture.title')}
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <OptionPill
+                    label={t('settings.recording.capture.microphone')}
+                    active={settings.audioCaptureMode === 'microphone'}
+                    onPress={() => handleSelectCaptureMode('microphone')}
+                  />
+                  <OptionPill
+                    label={t('settings.recording.capture.system')}
+                    active={isSystemCaptureMode}
+                    onPress={() => handleSelectCaptureMode('system')}
+                  />
+                </View>
+                {isSystemCaptureMode ? (
+                  <Text type="body-sm" color="muted">
+                    {t('settings.recording.capture.system_hint')}
+                  </Text>
+                ) : null}
+              </View>
+              {!isSystemCaptureMode ? (
+                <>
               <View className="gap-4">
                 <OptionPill
                   label={t('settings.recording.input.refresh')}
@@ -886,6 +962,8 @@ export default function RecordingSettingsScreen() {
                 <Text type="body-sm" className="text-danger">
                   {desktopInputError}
                 </Text>
+              ) : null}
+                </>
               ) : null}
             </AppCard>
           ) : null}

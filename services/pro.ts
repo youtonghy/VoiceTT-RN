@@ -104,9 +104,35 @@ const TRUSTED_TIME_KEY = 'agents.pro.trusted_time';
 const MAX_TRUSTED_AGE_MS = 1000 * 60 * 60 * 24 * 3;
 const ALLOWED_BACKWARD_SKEW_MS = 1000 * 60;
 
-const TIME_ENDPOINTS = [
-  'https://worldtimeapi.org/api/timezone/Etc/UTC',
-  'https://worldtimeapi.org/api/ip',
+type TrustedTimeEndpoint = {
+  url: string;
+  parser: 'json' | 'trace';
+};
+
+type TrustedTimeJsonResponse = {
+  unixtime?: number;
+  datetime?: string;
+  utc_datetime?: string;
+  dateTime?: string;
+  timeZone?: string;
+  year?: number;
+  month?: number;
+  day?: number;
+  hour?: number;
+  minute?: number;
+  seconds?: number;
+  milliSeconds?: number;
+};
+
+const TIME_ENDPOINTS: TrustedTimeEndpoint[] = [
+  {
+    url: 'https://timeapi.io/api/Time/current/zone?timeZone=UTC',
+    parser: 'json',
+  },
+  {
+    url: 'https://www.cloudflare.com/cdn-cgi/trace',
+    parser: 'trace',
+  },
 ];
 
 const PUBLIC_KEY_TOML_ASSET = require('../pro-public.toml');
@@ -209,6 +235,10 @@ function validatePayload(payload: LicensePayload) {
   }
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 async function verifySignature(payloadSegment: string, signatureSegment: string) {
   const publicKey = ensureBytes(await getPublicKeyBytes(), 'public key', 32);
   const signature = ensureBytes(base64UrlToBytes(signatureSegment), 'signature', 64);
@@ -217,6 +247,67 @@ async function verifySignature(payloadSegment: string, signatureSegment: string)
   if (!ok) {
     throw new Error('Signature verification failed');
   }
+}
+
+function parseTrustedTimeJson(data: TrustedTimeJsonResponse): number | null {
+  if (isFiniteNumber(data.unixtime)) {
+    return data.unixtime * 1000;
+  }
+
+  if (
+    isFiniteNumber(data.year) &&
+    isFiniteNumber(data.month) &&
+    isFiniteNumber(data.day) &&
+    isFiniteNumber(data.hour) &&
+    isFiniteNumber(data.minute) &&
+    isFiniteNumber(data.seconds)
+  ) {
+    const milliSeconds = isFiniteNumber(data.milliSeconds) ? data.milliSeconds : 0;
+    return Date.UTC(
+      data.year,
+      data.month - 1,
+      data.day,
+      data.hour,
+      data.minute,
+      data.seconds,
+      milliSeconds
+    );
+  }
+
+  for (const value of [data.utc_datetime, data.datetime]) {
+    if (typeof value === 'string') {
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  if (
+    typeof data.dateTime === 'string' &&
+    typeof data.timeZone === 'string' &&
+    data.timeZone.toUpperCase().includes('UTC')
+  ) {
+    const normalized = /(?:Z|[+-]\d\d:\d\d)$/.test(data.dateTime) ? data.dateTime : `${data.dateTime}Z`;
+    const parsed = Date.parse(normalized);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function parseCloudflareTrace(text: string): number | null {
+  const match = text.match(/(?:^|\n)ts=(\d+(?:\.\d+)?)(?:\n|$)/);
+  if (!match) {
+    return null;
+  }
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds)) {
+    return null;
+  }
+  return Math.round(seconds * 1000);
 }
 
 async function readPublicKeyToml(): Promise<string> {
@@ -281,22 +372,23 @@ async function getPublicKeyBytes(): Promise<Uint8Array> {
 }
 
 async function fetchTrustedTimeMs(): Promise<number> {
-  for (const url of TIME_ENDPOINTS) {
+  for (const endpoint of TIME_ENDPOINTS) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(endpoint.url);
       if (!response.ok) {
         continue;
       }
-      const data = (await response.json()) as { unixtime?: number; datetime?: string; utc_datetime?: string };
-      if (typeof data.unixtime === 'number') {
-        return data.unixtime * 1000;
-      }
-      const iso = data.utc_datetime ?? data.datetime;
-      if (typeof iso === 'string') {
-        const parsed = Date.parse(iso);
-        if (!Number.isNaN(parsed)) {
+      if (endpoint.parser === 'trace') {
+        const parsed = parseCloudflareTrace(await response.text());
+        if (parsed !== null) {
           return parsed;
         }
+        continue;
+      }
+
+      const parsed = parseTrustedTimeJson((await response.json()) as TrustedTimeJsonResponse);
+      if (parsed !== null) {
+        return parsed;
       }
     } catch {
       // Try next endpoint.
