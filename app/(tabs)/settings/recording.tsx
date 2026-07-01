@@ -21,7 +21,7 @@ import { Text } from 'heroui-native';
 
 import { AppCard, AppScreen, FormInput } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
-import type { AppSettings, RecordingPreset } from '@/types/settings';
+import type { AppSettings, AudioCaptureMode, RecordingPreset } from '@/types/settings';
 
 import {
     NumericSettingKey,
@@ -67,6 +67,26 @@ function logRecordingSettingsDebug(...args: unknown[]) {
   if (__DEV__ && VERBOSE_RECORDING_SETTINGS_LOGS) {
     console.log(...args);
   }
+}
+
+async function getDesktopSystemAudioMeteringStream() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('display media unavailable');
+  }
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: {
+      autoGainControl: false,
+      echoCancellation: false,
+      noiseSuppression: false,
+    },
+  });
+  stream.getVideoTracks().forEach((track) => track.stop());
+  if (stream.getAudioTracks().length === 0) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw new Error('system audio unavailable');
+  }
+  return new MediaStream(stream.getAudioTracks());
 }
 
 export default function RecordingSettingsScreen() {
@@ -174,6 +194,7 @@ export default function RecordingSettingsScreen() {
     t,
   ]);
   const selectedDesktopInputId = settings.desktopAudioInputId;
+  const isSystemCaptureMode = settings.audioCaptureMode === 'system';
   const inputTestStatusLabel = useMemo(() => {
     if (!isTestingInput) {
       return t('settings.recording.input.status_idle');
@@ -486,10 +507,13 @@ export default function RecordingSettingsScreen() {
       throw new Error('AudioContext unavailable');
     }
 
-    const constraints: MediaStreamConstraints = selectedDesktopInputId
-      ? { audio: { deviceId: { exact: selectedDesktopInputId } }, video: false }
-      : { audio: true, video: false };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = isSystemCaptureMode
+      ? await getDesktopSystemAudioMeteringStream()
+      : await navigator.mediaDevices.getUserMedia(
+          selectedDesktopInputId
+            ? { audio: { deviceId: { exact: selectedDesktopInputId } }, video: false }
+            : { audio: true, video: false }
+        );
     const context = new AudioContextConstructor();
     if (context.state === 'suspended') {
       await context.resume();
@@ -518,7 +542,7 @@ export default function RecordingSettingsScreen() {
       const rounded = Math.round(clamped * 10) / 10;
       setMeteringDb((prev) => (prev === rounded ? prev : rounded));
     }, WEB_METERING_INTERVAL_MS);
-  }, [isDesktopApp, selectedDesktopInputId]);
+  }, [isDesktopApp, isSystemCaptureMode, selectedDesktopInputId]);
 
   const handleToggleInputTest = useCallback(() => {
     if (isTestingInput) {
@@ -666,6 +690,26 @@ export default function RecordingSettingsScreen() {
       isTestingInput,
       startInputTest,
       startMonitoring,
+      stopMonitoring,
+      updateSettings,
+    ]
+  );
+
+  const handleSelectCaptureMode = useCallback(
+    (audioCaptureMode: AudioCaptureMode) => {
+      updateSettings({ audioCaptureMode });
+      if (audioCaptureMode === 'system') {
+        void stopInputTest();
+      }
+      if (isMonitoring && isDesktopApp) {
+        void stopMonitoring().then(() => startMonitoring());
+      }
+    },
+    [
+      isDesktopApp,
+      isMonitoring,
+      startMonitoring,
+      stopInputTest,
       stopMonitoring,
       updateSettings,
     ]
@@ -837,6 +881,30 @@ export default function RecordingSettingsScreen() {
               icon="desktop"
               title={t('settings.recording.input.title')}
               subtitle={t('settings.recording.input.description')}>
+              <View className="gap-2">
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.recording.capture.title')}
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <OptionPill
+                    label={t('settings.recording.capture.microphone')}
+                    active={settings.audioCaptureMode === 'microphone'}
+                    onPress={() => handleSelectCaptureMode('microphone')}
+                  />
+                  <OptionPill
+                    label={t('settings.recording.capture.system')}
+                    active={isSystemCaptureMode}
+                    onPress={() => handleSelectCaptureMode('system')}
+                  />
+                </View>
+                {isSystemCaptureMode ? (
+                  <Text type="body-sm" color="muted">
+                    {t('settings.recording.capture.system_hint')}
+                  </Text>
+                ) : null}
+              </View>
+              {!isSystemCaptureMode ? (
+                <>
               <View className="gap-4">
                 <OptionPill
                   label={t('settings.recording.input.refresh')}
@@ -894,6 +962,8 @@ export default function RecordingSettingsScreen() {
                 <Text type="body-sm" className="text-danger">
                   {desktopInputError}
                 </Text>
+              ) : null}
+                </>
               ) : null}
             </AppCard>
           ) : null}

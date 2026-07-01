@@ -21,10 +21,9 @@ import {
     View,
 } from 'react-native';
 import { Button, Card, Input, Spinner, Text, TextField } from 'heroui-native';
-import { EmptyState as HeroEmptyState } from 'heroui-native-pro/empty-state';
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
-import { AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
+import { AppCard, AppIcon, AppScreen, EmptyState } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
 import { synthesizeSpeech } from '@/services/tts';
 import type { TranscriptionMessage } from '@/types/transcription';
@@ -681,15 +680,13 @@ export default function ReadingScreen() {
           showsVerticalScrollIndicator={false}
         >
           {ttsMessages.length === 0 ? (
-            <HeroEmptyState className="flex-1 rounded-3xl border border-dashed border-border bg-surface p-6">
-              <HeroEmptyState.Header>
-                <HeroEmptyState.Media variant="icon">
-                  <AppIcon name="volume-high" size={22} className="text-muted" />
-                </HeroEmptyState.Media>
-                <HeroEmptyState.Title>{t('reading.empty.title')}</HeroEmptyState.Title>
-                <HeroEmptyState.Description>{t('reading.empty.body')}</HeroEmptyState.Description>
-              </HeroEmptyState.Header>
-            </HeroEmptyState>
+            <View className="flex-1 rounded-3xl border border-dashed border-border bg-surface">
+              <EmptyState
+                icon="volume-high"
+                title={t('reading.empty.title')}
+                subtitle={t('reading.empty.body')}
+              />
+            </View>
           ) : (
             ttsMessages.map((message) => {
               const statusText =

@@ -146,6 +146,8 @@ function normalizeRuntimeSettings(settings: AppSettings): AppSettings {
       typeof settings.desktopAudioInputId === 'string' && settings.desktopAudioInputId.trim()
         ? settings.desktopAudioInputId
         : null,
+    audioCaptureMode:
+      settings.audioCaptureMode === 'system' ? 'system' : defaultSettings.audioCaptureMode,
     recordingPresets,
     activeRecordingPresetId,
   };
@@ -320,6 +322,9 @@ async function loadPersistedSettings(): Promise<AppSettings | null> {
     }
     if (typeof merged.desktopAudioInputId !== 'string' || !merged.desktopAudioInputId.trim()) {
       merged.desktopAudioInputId = null;
+    }
+    if (merged.audioCaptureMode !== 'system') {
+      merged.audioCaptureMode = defaultSettings.audioCaptureMode;
     }
     if (typeof merged.showQaTab !== 'boolean') {
       merged.showQaTab = defaultSettings.showQaTab;

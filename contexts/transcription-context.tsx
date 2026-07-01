@@ -28,7 +28,7 @@ import {
   translateText,
   type TranscriptionSegmentPayload,
 } from '@/services/transcription';
-import { AppSettings } from '@/types/settings';
+import { AppSettings, AudioCaptureMode } from '@/types/settings';
 import {
   TranscriptionMessage,
   SegmentMetadata,
@@ -114,6 +114,7 @@ type DesktopRecorderWithMediaRecorder = AudioRecorder & {
 };
 
 let preferredDesktopAudioInputId: string | null = null;
+let preferredCaptureMode: AudioCaptureMode = 'microphone';
 let desktopAudioOverrideInstalled = false;
 let originalGetUserMedia:
   | ((constraints: MediaStreamConstraints) => Promise<MediaStream>)
@@ -125,6 +126,43 @@ let desktopMeteringData: Uint8Array<ArrayBuffer> | null = null;
 
 function updatePreferredDesktopAudioInputId(value: string | null) {
   preferredDesktopAudioInputId = value;
+}
+
+function updatePreferredCaptureMode(value: AudioCaptureMode) {
+  preferredCaptureMode = value === 'system' ? 'system' : 'microphone';
+}
+
+function notifyDesktopCaptureFallback(error: unknown) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const message = error instanceof Error ? error.message : String(error ?? 'unknown');
+  window.dispatchEvent(
+    new CustomEvent('voicett-desktop-capture-fallback', {
+      detail: { message },
+    })
+  );
+}
+
+async function getDesktopSystemAudioStream(): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('System audio capture is not available in this desktop runtime.');
+  }
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: {
+      autoGainControl: false,
+      echoCancellation: false,
+      noiseSuppression: false,
+    },
+  });
+  stream.getVideoTracks().forEach((track) => track.stop());
+  const [audioTrack] = stream.getAudioTracks();
+  if (!audioTrack) {
+    stream.getTracks().forEach((track) => track.stop());
+    throw new Error('System audio capture did not return an audio track.');
+  }
+  return new MediaStream([audioTrack]);
 }
 
 function applyPreferredAudioInput(
@@ -250,6 +288,25 @@ function installDesktopAudioInputOverride() {
       return Promise.reject(new Error('getUserMedia unavailable'));
     }
     const normalizedConstraints = (constraints ?? {}) as MediaStreamConstraints;
+    const wantsAudio =
+      normalizedConstraints.audio !== false &&
+      Object.prototype.hasOwnProperty.call(normalizedConstraints, 'audio');
+    if (preferredCaptureMode === 'system' && wantsAudio) {
+      logTranscriptionDebug('[desktop-input] getDisplayMedia loopback override active');
+      return getDesktopSystemAudioStream()
+        .then((stream) => {
+          attachDesktopMeteringStream(stream);
+          return stream;
+        })
+        .catch((error) => {
+          console.warn('[desktop-input] System audio capture failed, falling back to microphone', error);
+          notifyDesktopCaptureFallback(error);
+          return originalGetUserMedia!(normalizedConstraints).then((stream) => {
+            attachDesktopMeteringStream(stream);
+            return stream;
+          });
+        });
+    }
     const { nextConstraints, shouldFallback } = applyPreferredAudioInput(
       normalizedConstraints,
       preferredDesktopAudioInputId,
@@ -667,10 +724,30 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
     installDesktopAudioInputOverride();
     updatePreferredDesktopAudioInputId(settings.desktopAudioInputId ?? null);
+    updatePreferredCaptureMode(settings.audioCaptureMode);
     logTranscriptionDebug('[desktop-input] Preferred device updated', {
       deviceId: settings.desktopAudioInputId ?? 'default',
+      captureMode: settings.audioCaptureMode,
     });
-  }, [settings.desktopAudioInputId]);
+  }, [settings.audioCaptureMode, settings.desktopAudioInputId]);
+
+  useEffect(() => {
+    if (!isElectronDesktop || typeof window === 'undefined') {
+      return;
+    }
+    const handleCaptureFallback = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: unknown }>).detail;
+      setError(
+        t('transcription.errors.system_capture_fallback', {
+          message: typeof detail?.message === 'string' ? detail.message : 'unknown',
+        })
+      );
+    };
+    window.addEventListener('voicett-desktop-capture-fallback', handleCaptureFallback);
+    return () => {
+      window.removeEventListener('voicett-desktop-capture-fallback', handleCaptureFallback);
+    };
+  }, [t]);
 
   const [messages, setMessages] = useState<TranscriptionMessage[]>([]);
   const messagesRef = useLatestRef(messages);
@@ -1313,12 +1390,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     setQaAutoMode(options?.qaAutoEnabled ?? false);
     setSessionState('starting');
     try {
-      let permission = await getRecordingPermissionsAsync();
-      if (!permission.granted) {
-        permission = await requestRecordingPermissionsAsync();
+      const shouldRequestMicrophonePermission =
+        !isElectronDesktop || settingsRef.current.audioCaptureMode !== 'system';
+      if (shouldRequestMicrophonePermission) {
+        let permission = await getRecordingPermissionsAsync();
         if (!permission.granted) {
-          Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
-          throw new Error(t('transcription.errors.permission_denied'));
+          permission = await requestRecordingPermissionsAsync();
+          if (!permission.granted) {
+            Alert.alert(t('alerts.microphone_permission.title'), t('alerts.microphone_permission.message'));
+            throw new Error(t('transcription.errors.permission_denied'));
+          }
         }
       }
       await setAudioModeAsync({

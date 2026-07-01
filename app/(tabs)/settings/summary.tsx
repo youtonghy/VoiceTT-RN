@@ -1,4 +1,3 @@
-import { ModelProvider } from '@lobehub/icons-rn';
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -91,7 +90,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'openai',
         title: t('settings.summary.title_engine.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -118,7 +116,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.summary.title_engine.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -143,7 +140,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'openai',
         title: t('settings.summary.conversation_engine.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -170,7 +166,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.summary.conversation_engine.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -195,7 +190,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'openai',
         title: t('settings.summary.assistant_engine.engines.openai'),
-        providerIcon: ModelProvider.OpenAI,
         fallbackIcon: FALLBACK_ICON_MAP.openai,
         modelProvider: 'openai',
         remoteModelProvider: 'openai',
@@ -222,7 +216,6 @@ export default function SummarySettingsScreen() {
       {
         id: 'gemini',
         title: t('settings.summary.assistant_engine.engines.gemini'),
-        providerIcon: ModelProvider.Gemini,
         fallbackIcon: FALLBACK_ICON_MAP.gemini,
         modelProvider: 'gemini',
         remoteModelProvider: 'gemini',
@@ -390,7 +383,6 @@ function SummaryModelSection({
       <SettingsModelDetailCard
         title={activeProvider.title}
         description={t('settings.credentials.models.catalog_hint')}
-        providerIcon={activeProvider.providerIcon}
         fallbackIcon={activeProvider.fallbackIcon}
         statusText={resolveModelCatalogStatusText(t, activeCatalog)}
         action={

@@ -40,7 +40,8 @@
       "read_translation": "Leer traducción en voz alta"
     },
     "controls": {
-      "start": "Iniciar grabación"
+      "start": "Iniciar grabación",
+      "meeting": "Grabación de reunión en línea"
     },
     "status": {
       "recording": "Grabando…",
@@ -55,7 +56,8 @@
       "unable_to_start": "No se pudo iniciar la grabación: {{message}}",
       "start_failed": "No se pudo iniciar la grabación: {{message}}",
       "permission_denied": "Permiso de micrófono no concedido",
-      "empty_recording": "El resultado de la grabación está vacío"
+      "empty_recording": "El resultado de la grabación está vacío",
+      "system_capture_fallback": "La captura de audio del sistema falló, así que la grabación volvió al micrófono: {{message}}"
     },
     "messages": {
       "default_title": "Mensaje #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "Detener grabación",
-      "start_recording": "Iniciar grabación"
+      "start_recording": "Iniciar grabación",
+      "start_meeting_recording": "Iniciar grabación de reunión en línea"
     }
   },
   "translation": {
@@ -389,6 +392,12 @@
         "delete_title": "¿Eliminar preset?",
         "delete_message": "¿Eliminar \"{{name}}\" de los presets guardados?",
         "cancel": "Cancelar"
+      },
+      "capture": {
+        "title": "Fuente de audio",
+        "microphone": "Micrófono",
+        "system": "Audio del sistema (reunión)",
+        "system_hint": "Graba la salida de los altavoces de reuniones en línea en la app de escritorio. Los dispositivos de micrófono y sus pruebas se desactivan en este modo."
       }
     },
     "transcription": {

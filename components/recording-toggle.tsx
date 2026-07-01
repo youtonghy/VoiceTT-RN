@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from 'heroui-native';
 
 import { AppIcon } from '@/components/native/app-shell';
+import { useSettings } from '@/contexts/settings-context';
 import { useTranscription } from '@/contexts/transcription-context';
 
 type RecordingToggleProps = {
@@ -13,10 +14,14 @@ type RecordingToggleProps = {
 
 export function RecordingToggle({ compact = false, qaAutoEnabled = false, variant = 'icon' }: RecordingToggleProps = {}) {
   const { isSessionActive, toggleSession, sessionState } = useTranscription();
+  const { settings } = useSettings();
   const { t } = useTranslation();
+  const isSystemCaptureMode = settings.audioCaptureMode === 'system';
 
   const accessibilityLabel = isSessionActive
     ? t('transcription.accessibility.stop_recording')
+    : isSystemCaptureMode
+    ? t('transcription.accessibility.start_meeting_recording')
     : t('transcription.accessibility.start_recording');
 
   const label = sessionState === 'recording'
@@ -25,6 +30,8 @@ export function RecordingToggle({ compact = false, qaAutoEnabled = false, varian
     ? t('transcription.status.processing')
     : sessionState === 'failed'
     ? t('transcription.status.failed')
+    : isSystemCaptureMode
+    ? t('transcription.controls.meeting')
     : t('transcription.controls.start');
 
   const isFull = variant === 'full';
@@ -51,7 +58,7 @@ export function RecordingToggle({ compact = false, qaAutoEnabled = false, varian
       variant={isSessionActive ? 'danger' : 'primary'}>
       <View style={styles.content}>
         <AppIcon
-          name={isSessionActive ? 'square' : 'microphone'}
+          name={isSessionActive ? 'square' : isSystemCaptureMode ? 'volume-high' : 'microphone'}
           size={isFull ? 18 : 20}
           className="text-accent-foreground"
           solid

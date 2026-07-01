@@ -40,7 +40,8 @@
       "read_translation": "번역 읽어주기"
     },
     "controls": {
-      "start": "녹음 시작"
+      "start": "녹음 시작",
+      "meeting": "온라인 회의 녹음"
     },
     "status": {
       "recording": "녹음 중…",
@@ -55,7 +56,8 @@
       "unable_to_start": "녹음을 시작할 수 없습니다: {{message}}",
       "start_failed": "녹음 시작에 실패했습니다: {{message}}",
       "permission_denied": "마이크 권한이 없습니다",
-      "empty_recording": "녹음 결과가 비어 있습니다"
+      "empty_recording": "녹음 결과가 비어 있습니다",
+      "system_capture_fallback": "시스템 오디오 캡처에 실패해 녹음이 마이크로 전환되었습니다: {{message}}"
     },
     "messages": {
       "default_title": "메시지 #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "녹음 중지",
-      "start_recording": "녹음 시작"
+      "start_recording": "녹음 시작",
+      "start_meeting_recording": "온라인 회의 녹음 시작"
     }
   },
   "translation": {
@@ -389,6 +392,12 @@
         "delete_title": "프리셋을 삭제할까요?",
         "delete_message": "저장된 프리셋 \"{{name}}\"을(를) 삭제할까요?",
         "cancel": "취소"
+      },
+      "capture": {
+        "title": "오디오 소스",
+        "microphone": "마이크",
+        "system": "시스템 오디오(회의)",
+        "system_hint": "데스크톱 앱에서 온라인 회의의 스피커 출력을 녹음합니다. 이 모드에서는 마이크 장치 선택과 마이크 테스트가 비활성화됩니다."
       }
     },
     "transcription": {

@@ -29,6 +29,7 @@ export type ThemeMode = 'automatic' | 'light' | 'dark';
 export type AppLanguageMode = 'system' | 'en' | 'zh-Hans' | 'zh-Hant' | 'ja' | 'ko' | 'es';
 
 export type ExportFormat = 'markdown' | 'pdf';
+export type AudioCaptureMode = 'microphone' | 'system';
 
 export interface EngineCredentials {
   openaiApiKey?: string;
@@ -226,6 +227,7 @@ export interface AppSettings extends TranscriptionSettings {
   showReadingTab: boolean;
   credentials: EngineCredentials;
   desktopAudioInputId: string | null;
+  audioCaptureMode: AudioCaptureMode;
   recordingPresets: RecordingPreset[];
   activeRecordingPresetId: string | null;
 }
@@ -295,6 +297,7 @@ export const defaultSettings: AppSettings = {
     doubaoCluster: '',
   },
   desktopAudioInputId: null,
+  audioCaptureMode: 'microphone',
   recordingPresets: [],
   activeRecordingPresetId: null,
 };

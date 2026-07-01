@@ -40,7 +40,8 @@
       "read_translation": "翻訳を読み上げ"
     },
     "controls": {
-      "start": "録音を開始"
+      "start": "録音を開始",
+      "meeting": "オンライン会議録音"
     },
     "status": {
       "recording": "録音中…",
@@ -55,7 +56,8 @@
       "unable_to_start": "録音を開始できません: {{message}}",
       "start_failed": "録音の開始に失敗しました: {{message}}",
       "permission_denied": "マイクの権限がありません",
-      "empty_recording": "録音結果が空です"
+      "empty_recording": "録音結果が空です",
+      "system_capture_fallback": "システム音声のキャプチャに失敗したため、録音はマイクに戻りました: {{message}}"
     },
     "messages": {
       "default_title": "メッセージ #{{id}}"
@@ -106,7 +108,8 @@
     },
     "accessibility": {
       "stop_recording": "録音を停止",
-      "start_recording": "録音を開始"
+      "start_recording": "録音を開始",
+      "start_meeting_recording": "オンライン会議録音を開始"
     }
   },
   "translation": {
@@ -389,6 +392,12 @@
         "delete_title": "プリセットを削除しますか？",
         "delete_message": "保存済みプリセット「{{name}}」を削除しますか？",
         "cancel": "キャンセル"
+      },
+      "capture": {
+        "title": "録音ソース",
+        "microphone": "マイク",
+        "system": "システム音声（会議）",
+        "system_hint": "デスクトップアプリでオンライン会議のスピーカー出力を録音します。このモードではマイクデバイスとマイクテストは無効になります。"
       }
     },
     "transcription": {

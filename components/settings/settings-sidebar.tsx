@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Card, PressableFeedback, Text } from 'heroui-native';
-import { Badge } from 'heroui-native-pro/badge';
 
 import { AppIcon } from '@/components/native/app-shell';
 import { buildSettingsMenuGroups, type SettingsMenuEntry } from '@/components/settings/settings-menu';
@@ -136,9 +135,11 @@ function SidebarEntry({
                 {entry.title}
               </Text>
               {entry.isPriority ? (
-                <Badge color="accent" size="sm" variant="soft">
-                  <Badge.Label>{priorityLabel}</Badge.Label>
-                </Badge>
+                <View className="rounded-full bg-accent/10 px-2 py-0.5">
+                  <Text type="body-xs" weight="bold" className="text-accent">
+                    {priorityLabel}
+                  </Text>
+                </View>
               ) : null}
             </View>
             <Text type="body-xs" color="muted" numberOfLines={2}>

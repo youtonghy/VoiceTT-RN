@@ -1,14 +1,12 @@
-import { ProviderIcon } from '@lobehub/icons-rn';
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Platform,
   ScrollView,
   useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
-import { Card, PressableFeedback, Select, Separator, Text } from 'heroui-native';
+import { Button, Card, PressableFeedback, Text } from 'heroui-native';
 
 import { AppIcon, type AppIconName } from '@/components/native/app-shell';
 import {
@@ -29,7 +27,6 @@ export type SettingsModelCatalogState = {
 export type SettingsModelProviderItem<T extends string> = {
   id: T;
   title: string;
-  providerIcon?: string;
   fallbackIcon?: AppIconName;
   modelProvider?: ModelCatalogProvider;
   remoteModelProvider?: RemoteModelCatalogProvider;
@@ -196,7 +193,6 @@ export function SettingsModelProviderStrip<T extends string>({
 export function SettingsModelDetailCard({
   title,
   description,
-  providerIcon,
   fallbackIcon,
   statusText,
   action,
@@ -205,7 +201,6 @@ export function SettingsModelDetailCard({
 }: {
   title: string;
   description?: string;
-  providerIcon?: string;
   fallbackIcon?: AppIconName;
   statusText?: string;
   action?: ReactNode;
@@ -217,7 +212,6 @@ export function SettingsModelDetailCard({
       <Card.Header className="flex-row items-start justify-between gap-3">
         <View className="min-w-0 flex-1 flex-row items-start gap-3">
           <SettingsModelProviderMark
-            providerIcon={providerIcon}
             fallbackIcon={fallbackIcon}
             selected
             size={42}
@@ -268,12 +262,8 @@ export function SettingsModelSelectField({
         value={value}
         options={options}
         placeholder={placeholder}
-        onChange={onChange}>
-        <Select.Trigger className="bg-default">
-          <Select.Value placeholder={placeholder} numberOfLines={1} />
-          <Select.TriggerIndicator />
-        </Select.Trigger>
-      </SettingsModelSelect>
+        onChange={onChange}
+      />
     </View>
   );
 }
@@ -285,7 +275,8 @@ export function SettingsModelSelect({
   placeholder,
   onChange,
   isDisabled,
-  children,
+  triggerAccessibilityLabel,
+  triggerIcon,
 }: {
   label: string;
   value: string;
@@ -293,10 +284,11 @@ export function SettingsModelSelect({
   placeholder: string;
   onChange: (value: string) => void;
   isDisabled?: boolean;
-  children: ReactNode;
+  triggerAccessibilityLabel?: string;
+  triggerIcon?: AppIconName;
 }) {
   const currentOption = options.find((option) => option.value === value) ?? toSelectOption(value);
-  const isPopoverPresentation = Platform.OS === 'web';
+  const [isOpen, setIsOpen] = useState(false);
   const { height: windowHeight } = useWindowDimensions();
   const safeWindowHeight = windowHeight || 640;
   const contentHeight = Math.min(
@@ -305,67 +297,103 @@ export function SettingsModelSelect({
   );
   const listHeight = Math.max(MODEL_SELECT_MIN_LIST_HEIGHT, contentHeight - MODEL_SELECT_HEADER_SPACE);
   const shouldUseFixedWindow = options.length > MODEL_SELECT_VISIBLE_ITEMS;
-  const contentStyle: ViewStyle = shouldUseFixedWindow
+  const panelStyle: ViewStyle = shouldUseFixedWindow
     ? { height: contentHeight, overflow: 'hidden' }
     : { maxHeight: contentHeight, overflow: 'hidden' };
   const listStyle = shouldUseFixedWindow ? { height: listHeight } : { maxHeight: listHeight };
 
-  const listContent = (
-    <>
-      <View className="mb-2 flex-row items-center justify-between gap-3 px-2">
-        <Select.ListLabel className="min-w-0 flex-1 px-0 py-0" numberOfLines={1}>
-          {label}
-        </Select.ListLabel>
-        <Text type="body-xs" color="muted">
-          {options.length}
-        </Text>
-      </View>
-      <ScrollView
-        nestedScrollEnabled
-        showsVerticalScrollIndicator={shouldUseFixedWindow}
-        keyboardShouldPersistTaps="handled"
-        style={listStyle}
-        contentContainerClassName="pb-1">
-        {options.map((option, index) => (
-          <Fragment key={option.value}>
-            <Select.Item value={option.value} label={option.label} className="min-h-12">
-              {({ isSelected }) => (
-                <>
-                  <Select.ItemLabel
-                    numberOfLines={1}
-                    className={isSelected ? 'text-accent' : undefined}
-                  />
-                  <Select.ItemIndicator />
-                </>
-              )}
-            </Select.Item>
-            {index < options.length - 1 ? <Separator /> : null}
-          </Fragment>
-        ))}
-      </ScrollView>
-    </>
-  );
+  const toggle = () => {
+    if (!isDisabled) {
+      setIsOpen((current) => !current);
+    }
+  };
+  const selectOption = (option: ModelOption) => {
+    onChange(option.value);
+    setIsOpen(false);
+  };
 
   return (
-    <Select
-      isDisabled={isDisabled}
-      presentation={isPopoverPresentation ? 'popover' : 'dialog'}
-      value={currentOption}
-      onValueChange={(option) => option?.value && onChange(option.value)}>
-      {children}
-      <Select.Portal>
-        <Select.Overlay />
-        {isPopoverPresentation ? (
-          <Select.Content presentation="popover" width="trigger" style={contentStyle}>
-            {listContent}
-          </Select.Content>
-        ) : (
-          <Select.Content presentation="dialog" isSwipeable={false} style={contentStyle}>
-            {listContent}
-          </Select.Content>
-        )}
-      </Select.Portal>
-    </Select>
+    <>
+      {triggerIcon ? (
+        <Button
+          accessibilityLabel={triggerAccessibilityLabel ?? label}
+          isDisabled={isDisabled}
+          isIconOnly
+          onPress={toggle}
+          size="md"
+          variant="secondary">
+          <AppIcon name={triggerIcon} size={17} className="text-accent" solid />
+        </Button>
+      ) : (
+        <PressableFeedback
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityState={{ disabled: isDisabled, expanded: isOpen }}
+          isDisabled={isDisabled}
+          onPress={toggle}
+          className={[
+            'min-h-12 flex-row items-center justify-between gap-3 rounded-2xl border border-border bg-default px-3',
+            isDisabled ? 'opacity-50' : '',
+          ].join(' ')}>
+          <Text
+            type="body-sm"
+            numberOfLines={1}
+            className={currentOption ? 'min-w-0 flex-1 text-foreground' : 'min-w-0 flex-1 text-muted'}>
+            {currentOption?.label ?? placeholder}
+          </Text>
+          <AppIcon
+            name="chevron-right"
+            size={13}
+            className="text-muted"
+            style={SELECT_CHEVRON_STYLE}
+          />
+        </PressableFeedback>
+      )}
+
+      {isOpen ? (
+        <View
+          className="mt-2 rounded-2xl border border-border bg-surface p-2 shadow-surface"
+          style={panelStyle}>
+          <View className="mb-2 flex-row items-center justify-between gap-3 px-2">
+            <Text type="body-sm" weight="semibold" numberOfLines={1} className="min-w-0 flex-1">
+              {label}
+            </Text>
+            <Text type="body-xs" color="muted">
+              {options.length}
+            </Text>
+          </View>
+          <ScrollView
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={shouldUseFixedWindow}
+            keyboardShouldPersistTaps="handled"
+            style={listStyle}
+            contentContainerClassName="pb-1">
+            {options.map((option) => {
+              const isSelected = option.value === currentOption?.value;
+              return (
+                <PressableFeedback
+                  key={option.value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => selectOption(option)}
+                  className={[
+                    'min-h-12 justify-center rounded-xl px-3',
+                    isSelected ? 'bg-accent/10' : 'bg-transparent',
+                  ].join(' ')}>
+                  <Text
+                    type="body-sm"
+                    weight={isSelected ? 'semibold' : undefined}
+                    numberOfLines={1}
+                    className={isSelected ? 'text-accent' : 'text-foreground'}>
+                    {option.label}
+                  </Text>
+                </PressableFeedback>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+    </>
   );
 }
 
@@ -415,7 +443,6 @@ function SettingsModelProviderCard<T extends string>({
       ].join(' ')}>
       <View className="gap-3">
         <SettingsModelProviderMark
-          providerIcon={provider.providerIcon}
           fallbackIcon={provider.fallbackIcon}
           selected={selected}
           size={40}
@@ -434,13 +461,11 @@ function SettingsModelProviderCard<T extends string>({
 }
 
 export function SettingsModelProviderMark({
-  providerIcon,
   fallbackIcon,
   selected,
   size,
   iconSize,
 }: {
-  providerIcon?: string;
   fallbackIcon?: AppIconName;
   selected: boolean;
   size: number;
@@ -453,9 +478,7 @@ export function SettingsModelProviderMark({
         selected ? 'bg-accent/15' : 'bg-surface-secondary',
       ].join(' ')}
       style={{ height: size, width: size }}>
-      {providerIcon ? (
-        <ProviderIcon provider={providerIcon} size={iconSize} type="avatar" />
-      ) : fallbackIcon ? (
+      {fallbackIcon ? (
         <AppIcon
           name={fallbackIcon}
           size={iconSize - 5}
@@ -565,3 +588,7 @@ function scoreModelOption(value: string, keywords: string[]) {
 
   return score;
 }
+
+const SELECT_CHEVRON_STYLE: ViewStyle = {
+  transform: [{ rotate: '90deg' }],
+};
