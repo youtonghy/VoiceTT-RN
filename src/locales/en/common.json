@@ -440,9 +440,25 @@
         "source_language": "Source language",
         "openai_model": "OpenAI transcription model",
         "gemini_model": "Gemini transcription model",
+        "realtime_model": "Realtime model",
+        "realtime_delay": "Latency",
+        "delay_minimal": "Minimal",
+        "delay_low": "Low",
+        "delay_medium": "Medium",
+        "delay_high": "High",
+        "delay_xhigh": "Extra High",
         "prompt": "Prompting (optional)",
         "prompt_placeholder": "e.g. Meeting recap with product names.",
         "prompt_hint": "Leave empty to disable prompting."
+      },
+      "mode": {
+        "title": "Transcription Mode",
+        "upload": "Upload",
+        "realtime": "Realtime",
+        "upload_hint": "Record segments, then transcribe",
+        "realtime_hint": "Stream audio for live transcription",
+        "realtime_requires_openai": "Realtime requires the OpenAI engine.",
+        "native_fallback_notice": "Realtime streaming is not available on this device yet. Using upload mode."
       },
       "engines": {
         "openai": "OpenAI",

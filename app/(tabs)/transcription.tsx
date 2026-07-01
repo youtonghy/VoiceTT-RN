@@ -7,7 +7,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
+    type LayoutChangeEvent,
     Modal,
+    type NativeScrollEvent,
+    type NativeSyntheticEvent,
     Platform,
     Pressable,
     ScrollView,
@@ -96,6 +99,13 @@ const HISTORY_SEED = createHistorySeed();
 
 const HISTORY_STORAGE_KEY = "@agents/history-conversations";
 const HISTORY_STORAGE_VERSION = 2;
+const MOBILE_PANES = ["live", "history", "assistant"] as const;
+
+type MobilePane = (typeof MOBILE_PANES)[number];
+
+function clampMobilePaneIndex(index: number) {
+  return Math.min(MOBILE_PANES.length - 1, Math.max(0, index));
+}
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -306,10 +316,12 @@ export default function TranscriptionScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const historyScrollRef = useRef<ScrollView | null>(null);
   const assistantScrollRef = useRef<ScrollView | null>(null);
+  const mobilePagerRef = useRef<ScrollView | null>(null);
   const transcriptionScrollOffsetRef = useRef(0);
   const historyLongPressRef = useRef<string | null>(null);
   const assistantInputRef = useRef<TextInput | null>(null);
   const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const previousMobilePagerWidthRef = useRef(0);
 
   const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -317,6 +329,7 @@ export default function TranscriptionScreen() {
   const [assistantDraft, setAssistantDraft] = useState("");
   const [assistantSending, setAssistantSending] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [mobilePagerWidth, setMobilePagerWidth] = useState(0);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
@@ -338,6 +351,22 @@ export default function TranscriptionScreen() {
   const suppressSessionStopEffectsRef = useRef(false);
   const autoTitleAbortRef = useRef<AbortController | null>(null);
   const autoSummaryAbortRef = useRef<AbortController | null>(null);
+
+  const switchToMobilePaneIndex = useCallback(
+    (nextIndex: number, animated = true) => {
+      const boundedIndex = clampMobilePaneIndex(nextIndex);
+      setActiveCarouselIndex(boundedIndex);
+
+      if (mobilePagerWidth > 0) {
+        mobilePagerRef.current?.scrollTo({
+          x: boundedIndex * mobilePagerWidth,
+          y: 0,
+          animated,
+        });
+      }
+    },
+    [mobilePagerWidth]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -846,7 +875,7 @@ export default function TranscriptionScreen() {
       return;
     }
     const scrollToTranscription = () => {
-      setActiveCarouselIndex(0);
+      switchToMobilePaneIndex(0);
     };
     if (conversationId === activeConversationId) {
       scrollToTranscription();
@@ -860,7 +889,7 @@ export default function TranscriptionScreen() {
     }
     setActiveConversationId(conversationId);
     scrollToTranscription();
-  }, [activeConversationId, historyItems, stopSession]);
+  }, [activeConversationId, historyItems, stopSession, switchToMobilePaneIndex]);
 
   useEffect(() => {
     if (!historyLoaded) {
@@ -1444,6 +1473,41 @@ export default function TranscriptionScreen() {
     }
   }, [isTablet]);
 
+  const handleMobilePagerLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    if (nextWidth <= 0) {
+      return;
+    }
+    setMobilePagerWidth((currentWidth) => (currentWidth === nextWidth ? currentWidth : nextWidth));
+  }, []);
+
+  const handleMobilePagerMomentumEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const pageWidth = mobilePagerWidth || Math.max(1, Math.round(width - 32));
+      const nextIndex = clampMobilePaneIndex(
+        Math.round(event.nativeEvent.contentOffset.x / pageWidth)
+      );
+      setActiveCarouselIndex(nextIndex);
+    },
+    [mobilePagerWidth, width]
+  );
+
+  useEffect(() => {
+    if (isTablet) {
+      previousMobilePagerWidthRef.current = 0;
+      return;
+    }
+    if (mobilePagerWidth <= 0 || previousMobilePagerWidthRef.current === mobilePagerWidth) {
+      return;
+    }
+    previousMobilePagerWidthRef.current = mobilePagerWidth;
+    mobilePagerRef.current?.scrollTo({
+      x: clampMobilePaneIndex(activeCarouselIndex) * mobilePagerWidth,
+      y: 0,
+      animated: false,
+    });
+  }, [activeCarouselIndex, isTablet, mobilePagerWidth]);
+
   const handleShareConversation = useCallback(async (conversation: HistoryConversation) => {
     const includeTranscript = settings.exportIncludeTranscript;
     const includeTranslation = settings.exportIncludeTranslation;
@@ -1650,7 +1714,8 @@ export default function TranscriptionScreen() {
     ]
   );
 
-  const activeMobilePane = activeCarouselIndex === 0 ? 'live' : activeCarouselIndex === 2 ? 'assistant' : 'history';
+  const activeMobilePane: MobilePane = MOBILE_PANES[clampMobilePaneIndex(activeCarouselIndex)];
+  const mobilePagerPageWidth = mobilePagerWidth || Math.max(1, Math.round(width - 32));
   const activeConversationTitle = activeConversation?.title ?? t('transcription.history.new_conversation', { id: historyIdCounter.current });
   const isSessionBusy = sessionState === 'starting' || sessionState === 'stopping';
   const recordLabel = isSessionActive
@@ -1690,7 +1755,7 @@ export default function TranscriptionScreen() {
         if (next !== 'live' && next !== 'history' && next !== 'assistant') {
           return;
         }
-        setActiveCarouselIndex(next === 'live' ? 0 : next === 'assistant' ? 2 : 1);
+        switchToMobilePaneIndex(MOBILE_PANES.indexOf(next));
       }}
       options={[
         { value: 'live', label: t('transcription.sections.live_content'), icon: 'wave-square' },
@@ -2045,10 +2110,36 @@ export default function TranscriptionScreen() {
   const MobileContent = (
     <View className="min-h-0 flex-1 gap-3" style={styles.screenRoot}>
       {MobileModeSegment}
-      <View className="min-h-0 flex-1" style={styles.mobilePaneFrame}>
-        {activeMobilePane === 'live' ? <LivePane /> : null}
-        {activeMobilePane === 'history' ? <HistoryPane /> : null}
-        {activeMobilePane === 'assistant' ? <AssistantPane /> : null}
+      <View
+        className="min-h-0 flex-1"
+        style={styles.mobilePaneFrame}
+        onLayout={handleMobilePagerLayout}>
+        <ScrollView
+          ref={mobilePagerRef}
+          className="min-h-0 flex-1"
+          style={styles.mobilePager}
+          contentContainerStyle={styles.mobilePagerContent}
+          horizontal
+          pagingEnabled
+          directionalLockEnabled
+          disableIntervalMomentum
+          decelerationRate="fast"
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          onMomentumScrollEnd={handleMobilePagerMomentumEnd}
+          scrollEventThrottle={16}
+          showsHorizontalScrollIndicator={false}>
+          <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
+            <LivePane />
+          </View>
+          <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
+            <HistoryPane />
+          </View>
+          <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
+            <AssistantPane />
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -2128,6 +2219,19 @@ const styles = StyleSheet.create({
     minHeight: 0,
     minWidth: 0,
   },
+  mobilePager: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  },
+  mobilePagerContent: {
+    flexGrow: 1,
+  },
+  mobilePanePage: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+  },
   paneRoot: {
     flex: 1,
     minHeight: 0,
@@ -2138,6 +2242,9 @@ const styles = StyleSheet.create({
     minHeight: 0,
     minWidth: 0,
     overflow: 'hidden',
+    borderRadius: 24,
+    borderCurve: 'continuous',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
   },
   shrinkable: {
     flexShrink: 1,

@@ -23,11 +23,15 @@ import type { TFunction } from 'i18next';
 
 import { useSettings } from '@/contexts/settings-context';
 import {
+  resolveEffectiveTranscriptionMode,
   resolveTranscriptionModel,
   transcribeSegment,
   translateText,
+  translateTextStream,
   type TranscriptionSegmentPayload,
 } from '@/services/transcription';
+import { RealtimeTranscriptionSession, resolveRealtimeTranscriptionModel } from '@/services/realtime';
+import { createPcmCapture, type PcmCapture } from '@/services/realtime-audio';
 import { AppSettings, AudioCaptureMode } from '@/types/settings';
 import {
   TranscriptionMessage,
@@ -772,6 +776,15 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const segmentBaseMsRef = useRef(0);
   const desktopSegmentRecorderRef = useRef<MediaRecorder | null>(null);
   const desktopSegmentStreamRef = useRef<MediaStream | null>(null);
+  const realtimeModeRef = useRef(false);
+  const realtimeSessionRef = useRef<RealtimeTranscriptionSession | null>(null);
+  const realtimeCaptureRef = useRef<PcmCapture | null>(null);
+  const realtimeStreamRef = useRef<MediaStream | null>(null);
+  const realtimeMeteringContextRef = useRef<AudioContext | null>(null);
+  const realtimeMeteringAnalyserRef = useRef<AnalyserNode | null>(null);
+  const realtimeMeteringDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const realtimeStartedAtRef = useRef<number | null>(null);
+  const realtimeItemMessageIdsRef = useRef<Map<string, number>>(new Map());
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const meteringSourceRef = useRef<'recorder' | 'desktop' | 'none'>('none');
   const finalizeSegmentRef = useRef<((status: RecordingStatus | null, options?: { sessionId?: string }) => Promise<string | null>) | null>(null);
@@ -922,6 +935,138 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     );
     return didUpdate;
   }, [setMessagesAndRef]);
+
+  const resolveRealtimeMessageId = useCallback((itemId: string) => {
+    const existing = realtimeItemMessageIdsRef.current.get(itemId);
+    if (existing != null) {
+      return existing;
+    }
+    const messageId = allocateMessageId();
+    realtimeItemMessageIdsRef.current.set(itemId, messageId);
+    const newMessage = createInitialMessage(messageId, qaAutoModeRef.current, t);
+    newMessage.status = 'transcribing';
+    if (settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none') {
+      newMessage.translationStatus = 'idle';
+    } else {
+      newMessage.translationStatus = 'completed';
+    }
+    newMessage.segment = {
+      fileUri: '',
+      startOffsetMs: 0,
+      endOffsetMs: 0,
+      durationMs: 0,
+      createdAt: Date.now(),
+      engine: settingsRef.current.transcriptionEngine,
+      model: resolveRealtimeTranscriptionModel(settingsRef.current),
+    };
+    setMessagesAndRef((prev) => prev.concat(newMessage));
+    return messageId;
+  }, [allocateMessageId, qaAutoModeRef, setMessagesAndRef, settingsRef, t]);
+
+  const handleRealtimeDelta = useCallback((itemId: string, text: string) => {
+    const messageId = resolveRealtimeMessageId(itemId);
+    updateMessage(messageId, (msg) => ({
+      ...msg,
+      status: 'transcribing',
+      transcript: (msg.transcript ?? '') + text,
+      updatedAt: Date.now(),
+    }));
+  }, [resolveRealtimeMessageId, updateMessage]);
+
+  const handleRealtimeCompleted = useCallback((itemId: string, transcript: string) => {
+    const messageId = resolveRealtimeMessageId(itemId);
+    const taskSessionId = sessionIdRef.current ?? 'orphan';
+    const taskToken = taskSessionId + ':realtime:' + messageId;
+    const normalizedTranscript = transcript.trim();
+    const shouldTranslate =
+      settingsRef.current.enableTranslation &&
+      settingsRef.current.translationEngine !== 'none' &&
+      normalizedTranscript.length > 0;
+
+    updateMessage(messageId, (msg) => ({
+      ...msg,
+      status: normalizedTranscript ? 'completed' : 'failed',
+      transcript: normalizedTranscript || msg.transcript,
+      error: normalizedTranscript ? msg.error : t('transcription.errors.empty_recording'),
+      translationStatus: shouldTranslate ? 'pending' : msg.translationStatus,
+      updatedAt: Date.now(),
+    }));
+
+    if (!shouldTranslate) {
+      return;
+    }
+
+    const translationController = new AbortController();
+    pendingTaskRegistryRef.current.set(taskToken, {
+      token: taskToken,
+      sessionId: taskSessionId,
+      messageId,
+      transcriptionController: null,
+      translationController,
+    });
+
+    translateTextStream(normalizedTranscript, settingsRef.current, {
+      signal: translationController.signal,
+      onDelta: (delta) => {
+        if (!isTaskCurrent(taskToken)) {
+          return;
+        }
+        updateMessage(messageId, (msg) => ({
+          ...msg,
+          translation: (msg.translation ?? '') + delta,
+          translationStatus: 'pending',
+          updatedAt: Date.now(),
+        }));
+      },
+    })
+      .then((result) => {
+        if (!isTaskCurrent(taskToken)) {
+          return;
+        }
+        const translated = result.text.trim();
+        updateMessage(messageId, (msg) => ({
+          ...msg,
+          translation: translated || msg.translation,
+          translationStatus: translated ? 'completed' : 'failed',
+          translationError: translated ? undefined : t('translation.errors.empty_result'),
+          updatedAt: Date.now(),
+        }));
+      })
+      .catch((translateError: any) => {
+        if (isTaskCurrent(taskToken)) {
+          updateMessage(messageId, (msg) => ({
+            ...msg,
+            translationStatus: 'failed',
+            translationError: translateError?.message || t('translation.status.failed'),
+            updatedAt: Date.now(),
+          }));
+        }
+      })
+      .finally(() => {
+        if (isTaskCurrent(taskToken)) {
+          pendingTaskRegistryRef.current.delete(taskToken);
+        }
+      });
+  }, [isTaskCurrent, resolveRealtimeMessageId, settingsRef, t, updateMessage]);
+
+  const stopRealtimeResources = useCallback(() => {
+    realtimeCaptureRef.current?.stop();
+    realtimeCaptureRef.current = null;
+    realtimeSessionRef.current?.close();
+    realtimeSessionRef.current = null;
+    realtimeStreamRef.current?.getTracks().forEach((track) => track.stop());
+    realtimeStreamRef.current = null;
+    if (realtimeMeteringContextRef.current) {
+      realtimeMeteringContextRef.current.close().catch(() => undefined);
+    }
+    realtimeMeteringContextRef.current = null;
+    realtimeMeteringAnalyserRef.current = null;
+    realtimeMeteringDataRef.current = null;
+    realtimeStartedAtRef.current = null;
+    realtimeItemMessageIdsRef.current.clear();
+    realtimeModeRef.current = false;
+  }, []);
+
   const updateMessageQa = useCallback((messageId: number, payload: UpdateMessageQaPayload) => {
     const timestamp = Date.now();
     updateMessage(messageId, (msg) => {
@@ -992,6 +1137,69 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       mediaServicesDidReset: lastStatus?.mediaServicesDidReset ?? false,
     };
   }, [getBestKnownDurationMs]);
+
+  const readRealtimeMeteringDb = useCallback((): number | undefined => {
+    const analyser = realtimeMeteringAnalyserRef.current;
+    const data = realtimeMeteringDataRef.current;
+    if (!analyser || !data) {
+      return undefined;
+    }
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let index = 0; index < data.length; index += 1) {
+      const normalized = (data[index] - 128) / 128;
+      sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    return rms > 0 ? 20 * Math.log10(rms) : -160;
+  }, []);
+
+  const attachRealtimeMeteringStream = useCallback((stream: MediaStream) => {
+    const AudioContextConstructor =
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
+      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextConstructor) {
+      return;
+    }
+    const context = new AudioContextConstructor();
+    if (context.state === 'suspended') {
+      context.resume().catch(() => undefined);
+    }
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    const source = context.createMediaStreamSource(stream);
+    source.connect(analyser);
+    realtimeMeteringContextRef.current = context;
+    realtimeMeteringAnalyserRef.current = analyser;
+    realtimeMeteringDataRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+  }, []);
+
+  const startRealtimeStatusPolling = useCallback(() => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+    }
+    statusIntervalRef.current = setInterval(() => {
+      if (!realtimeModeRef.current || sessionStateRef.current !== 'recording') {
+        return;
+      }
+      const startedAt = realtimeStartedAtRef.current ?? Date.now();
+      handleStatusUpdateRef.current?.({
+        isRecording: true,
+        durationMillis: Math.max(0, Date.now() - startedAt),
+        metering: readRealtimeMeteringDb(),
+        isDoneRecording: false,
+        canRecord: true,
+        mediaServicesDidReset: false,
+      });
+    }, 100);
+  }, [readRealtimeMeteringDb, sessionStateRef]);
+
+  const requestRealtimeMediaStream = useCallback(async (): Promise<MediaStream> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('getUserMedia unavailable');
+    }
+    return navigator.mediaDevices.getUserMedia({ audio: true });
+  }, []);
 
   const startNewRecording = useCallback(async () => {
     logTranscriptionDebug('[transcription] startNewRecording - preparing to record');
@@ -1390,6 +1598,38 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     setQaAutoMode(options?.qaAutoEnabled ?? false);
     setSessionState('starting');
     try {
+      const effectiveMode = resolveEffectiveTranscriptionMode(settingsRef.current);
+      if (effectiveMode === 'realtime') {
+        const stream = await requestRealtimeMediaStream();
+        realtimeModeRef.current = true;
+        realtimeStreamRef.current = stream;
+        realtimeStartedAtRef.current = Date.now();
+        attachRealtimeMeteringStream(stream);
+        const realtimeSession = new RealtimeTranscriptionSession(settingsRef.current, {
+          onDelta: handleRealtimeDelta,
+          onCompleted: handleRealtimeCompleted,
+          onError: (sessionError) => {
+            console.warn('[transcription] Realtime session error', sessionError);
+            setError(sessionError.message);
+          },
+          onOpen: () => undefined,
+          onClose: () => undefined,
+        });
+        realtimeSessionRef.current = realtimeSession;
+        await realtimeSession.connect();
+        realtimeCaptureRef.current = createPcmCapture(stream, (chunk) => {
+          realtimeSessionRef.current?.appendAudio(chunk);
+        });
+        if (sessionIdRef.current !== nextSessionId) {
+          stopRealtimeResources();
+          return;
+        }
+        setSessionState('recording');
+        startRealtimeStatusPolling();
+        logTranscriptionDebug('[transcription] realtime recording started successfully');
+        return;
+      }
+
       const shouldRequestMicrophonePermission =
         !isElectronDesktop || settingsRef.current.audioCaptureMode !== 'system';
       if (shouldRequestMicrophonePermission) {
@@ -1421,6 +1661,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         sessionIdRef.current = null;
       }
       setQaAutoMode(false);
+      stopRealtimeResources();
       await stopAndResetRecording();
       resetSegmentState();
       desktopSegmentStreamRef.current = null;
@@ -1431,7 +1672,21 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           : t('transcription.errors.start_failed', { message: (startError as Error).message })
       );
     }
-  }, [createSessionId, resetSegmentState, sessionStateRef, startNewRecording, stopAndResetRecording, t]);
+  }, [
+    attachRealtimeMeteringStream,
+    createSessionId,
+    handleRealtimeCompleted,
+    handleRealtimeDelta,
+    requestRealtimeMediaStream,
+    resetSegmentState,
+    sessionStateRef,
+    settingsRef,
+    startNewRecording,
+    startRealtimeStatusPolling,
+    stopAndResetRecording,
+    stopRealtimeResources,
+    t,
+  ]);
 
   const stopSession = useCallback(async (options?: StopSessionOptions) => {
     const currentSessionId = sessionIdRef.current;
@@ -1447,6 +1702,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const shouldDiscardCurrentSegment = options?.discardCurrentSegment === true;
     const activeMessageId = segmentStateRef.current.messageId;
     const hasActiveSegment = segmentStateRef.current.isActive && activeMessageId != null;
+    const wasRealtimeMode = realtimeModeRef.current;
 
     setQaAutoMode(false);
     sessionIdRef.current = null;
@@ -1474,6 +1730,31 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         markMessagesFailed: true,
         failureMessage,
       });
+    }
+
+    if (wasRealtimeMode) {
+      sessionIdRef.current = currentSessionId;
+      if (!shouldDiscardCurrentSegment && segmentStateRef.current.isActive) {
+        realtimeSessionRef.current?.commit();
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+      stopRealtimeResources();
+      sessionIdRef.current = null;
+      if (currentSessionId && shouldCancelPendingTasks) {
+        cancelPendingTasks({
+          sessionId: currentSessionId,
+          markMessagesFailed: false,
+          failureMessage,
+        });
+      }
+      resetSegmentState();
+      if (options?.failureMessage) {
+        setSessionState('failed');
+        setError(options.failureMessage);
+        return;
+      }
+      setSessionState('idle');
+      return;
     }
 
     if (!shouldDiscardCurrentSegment && hasActiveSegment && finalizeSegmentRef.current) {
@@ -1505,7 +1786,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     setSessionState('idle');
-  }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, t, updateMessage]);
+  }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, stopRealtimeResources, t, updateMessage]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
     logTranscriptionDebug('[transcription] toggleSession called, state:', sessionStateRef.current);
@@ -1579,6 +1860,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         if (elapsedAbove >= activationDurationMs) {
           logTranscriptionDebug('[transcription] ACTIVATING SEGMENT');
           segment.isActive = true;
+          if (realtimeModeRef.current) {
+            segment.messageId = null;
+            applySettingsToSegment(segment, currentSettings, durationMs);
+            return;
+          }
           const messageId = allocateMessageId();
           segment.messageId = messageId;
           applySettingsToSegment(segment, currentSettings, durationMs);
@@ -1603,7 +1889,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       const silenceElapsed = durationMs - (segment.belowThresholdStartMs ?? durationMs);
       if (silenceElapsed >= currentSettings.silenceDurationSec * 1000) {
-        void finalizeSegmentRef.current?.(status);
+        if (realtimeModeRef.current) {
+          realtimeSessionRef.current?.commit();
+          resetSegmentState();
+        } else {
+          void finalizeSegmentRef.current?.(status);
+        }
       }
     } else {
       segment.belowThresholdStartMs = null;
@@ -1620,9 +1911,14 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         ? Math.min(configuredMaxSegmentMs, METERING_UNAVAILABLE_MAX_SEGMENT_MS)
         : configuredMaxSegmentMs;
     if (Number.isFinite(effectiveMaxSegmentMs) && segmentElapsed >= effectiveMaxSegmentMs) {
-      void finalizeSegmentRef.current?.(status);
+      if (realtimeModeRef.current) {
+        realtimeSessionRef.current?.commit();
+        resetSegmentState();
+      } else {
+        void finalizeSegmentRef.current?.(status);
+      }
     }
-  }, [allocateMessageId, qaAutoModeRef, sessionStateRef, setMessagesAndRef, settingsRef, stopSession, t]);
+  }, [allocateMessageId, qaAutoModeRef, resetSegmentState, sessionStateRef, setMessagesAndRef, settingsRef, stopSession, t]);
 
   useEffect(() => {
     handleStatusUpdateRef.current = handleStatusUpdate;
@@ -1639,11 +1935,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         desktopSegmentRecorderRef.current = null;
         stopDesktopSegmentRecorder(segmentRecorder).catch(() => undefined);
       }
+      stopRealtimeResources();
       stopDesktopMetering();
       stopAndResetRecording();
       desktopSegmentStreamRef.current = null;
     };
-  }, [cancelPendingTasks, stopAndResetRecording]);
+  }, [cancelPendingTasks, stopAndResetRecording, stopRealtimeResources]);
 
   const value = useMemo<TranscriptionContextValue>(() => ({
     messages,

@@ -6,6 +6,8 @@ import {
     DEFAULT_GEMINI_TRANSLATION_MODEL,
     DEFAULT_GLM_TRANSCRIPTION_MODEL,
     DEFAULT_OPENAI_BASE_URL,
+    DEFAULT_OPENAI_REALTIME_DELAY,
+    DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
     DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
     DEFAULT_OPENAI_TRANSLATION_MODEL,
     DEFAULT_QWEN_TRANSCRIPTION_MODEL,
@@ -63,6 +65,8 @@ export interface FormState {
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiTranscriptionModel: string;
+  openaiRealtimeTranscriptionModel: string;
+  openaiRealtimeDelay: string;
   openaiTranslationModel: string;
   openaiTtsModel: string;
   openaiTitleModel: string;
@@ -128,6 +132,11 @@ export const initialFormState = (settings: AppSettings): FormState => ({
   openaiBaseUrl: settings.credentials.openaiBaseUrl ?? DEFAULT_OPENAI_BASE_URL,
   openaiTranscriptionModel:
     settings.credentials.openaiTranscriptionModel ?? DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
+  openaiRealtimeTranscriptionModel:
+    settings.credentials.openaiRealtimeTranscriptionModel ??
+    DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
+  openaiRealtimeDelay:
+    settings.credentials.openaiRealtimeDelay ?? DEFAULT_OPENAI_REALTIME_DELAY,
   openaiTranslationModel:
     settings.credentials.openaiTranslationModel ?? DEFAULT_OPENAI_TRANSLATION_MODEL,
   openaiTtsModel: settings.credentials.openaiTtsModel ?? DEFAULT_OPENAI_TTS_MODEL,

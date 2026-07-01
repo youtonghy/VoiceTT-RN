@@ -406,9 +406,25 @@
         "source_language": "來源語言",
         "openai_model": "OpenAI 轉寫模型",
         "gemini_model": "Gemini 轉寫模型",
+        "realtime_model": "即時轉寫模型",
+        "realtime_delay": "延遲",
+        "delay_minimal": "極低",
+        "delay_low": "低",
+        "delay_medium": "中",
+        "delay_high": "高",
+        "delay_xhigh": "更高",
         "prompt": "Prompting（可選）",
         "prompt_placeholder": "例如：會議紀要包含產品名稱。",
         "prompt_hint": "留空將不會使用提示。"
+      },
+      "mode": {
+        "title": "轉寫模式",
+        "upload": "上傳",
+        "realtime": "即時",
+        "upload_hint": "錄製分段後再轉寫",
+        "realtime_hint": "串流傳輸音訊並即時轉寫",
+        "realtime_requires_openai": "即時模式需要使用 OpenAI 引擎。",
+        "native_fallback_notice": "此裝置暫不支援即時串流轉寫，目前會使用上傳模式。"
       },
       "engines": {
         "openai": "OpenAI",

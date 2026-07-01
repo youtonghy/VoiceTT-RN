@@ -406,9 +406,25 @@
         "source_language": "ソース言語",
         "openai_model": "OpenAI 文字起こしモデル",
         "gemini_model": "Gemini 文字起こしモデル",
+        "realtime_model": "リアルタイムモデル",
+        "realtime_delay": "レイテンシ",
+        "delay_minimal": "最小",
+        "delay_low": "低",
+        "delay_medium": "中",
+        "delay_high": "高",
+        "delay_xhigh": "特高",
         "prompt": "プロンプト（任意）",
         "prompt_placeholder": "例: 製品名を含む会議要約。",
         "prompt_hint": "空欄にするとプロンプトは使用されません。"
+      },
+      "mode": {
+        "title": "文字起こしモード",
+        "upload": "アップロード",
+        "realtime": "リアルタイム",
+        "upload_hint": "セグメントを録音してから文字起こしします",
+        "realtime_hint": "音声をストリーミングしてライブ文字起こしします",
+        "realtime_requires_openai": "リアルタイムには OpenAI エンジンが必要です。",
+        "native_fallback_notice": "このデバイスではリアルタイムストリーミングはまだ利用できません。アップロードモードを使用します。"
       },
       "engines": {
         "openai": "OpenAI",

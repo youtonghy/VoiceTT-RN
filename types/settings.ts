@@ -15,6 +15,8 @@ export const proVersionPromoCard: SettingsPromoCard = {
 };
 
 export type TranscriptionEngine = 'openai' | 'gemini' | 'qwen3' | 'soniox' | 'doubao' | 'glm';
+export type TranscriptionMode = 'upload' | 'realtime';
+export type OpenAIRealtimeDelay = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
 export type TranslationEngine = 'openai' | 'gemini' | 'none';
 export type TtsEngine = 'openai' | 'gemini';
@@ -35,6 +37,8 @@ export interface EngineCredentials {
   openaiApiKey?: string;
   openaiBaseUrl?: string;
   openaiTranscriptionModel?: string;
+  openaiRealtimeTranscriptionModel?: string;
+  openaiRealtimeDelay?: OpenAIRealtimeDelay;
   openaiTranslationModel?: string;
   openaiTtsModel?: string;
   openaiTitleModel?: string;
@@ -66,6 +70,7 @@ export interface TranscriptionSettings {
   preRollDurationSec: number; // seconds to keep before activation
   maxSegmentDurationSec: number;
   transcriptionEngine: TranscriptionEngine;
+  transcriptionMode: TranscriptionMode;
   transcriptionLanguage: string; // e.g., 'auto'
   openaiTranscriptionPrompt: string;
   geminiTranscriptionPrompt: string;
@@ -89,6 +94,15 @@ export interface RecordingPreset {
 }
 
 export const DEFAULT_OPENAI_TITLE_MODEL = 'gpt-4o';
+export const DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL = 'gpt-realtime-whisper';
+export const DEFAULT_OPENAI_REALTIME_DELAY: OpenAIRealtimeDelay = 'low';
+export const OPENAI_REALTIME_DELAY_OPTIONS: OpenAIRealtimeDelay[] = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+];
 export const DEFAULT_OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
 export const DEFAULT_OPENAI_TTS_VOICE = 'alloy';
 export const OPENAI_TTS_VOICES = [
@@ -239,6 +253,7 @@ export const defaultSettings: AppSettings = {
   preRollDurationSec: 1.0,
   maxSegmentDurationSec: 300,
   transcriptionEngine: 'openai',
+  transcriptionMode: 'upload',
   ttsEngine: 'openai',
   ttsPrompt: '',
   ttsVoice: DEFAULT_OPENAI_TTS_VOICE,
@@ -276,6 +291,8 @@ export const defaultSettings: AppSettings = {
   credentials: {
     openaiBaseUrl: 'https://api.openai.com',
     openaiTranscriptionModel: 'gpt-4o-transcribe',
+    openaiRealtimeTranscriptionModel: DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
+    openaiRealtimeDelay: DEFAULT_OPENAI_REALTIME_DELAY,
     openaiTranslationModel: 'gpt-4o-mini',
     openaiTtsModel: DEFAULT_OPENAI_TTS_MODEL,
     openaiTitleModel: DEFAULT_OPENAI_TITLE_MODEL,

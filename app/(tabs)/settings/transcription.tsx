@@ -24,12 +24,20 @@ import { useSettings } from '@/contexts/settings-context';
 import {
   DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
+  DEFAULT_OPENAI_REALTIME_DELAY,
+  DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
   DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
+  OPENAI_REALTIME_DELAY_OPTIONS,
 } from '@/services/transcription';
-import type { EngineCredentials, TranscriptionEngine } from '@/types/settings';
+import type {
+  EngineCredentials,
+  OpenAIRealtimeDelay,
+  TranscriptionEngine,
+  TranscriptionMode,
+} from '@/types/settings';
 
-import { useSettingsForm } from '@/components/settings/settings-form';
+import { OptionPill, useSettingsForm } from '@/components/settings/settings-form';
 
 type TranscriptionProviderConfig = SettingsModelProviderItem<TranscriptionEngine> & {
   docsUrl?: string;
@@ -196,6 +204,10 @@ export default function TranscriptionSettingsScreen() {
     updateSettings({ transcriptionEngine: engine });
   };
 
+  const handleSelectMode = (mode: TranscriptionMode) => {
+    updateSettings({ transcriptionMode: mode });
+  };
+
   const handleSelectModel = (value: string) => {
     if (!activeProvider.modelKey || !activeProvider.modelFallback) {
       return;
@@ -203,6 +215,20 @@ export default function TranscriptionSettingsScreen() {
     const nextValue = value.trim() || activeProvider.modelFallback;
     setFormState((prev) => ({ ...prev, [activeProvider.modelKey!]: nextValue }));
     updateCredentials({ [activeProvider.modelKey]: nextValue } as Partial<EngineCredentials>);
+  };
+
+  const handleSelectRealtimeModel = (value: string) => {
+    const nextValue = value.trim() || DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL;
+    setFormState((prev) => ({ ...prev, openaiRealtimeTranscriptionModel: nextValue }));
+    updateCredentials({ openaiRealtimeTranscriptionModel: nextValue });
+  };
+
+  const handleSelectRealtimeDelay = (value: string) => {
+    const nextValue = OPENAI_REALTIME_DELAY_OPTIONS.includes(value as OpenAIRealtimeDelay)
+      ? (value as OpenAIRealtimeDelay)
+      : DEFAULT_OPENAI_REALTIME_DELAY;
+    setFormState((prev) => ({ ...prev, openaiRealtimeDelay: nextValue }));
+    updateCredentials({ openaiRealtimeDelay: nextValue });
   };
 
   const description = activeProvider.modelProvider
@@ -223,6 +249,34 @@ export default function TranscriptionSettingsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
+          <View className="gap-3">
+            <Text type="body-sm" weight="semibold">
+              {t('settings.transcription.mode.title')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              className="-mx-4 max-h-10 flex-grow-0"
+              contentContainerClassName="gap-2 px-4">
+              <OptionPill
+                label={t('settings.transcription.mode.upload')}
+                active={settings.transcriptionMode === 'upload'}
+                onPress={() => handleSelectMode('upload')}
+              />
+              <OptionPill
+                label={t('settings.transcription.mode.realtime')}
+                active={settings.transcriptionMode === 'realtime'}
+                onPress={() => handleSelectMode('realtime')}
+              />
+            </ScrollView>
+            <Text type="body-xs" color="muted">
+              {settings.transcriptionMode === 'realtime'
+                ? t('settings.transcription.mode.realtime_hint')
+                : t('settings.transcription.mode.upload_hint')}
+            </Text>
+          </View>
+
           <SettingsModelProviderStrip
             providers={providers}
             activeId={settings.transcriptionEngine}
@@ -293,7 +347,51 @@ export default function TranscriptionSettingsScreen() {
                 inputClassName="min-h-32"
               />
             ) : null}
+
+            {settings.transcriptionMode === 'realtime' && settings.transcriptionEngine === 'openai' ? (
+              <>
+                <SettingsModelSelectField
+                  label={t('settings.transcription.labels.realtime_model')}
+                  value={formState.openaiRealtimeTranscriptionModel}
+                  options={getModelSelectOptions(
+                    catalogs,
+                    'openai',
+                    [
+                      formState.openaiRealtimeTranscriptionModel,
+                      DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
+                    ],
+                    'openaiRealtimeTranscriptionModel'
+                  )}
+                  placeholder={DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL}
+                  onChange={handleSelectRealtimeModel}
+                />
+                <SettingsModelSelectField
+                  label={t('settings.transcription.labels.realtime_delay')}
+                  value={formState.openaiRealtimeDelay}
+                  options={OPENAI_REALTIME_DELAY_OPTIONS.map((value) => ({
+                    value,
+                    label: t(`settings.transcription.labels.delay_${value}`),
+                  }))}
+                  placeholder={DEFAULT_OPENAI_REALTIME_DELAY}
+                  onChange={handleSelectRealtimeDelay}
+                />
+              </>
+            ) : null}
           </SettingsModelDetailCard>
+
+          {settings.transcriptionMode === 'realtime' && settings.transcriptionEngine !== 'openai' ? (
+            <Text type="body-sm" color="muted">
+              {t('settings.transcription.mode.realtime_requires_openai')}
+            </Text>
+          ) : null}
+
+          {settings.transcriptionMode === 'realtime' && Platform.OS !== 'web' ? (
+            <View className="rounded-xl border border-border bg-surface p-4">
+              <Text type="body-sm" color="muted">
+                {t('settings.transcription.mode.native_fallback_notice')}
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </AppScreen>

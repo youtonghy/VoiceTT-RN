@@ -440,9 +440,25 @@
         "source_language": "源语言",
         "openai_model": "OpenAI 转写模型",
         "gemini_model": "Gemini 转写模型",
+        "realtime_model": "实时转写模型",
+        "realtime_delay": "延迟",
+        "delay_minimal": "极低",
+        "delay_low": "低",
+        "delay_medium": "中",
+        "delay_high": "高",
+        "delay_xhigh": "更高",
         "prompt": "Prompting（可选）",
         "prompt_placeholder": "例如：会议纪要包含产品名。",
         "prompt_hint": "留空将不会使用提示。"
+      },
+      "mode": {
+        "title": "转写模式",
+        "upload": "上传",
+        "realtime": "实时",
+        "upload_hint": "录制分段后再转写",
+        "realtime_hint": "流式传输音频并实时转写",
+        "realtime_requires_openai": "实时模式需要使用 OpenAI 引擎。",
+        "native_fallback_notice": "此设备暂不支持实时流式转写，当前会使用上传模式。"
       },
       "engines": {
         "openai": "OpenAI",

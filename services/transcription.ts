@@ -12,10 +12,14 @@ import {
   DEFAULT_OPENAI_ASSISTANT_MODEL,
   DEFAULT_OPENAI_CONVERSATION_TEMPERATURE,
   DEFAULT_OPENAI_CONVERSATION_MODEL,
+  DEFAULT_OPENAI_REALTIME_DELAY,
+  DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
   DEFAULT_OPENAI_TITLE_TEMPERATURE,
   DEFAULT_OPENAI_TITLE_MODEL,
   DEFAULT_OPENAI_TRANSLATION_TEMPERATURE,
   DEFAULT_TRANSLATION_PROMPT_PREFIX,
+  OPENAI_REALTIME_DELAY_OPTIONS,
+  type TranscriptionMode,
   resolveTranslationTargetLanguageEnglishName,
   DEFAULT_TITLE_SUMMARY_PROMPT,
 } from '@/types/settings';
@@ -25,6 +29,11 @@ import { validatePrompt, validateTemperature } from '@/services/input-validation
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 export const DEFAULT_OPENAI_TRANSLATION_MODEL = 'gpt-4o-mini';
+export {
+  DEFAULT_OPENAI_REALTIME_DELAY,
+  DEFAULT_OPENAI_REALTIME_TRANSCRIPTION_MODEL,
+  OPENAI_REALTIME_DELAY_OPTIONS,
+};
 export const DEFAULT_GEMINI_TRANSCRIPTION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_GEMINI_TRANSLATION_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_QWEN_TRANSCRIPTION_MODEL = 'qwen3-asr-flash';
@@ -92,6 +101,16 @@ export function resolveTranslationModel(settings: AppSettings): string {
     default:
       return DEFAULT_OPENAI_TRANSLATION_MODEL;
   }
+}
+
+export function resolveEffectiveTranscriptionMode(settings: AppSettings): TranscriptionMode {
+  if (Platform.OS !== 'web') {
+    return 'upload';
+  }
+  if (settings.transcriptionEngine !== 'openai') {
+    return 'upload';
+  }
+  return settings.transcriptionMode;
 }
 
 function resolveTemperature(value: number | undefined, fallback: number): number {
@@ -1242,18 +1261,12 @@ async function transcribeWithDoubao(
   throw new Error('Doubao transcription timed out waiting for result');
 }
 
-async function translateWithOpenAI(
+function buildOpenAITranslationPayload(
   text: string,
   targetLanguage: string,
   settings: AppSettings,
-  signal?: AbortSignal
-): Promise<TranslationResult> {
-  const apiKey = settings.credentials.openaiApiKey;
-  if (!apiKey) {
-    throw new Error('Missing OpenAI API key for translation');
-  }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
-
+  options?: { stream?: boolean }
+) {
   const userPromptRaw = settings.openaiTranslationPrompt?.trim();
   let userPrompt = userPromptRaw;
   if (userPromptRaw) {
@@ -1269,7 +1282,7 @@ async function translateWithOpenAI(
     ? `${userPrompt}\n\n${promptSuffix}`
     : `${DEFAULT_TRANSLATION_PROMPT_PREFIX} ${promptSuffix}`;
 
-  const payload = {
+  return {
     model: resolveTranslationModel(settings),
     instructions: prompt,
     input: [
@@ -1292,7 +1305,22 @@ async function translateWithOpenAI(
     response_format: {
       type: 'text',
     },
+    ...(options?.stream ? { stream: true } : {}),
   };
+}
+
+async function translateWithOpenAI(
+  text: string,
+  targetLanguage: string,
+  settings: AppSettings,
+  signal?: AbortSignal
+): Promise<TranslationResult> {
+  const apiKey = settings.credentials.openaiApiKey;
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for translation');
+  }
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const payload = buildOpenAITranslationPayload(text, targetLanguage, settings);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -1431,6 +1459,112 @@ export async function translateText(
     default:
       throw new Error('Translation engine ' + settings.translationEngine + ' not implemented yet');
   }
+}
+
+function parseOpenAIStreamEvent(data: string): { type?: string; delta?: string; text?: string } | null {
+  if (!data || data === '[DONE]') {
+    return null;
+  }
+  try {
+    const event = JSON.parse(data);
+    return {
+      type: event?.type,
+      delta: typeof event?.delta === 'string' ? event.delta : undefined,
+      text: typeof event?.text === 'string' ? event.text : undefined,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function translateWithOpenAIStream(
+  text: string,
+  targetLanguage: string,
+  settings: AppSettings,
+  callbacks: { onDelta: (delta: string) => void; signal?: AbortSignal }
+): Promise<TranslationResult> {
+  const apiKey = settings.credentials.openaiApiKey;
+  if (!apiKey) {
+    throw new Error('Missing OpenAI API key for translation');
+  }
+  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(buildOpenAITranslationPayload(text, targetLanguage, settings, { stream: true })),
+    signal: callbacks.signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error('OpenAI translation failed: ' + (errorText || response.statusText));
+  }
+  if (!response.body) {
+    return translateWithOpenAI(text, targetLanguage, settings, callbacks.signal);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let translated = '';
+
+  const consumeDataLine = (line: string) => {
+    if (!line.startsWith('data:')) {
+      return;
+    }
+    const parsed = parseOpenAIStreamEvent(line.slice(5).trim());
+    if (!parsed) {
+      return;
+    }
+    if (parsed.type === 'response.output_text.delta') {
+      const delta = parsed.delta ?? parsed.text ?? '';
+      if (delta) {
+        translated += delta;
+        callbacks.onDelta(delta);
+      }
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? '';
+    lines.forEach(consumeDataLine);
+  }
+  buffer += decoder.decode();
+  buffer.split(/\r?\n/).forEach(consumeDataLine);
+
+  const trimmed = translated.trim();
+  if (!trimmed) {
+    throw new Error('OpenAI translation returned empty response');
+  }
+  return { text: trimmed };
+}
+
+export async function translateTextStream(
+  text: string,
+  settings: AppSettings,
+  callbacks: { onDelta: (delta: string) => void; signal?: AbortSignal }
+): Promise<TranslationResult> {
+  if (!settings.enableTranslation) {
+    return { text };
+  }
+  if (settings.translationEngine !== 'openai') {
+    return translateText(text, settings, callbacks.signal);
+  }
+  return translateWithOpenAIStream(
+    text,
+    settings.translationTargetLanguage,
+    settings,
+    callbacks
+  );
 }
 function collectOpenAIText(data: any): string {
   const outputBlocks = data?.output ?? data?.choices ?? [];

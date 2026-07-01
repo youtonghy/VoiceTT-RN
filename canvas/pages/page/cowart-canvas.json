@@ -1,0 +1,319 @@
+{
+  "schema": {
+    "schemaVersion": 2,
+    "sequences": {
+      "com.tldraw.store": 5,
+      "com.tldraw.asset": 1,
+      "com.tldraw.camera": 1,
+      "com.tldraw.document": 2,
+      "com.tldraw.instance": 26,
+      "com.tldraw.instance_page_state": 5,
+      "com.tldraw.page": 1,
+      "com.tldraw.instance_presence": 6,
+      "com.tldraw.pointer": 1,
+      "com.tldraw.shape": 4,
+      "com.tldraw.user": 1,
+      "com.tldraw.asset.image": 6,
+      "com.tldraw.asset.video": 5,
+      "com.tldraw.asset.bookmark": 2,
+      "com.tldraw.shape.group": 0,
+      "com.tldraw.shape.text": 4,
+      "com.tldraw.shape.bookmark": 2,
+      "com.tldraw.shape.draw": 4,
+      "com.tldraw.shape.geo": 11,
+      "com.tldraw.shape.note": 12,
+      "com.tldraw.shape.line": 5,
+      "com.tldraw.shape.frame": 1,
+      "com.tldraw.shape.arrow": 8,
+      "com.tldraw.shape.highlight": 3,
+      "com.tldraw.shape.embed": 4,
+      "com.tldraw.shape.image": 5,
+      "com.tldraw.shape.video": 4,
+      "com.tldraw.binding.arrow": 1
+    }
+  },
+  "store": {
+    "shape:1dppbB4Fqkk2vF4KWRVrg": {
+      "x": -260.53125,
+      "y": 606.7109375,
+      "rotation": 0,
+      "isLocked": false,
+      "opacity": 1,
+      "meta": {
+        "cowartAnnotationArrow": true
+      },
+      "id": "shape:1dppbB4Fqkk2vF4KWRVrg",
+      "type": "arrow",
+      "props": {
+        "kind": "arc",
+        "elbowMidPoint": 0.5,
+        "dash": "draw",
+        "size": "m",
+        "fill": "none",
+        "color": "red",
+        "labelColor": "red",
+        "bend": -40.22689883574679,
+        "start": {
+          "x": 0,
+          "y": 0
+        },
+        "end": {
+          "x": 324.65625,
+          "y": -83.5078125
+        },
+        "arrowheadStart": "none",
+        "arrowheadEnd": "arrow",
+        "richText": {
+          "type": "doc",
+          "attrs": {
+            "dir": "auto"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "dir": "auto"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "这里额外强调一下是ai助手内置集成"
+                }
+              ]
+            }
+          ]
+        },
+        "labelPosition": 0,
+        "font": "draw",
+        "scale": 1
+      },
+      "parentId": "page:page",
+      "index": "a3eUtdFG",
+      "typeName": "shape"
+    },
+    "shape:BGUxI_0U-Jmuz7T2FMFgn": {
+      "x": 531.6875,
+      "y": 880.3515625,
+      "rotation": 0,
+      "isLocked": false,
+      "opacity": 1,
+      "meta": {
+        "cowartAnnotationArrow": true
+      },
+      "id": "shape:BGUxI_0U-Jmuz7T2FMFgn",
+      "type": "arrow",
+      "props": {
+        "kind": "arc",
+        "elbowMidPoint": 0.5,
+        "dash": "draw",
+        "size": "m",
+        "fill": "none",
+        "color": "red",
+        "labelColor": "red",
+        "bend": 24.061751410839385,
+        "start": {
+          "x": 0,
+          "y": 0
+        },
+        "end": {
+          "x": 87.953125,
+          "y": -180.1953125
+        },
+        "arrowheadStart": "none",
+        "arrowheadEnd": "arrow",
+        "richText": {
+          "type": "doc",
+          "attrs": {
+            "dir": "auto"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "dir": "auto"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "这里画个github图标就行，不用地址"
+                }
+              ]
+            }
+          ]
+        },
+        "labelPosition": 0,
+        "font": "draw",
+        "scale": 1
+      },
+      "parentId": "page:page",
+      "index": "a1SpqcKV",
+      "typeName": "shape"
+    },
+    "asset:voicett-feature-poster-4x3-20260623": {
+      "id": "asset:voicett-feature-poster-4x3-20260623",
+      "typeName": "asset",
+      "type": "image",
+      "props": {
+        "name": "voicett-feature-poster-4x3-20260623.png",
+        "src": "/page-assets/page/voicett-feature-poster-4x3-20260623.png",
+        "w": 1448,
+        "h": 1086,
+        "fileSize": 1263428,
+        "mimeType": "image/png",
+        "isAnimated": false
+      },
+      "meta": {}
+    },
+    "shape:QWY3mUDN8dptzZ5ATS1eH": {
+      "x": 99.875,
+      "y": 822.546875,
+      "rotation": 0,
+      "isLocked": false,
+      "opacity": 1,
+      "meta": {
+        "cowartAnnotationArrow": true
+      },
+      "id": "shape:QWY3mUDN8dptzZ5ATS1eH",
+      "type": "arrow",
+      "props": {
+        "kind": "arc",
+        "elbowMidPoint": 0.5,
+        "dash": "draw",
+        "size": "m",
+        "fill": "none",
+        "color": "red",
+        "labelColor": "red",
+        "bend": 24.406398449052375,
+        "start": {
+          "x": 0,
+          "y": 0
+        },
+        "end": {
+          "x": 96.8125,
+          "y": -178.8671875
+        },
+        "arrowheadStart": "none",
+        "arrowheadEnd": "arrow",
+        "richText": {
+          "type": "doc",
+          "attrs": {
+            "dir": "auto"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "dir": "auto"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "这里写全平台支持 "
+                }
+              ]
+            }
+          ]
+        },
+        "labelPosition": 0,
+        "font": "draw",
+        "scale": 1
+      },
+      "parentId": "page:page",
+      "index": "a2GEI19V",
+      "typeName": "shape"
+    },
+    "page:page": {
+      "meta": {},
+      "id": "page:page",
+      "name": "Page 1",
+      "index": "a1",
+      "typeName": "page"
+    },
+    "document:document": {
+      "gridSize": 10,
+      "name": "",
+      "meta": {},
+      "id": "document:document",
+      "typeName": "document"
+    },
+    "shape:voicett-feature-poster-4x3-20260623": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "isLocked": false,
+      "opacity": 1,
+      "meta": {
+        "cowartGeneratedStandalone": true,
+        "promptPurpose": "VoiceTT software feature and repository poster",
+        "aspectRatio": "4:3"
+      },
+      "id": "shape:voicett-feature-poster-4x3-20260623",
+      "type": "image",
+      "props": {
+        "w": 1024,
+        "h": 768,
+        "assetId": "asset:voicett-feature-poster-4x3-20260623",
+        "playing": true,
+        "url": "",
+        "crop": null,
+        "flipX": false,
+        "flipY": false,
+        "altText": "VoiceTT 4:3 feature poster with repository download URL"
+      },
+      "parentId": "page:page",
+      "index": "a0",
+      "typeName": "shape"
+    },
+    "user:BOyliObTJ1mfS6SJtd_h9": {
+      "name": "",
+      "color": "#9D5BD2",
+      "imageUrl": "",
+      "meta": {},
+      "id": "user:BOyliObTJ1mfS6SJtd_h9",
+      "typeName": "user"
+    },
+    "asset:annotation-edit-voicett-poster-20260623-0109": {
+      "id": "asset:annotation-edit-voicett-poster-20260623-0109",
+      "typeName": "asset",
+      "type": "image",
+      "props": {
+        "name": "annotation-edit-voicett-poster-20260623-0109.png",
+        "src": "/page-assets/page/annotation-edit-voicett-poster-20260623-0109.png",
+        "w": 1448,
+        "h": 1086,
+        "fileSize": 1230776,
+        "mimeType": "image/png",
+        "isAnimated": false
+      },
+      "meta": {}
+    },
+    "shape:annotation-edit-voicett-poster-20260623-0109": {
+      "x": 1064,
+      "y": 0,
+      "rotation": 0,
+      "isLocked": false,
+      "opacity": 1,
+      "meta": {
+        "cowartGeneratedFromAnnotationEdit": true,
+        "cowartAnnotationSourceShapeId": "shape:voicett-feature-poster-4x3-20260623",
+        "cowartAnnotationScreenshot": "codex-clipboard-99288861-c675-45d1-95d8-04c925505516.png"
+      },
+      "id": "shape:annotation-edit-voicett-poster-20260623-0109",
+      "type": "image",
+      "props": {
+        "w": 1024,
+        "h": 768,
+        "assetId": "asset:annotation-edit-voicett-poster-20260623-0109",
+        "playing": true,
+        "url": "",
+        "crop": null,
+        "flipX": false,
+        "flipY": false,
+        "altText": "Revised VoiceTT poster generated from Cowart annotation screenshot"
+      },
+      "parentId": "page:page",
+      "index": "a4",
+      "typeName": "shape"
+    }
+  }
+}

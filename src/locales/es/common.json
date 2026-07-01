@@ -406,9 +406,25 @@
         "source_language": "Idioma de origen",
         "openai_model": "Modelo de transcripción de OpenAI",
         "gemini_model": "Modelo de transcripción de Gemini",
+        "realtime_model": "Modelo en tiempo real",
+        "realtime_delay": "Latencia",
+        "delay_minimal": "Mínima",
+        "delay_low": "Baja",
+        "delay_medium": "Media",
+        "delay_high": "Alta",
+        "delay_xhigh": "Extra alta",
         "prompt": "Prompt (opcional)",
         "prompt_placeholder": "p. ej. Resumen de reunión con nombres de productos.",
         "prompt_hint": "Déjalo vacío para desactivar el prompt."
+      },
+      "mode": {
+        "title": "Modo de transcripción",
+        "upload": "Carga",
+        "realtime": "Tiempo real",
+        "upload_hint": "Graba segmentos y luego transcribe",
+        "realtime_hint": "Transmite audio para transcripción en vivo",
+        "realtime_requires_openai": "El modo en tiempo real requiere el motor de OpenAI.",
+        "native_fallback_notice": "La transcripción en tiempo real aún no está disponible en este dispositivo. Se usará el modo de carga."
       },
       "engines": {
         "openai": "OpenAI",

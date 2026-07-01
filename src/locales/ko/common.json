@@ -406,9 +406,25 @@
         "source_language": "원본 언어",
         "openai_model": "OpenAI 전사 모델",
         "gemini_model": "Gemini 전사 모델",
+        "realtime_model": "실시간 모델",
+        "realtime_delay": "지연 시간",
+        "delay_minimal": "최소",
+        "delay_low": "낮음",
+        "delay_medium": "중간",
+        "delay_high": "높음",
+        "delay_xhigh": "매우 높음",
         "prompt": "프롬프트(선택)",
         "prompt_placeholder": "예: 제품명이 포함된 회의 요약.",
         "prompt_hint": "비워두면 프롬프트가 사용되지 않습니다."
+      },
+      "mode": {
+        "title": "전사 모드",
+        "upload": "업로드",
+        "realtime": "실시간",
+        "upload_hint": "구간을 녹음한 뒤 전사합니다",
+        "realtime_hint": "오디오를 스트리밍하여 실시간으로 전사합니다",
+        "realtime_requires_openai": "실시간 모드는 OpenAI 엔진이 필요합니다.",
+        "native_fallback_notice": "이 기기에서는 아직 실시간 스트리밍을 사용할 수 없습니다. 업로드 모드를 사용합니다."
       },
       "engines": {
         "openai": "OpenAI",
