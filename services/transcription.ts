@@ -25,6 +25,7 @@ import {
 } from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
 import { validatePrompt, validateTemperature } from '@/services/input-validation';
+import { isNativeRealtimeAvailable } from '@/services/realtime-audio';
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
@@ -104,13 +105,29 @@ export function resolveTranslationModel(settings: AppSettings): string {
 }
 
 export function resolveEffectiveTranscriptionMode(settings: AppSettings): TranscriptionMode {
-  if (Platform.OS !== 'web') {
-    return 'upload';
-  }
   if (settings.transcriptionEngine !== 'openai') {
     return 'upload';
   }
-  return settings.transcriptionMode;
+  if (Platform.OS === 'web') {
+    return settings.transcriptionMode;
+  }
+  if (isNativeRealtimeAvailable()) {
+    return settings.transcriptionMode;
+  }
+  return 'upload';
+}
+
+export function shouldShowNativeRealtimeFallbackNotice(settings: AppSettings): boolean {
+  if (Platform.OS === 'web' || settings.transcriptionMode !== 'realtime') {
+    return false;
+  }
+  if (settings.transcriptionEngine !== 'openai') {
+    return false;
+  }
+  if (isNativeRealtimeAvailable()) {
+    return false;
+  }
+  return true;
 }
 
 function resolveTemperature(value: number | undefined, fallback: number): number {

@@ -56,7 +56,11 @@
       "expo-secure-store",
       "expo-sharing",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      [
+        "./plugins/with-realtime-audio",
+        {}
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

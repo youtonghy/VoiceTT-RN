@@ -8,13 +8,16 @@ import {
   type OpenAIRealtimeDelay,
 } from '@/types/settings';
 
+const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
+
 export function isRealtimeSupported(): boolean {
-  return (
-    Platform.OS === 'web' &&
-    typeof WebSocket !== 'undefined' &&
-    typeof navigator !== 'undefined' &&
-    Boolean(navigator.mediaDevices?.getUserMedia)
-  );
+  if (typeof WebSocket === 'undefined') {
+    return false;
+  }
+  if (Platform.OS !== 'web') {
+    return true;
+  }
+  return typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
 }
 
 export function resolveRealtimeTranscriptionModel(settings: AppSettings): string {
@@ -29,6 +32,14 @@ export function resolveRealtimeDelay(settings: AppSettings): OpenAIRealtimeDelay
   return candidate && OPENAI_REALTIME_DELAY_OPTIONS.includes(candidate)
     ? candidate
     : DEFAULT_OPENAI_REALTIME_DELAY;
+}
+
+export function resolveRealtimeWsUrl(settings: AppSettings): string {
+  const baseUrl = (settings.credentials.openaiBaseUrl?.trim() || DEFAULT_OPENAI_BASE_URL)
+    .replace(/\/+$/, '')
+    .replace(/^https:\/\//, 'wss://')
+    .replace(/^http:\/\//, 'ws://');
+  return `${baseUrl}/v1/realtime?intent=transcription`;
 }
 
 export interface RealtimeCallbacks {
@@ -64,7 +75,7 @@ export class RealtimeTranscriptionSession {
 
     return new Promise((resolve, reject) => {
       let settled = false;
-      const ws = new WebSocket('wss://api.openai.com/v1/realtime?intent=transcription', [
+      const ws = new WebSocket(resolveRealtimeWsUrl(this.settings), [
         'realtime',
         'openai-insecure-api-key.' + apiKey,
       ]);
@@ -130,14 +141,19 @@ export class RealtimeTranscriptionSession {
     if (!this.ws) {
       return;
     }
+    const ws = this.ws;
+    ws.onopen = null;
+    ws.onerror = null;
+    ws.onclose = null;
+    ws.onmessage = null;
     try {
-      if (this.ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN) {
         this.send({ type: 'session.close' });
       }
     } catch (error) {
       // Best-effort close; socket close below is the authoritative teardown.
     }
-    this.ws.close();
+    ws.close();
     this.ws = null;
     this.isOpen = false;
   }

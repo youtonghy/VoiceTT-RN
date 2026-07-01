@@ -7,6 +7,7 @@ import {
   type AudioRecorder,
   type RecorderState,
 } from 'expo-audio';
+import { toByteArray } from 'base64-js';
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, {
   createContext,
@@ -609,6 +610,28 @@ function meteringToRms(value: number | undefined): number {
   return Math.pow(10, value / 20);
 }
 
+function pcm16Base64ToMeteringDb(pcm16Base64: string): number | undefined {
+  try {
+    const bytes = toByteArray(pcm16Base64);
+    if (bytes.length < 2) {
+      return undefined;
+    }
+    const sampleCount = Math.floor(bytes.length / 2);
+    let sum = 0;
+    for (let index = 0; index < sampleCount; index += 1) {
+      const byteOffset = index * 2;
+      const raw = bytes[byteOffset] | (bytes[byteOffset + 1] << 8);
+      const signed = raw & 0x8000 ? raw - 0x10000 : raw;
+      const normalized = signed / 0x8000;
+      sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / sampleCount);
+    return rms > 0 ? 20 * Math.log10(rms) : -160;
+  } catch (error) {
+    return undefined;
+  }
+}
+
 function buildRecordingOptions(): RecordingOptions {
   return {
     isMeteringEnabled: true,
@@ -783,6 +806,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const realtimeMeteringContextRef = useRef<AudioContext | null>(null);
   const realtimeMeteringAnalyserRef = useRef<AnalyserNode | null>(null);
   const realtimeMeteringDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const realtimeNativeMeteringRef = useRef<number | undefined>(undefined);
   const realtimeStartedAtRef = useRef<number | null>(null);
   const realtimeItemMessageIdsRef = useRef<Map<string, number>>(new Map());
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1062,6 +1086,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     realtimeMeteringContextRef.current = null;
     realtimeMeteringAnalyserRef.current = null;
     realtimeMeteringDataRef.current = null;
+    realtimeNativeMeteringRef.current = undefined;
     realtimeStartedAtRef.current = null;
     realtimeItemMessageIdsRef.current.clear();
     realtimeModeRef.current = false;
@@ -1142,7 +1167,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     const analyser = realtimeMeteringAnalyserRef.current;
     const data = realtimeMeteringDataRef.current;
     if (!analyser || !data) {
-      return undefined;
+      return realtimeNativeMeteringRef.current;
     }
     analyser.getByteTimeDomainData(data);
     let sum = 0;
@@ -1600,11 +1625,13 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     try {
       const effectiveMode = resolveEffectiveTranscriptionMode(settingsRef.current);
       if (effectiveMode === 'realtime') {
-        const stream = await requestRealtimeMediaStream();
+        const stream = Platform.OS === 'web' ? await requestRealtimeMediaStream() : null;
         realtimeModeRef.current = true;
         realtimeStreamRef.current = stream;
         realtimeStartedAtRef.current = Date.now();
-        attachRealtimeMeteringStream(stream);
+        if (stream) {
+          attachRealtimeMeteringStream(stream);
+        }
         const realtimeSession = new RealtimeTranscriptionSession(settingsRef.current, {
           onDelta: handleRealtimeDelta,
           onCompleted: handleRealtimeCompleted,
@@ -1618,8 +1645,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         realtimeSessionRef.current = realtimeSession;
         await realtimeSession.connect();
         realtimeCaptureRef.current = createPcmCapture(stream, (chunk) => {
+          if (Platform.OS !== 'web') {
+            realtimeNativeMeteringRef.current = pcm16Base64ToMeteringDb(chunk);
+          }
           realtimeSessionRef.current?.appendAudio(chunk);
         });
+        await realtimeCaptureRef.current.ready;
         if (sessionIdRef.current !== nextSessionId) {
           stopRealtimeResources();
           return;
@@ -1733,13 +1764,12 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     }
 
     if (wasRealtimeMode) {
-      sessionIdRef.current = currentSessionId;
       if (!shouldDiscardCurrentSegment && segmentStateRef.current.isActive) {
         realtimeSessionRef.current?.commit();
+        // Best-effort grace period for the Realtime API to flush the final committed item.
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
       stopRealtimeResources();
-      sessionIdRef.current = null;
       if (currentSessionId && shouldCancelPendingTasks) {
         cancelPendingTasks({
           sessionId: currentSessionId,

@@ -1,9 +1,14 @@
 export interface PcmCapture {
   stop: () => void;
+  ready?: Promise<void>;
 }
 
 const SAMPLE_RATE = 24000;
 const CHUNK_SAMPLES = 1200;
+
+export function isNativeRealtimeAvailable(): boolean {
+  return false;
+}
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -69,9 +74,12 @@ function createWorkletUrl() {
 }
 
 export function createPcmCapture(
-  stream: MediaStream,
+  stream: MediaStream | null,
   onChunk: (pcm16Base64: string) => void
 ): PcmCapture {
+  if (!stream) {
+    throw new Error('MediaStream is required for web realtime audio capture');
+  }
   const AudioContextConstructor =
     (window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext ||
     (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;

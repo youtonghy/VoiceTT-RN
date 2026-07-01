@@ -29,6 +29,7 @@ import {
   DEFAULT_OPENAI_TRANSCRIPTION_MODEL,
   DEFAULT_QWEN_TRANSCRIPTION_MODEL,
   OPENAI_REALTIME_DELAY_OPTIONS,
+  shouldShowNativeRealtimeFallbackNotice,
 } from '@/services/transcription';
 import type {
   EngineCredentials,
@@ -385,7 +386,7 @@ export default function TranscriptionSettingsScreen() {
             </Text>
           ) : null}
 
-          {settings.transcriptionMode === 'realtime' && Platform.OS !== 'web' ? (
+          {shouldShowNativeRealtimeFallbackNotice(settings) ? (
             <View className="rounded-xl border border-border bg-surface p-4">
               <Text type="body-sm" color="muted">
                 {t('settings.transcription.mode.native_fallback_notice')}
