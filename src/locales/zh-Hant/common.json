@@ -57,7 +57,8 @@
       "start_failed": "啟動錄音失敗: {{message}}",
       "permission_denied": "麥克風權限未授權",
       "empty_recording": "錄音結果為空",
-      "system_capture_fallback": "系統聲音擷取失敗，已回退到麥克風錄音：{{message}}"
+      "system_capture_fallback": "系統聲音擷取失敗，已回退到麥克風錄音：{{message}}",
+      "realtime_upload_fallback": "即時轉寫不可用，本次錄音已改用上傳模式：{{message}}"
     },
     "messages": {
       "default_title": "訊息 #{{id}}"
@@ -76,6 +77,7 @@
       "search_placeholder": "搜尋對話轉寫或翻譯內容",
       "placeholder_search_empty": "暫無符合的歷史紀錄。",
       "new_conversation": "新對話{{id}}",
+      "search_results": "搜尋結果",
       "actions": {
         "title": "對話操作",
         "share": "分享",
@@ -92,6 +94,28 @@
       "delete": {
         "title": "刪除對話？",
         "message": "這將移除此對話及其轉寫內容。"
+      },
+      "folder": {
+        "root": "全部對話",
+        "section": "資料夾",
+        "back": "返回上一層",
+        "empty": "此資料夾為空。",
+        "add": "新增資料夾",
+        "new_folder": "新資料夾{{id}}",
+        "actions_title": "資料夾操作",
+        "open": "開啟資料夾",
+        "rename_title": "重新命名資料夾",
+        "rename_placeholder": "資料夾名稱",
+        "delete_title": "刪除資料夾？",
+        "delete_message": "這會移除其中的 {{folders}} 個資料夾和 {{conversations}} 個對話。",
+        "colors": {
+          "blue": "藍色資料夾",
+          "green": "綠色資料夾",
+          "orange": "橙色資料夾",
+          "pink": "粉色資料夾",
+          "purple": "紫色資料夾",
+          "slate": "灰色資料夾"
+        }
       }
     },
     "export": {
@@ -424,7 +448,8 @@
         "upload_hint": "錄製分段後再轉寫",
         "realtime_hint": "串流傳輸音訊並即時轉寫",
         "realtime_requires_openai": "即時模式需要使用 OpenAI 引擎。",
-        "native_fallback_notice": "此裝置暫不支援即時串流轉寫，目前會使用上傳模式。"
+        "native_fallback_notice": "此裝置暫不支援即時串流轉寫，目前會使用上傳模式。",
+        "custom_base_realtime_warning": "此 Base URL 必須支援 OpenAI Realtime WebSocket API。若它拒絕即時連線，本次錄音會使用上傳模式。"
       },
       "engines": {
         "openai": "OpenAI",

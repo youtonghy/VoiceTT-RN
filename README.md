@@ -16,8 +16,8 @@ VoiceTT 是一个「转写优先」的跨平台语音助手应用（Expo / React
 - 可选翻译（按目标语言配置），支持多种翻译引擎
 - 会话级标题/摘要生成，辅助快速回顾要点
 - QA（问答/要点提取）能力：对已完成的转写片段进行自动或手动分析
-- 历史会话：按日期分组、搜索、切换会话与继续记录
-- 凭证管理：API Key/Base URL/模型名等以加密存储（Web 端会降级为非加密存储）
+- 历史会话：文件夹/嵌套文件夹整理、搜索、切换会话与继续记录
+- 凭证管理：API Key/Base URL 等鉴权信息以加密存储（Web 端会降级为非加密存储）；模型名在对应工作流设置中配置
 - 国际化（i18n）：基于 `i18next`，本地化资源位于 `src/locales`
 
 ### 软件架构
@@ -40,7 +40,7 @@ bun install
 bunx expo start
 ```
 
-在应用内进入 Settings → Credentials 配置各类引擎所需的 API Key / Base URL / 模型名。
+在应用内进入 Settings → Credentials 配置各类引擎所需的 API Key / Base URL；转写、翻译、总结、QA、TTS 的模型名在各自设置页配置。
 
 ### 桌面版（Windows/macOS + Electron）
 
@@ -59,6 +59,8 @@ bun run desktop:dev
 bun run desktop:build
 bun run desktop:start
 ```
+
+`bun run desktop:build` 会重新生成 Electron 使用的 Expo Web 渲染产物；修改 UI、路由或 Web 端行为后，请先重新构建再预览。
 
 如需自定义端口，可设置 `EXPO_WEB_PORT`（默认 19006）。
 

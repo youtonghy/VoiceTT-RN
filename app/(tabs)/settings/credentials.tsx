@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
@@ -6,30 +6,14 @@ import {
   ScrollView,
   View,
 } from 'react-native';
-import { Button, Spinner, Text } from 'heroui-native';
-
-import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
+import { AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
-  getModelSelectOptions,
-  resolveModelCatalogStatusText,
   SettingsModelDetailCard,
   SettingsModelProviderStrip,
-  SettingsModelSelectField,
   type SettingsModelProviderItem,
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
-import {
-  DEFAULT_GLM_TRANSCRIPTION_MODEL,
-  DEFAULT_OPENAI_BASE_URL,
-  DEFAULT_QWEN_TRANSCRIPTION_MODEL,
-} from '@/services/transcription';
-import {
-  fetchProviderModels,
-  getFallbackModelOptions,
-  mergeModelOptions,
-  type ModelCatalogProvider,
-  type ModelOption,
-} from '@/services/model-catalog';
+import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
 import type { EngineCredentials } from '@/types/settings';
 
 import { useSettingsForm } from '@/components/settings/settings-form';
@@ -47,27 +31,8 @@ type EditableCredentialKey =
   | 'doubaoToken'
   | 'doubaoCluster';
 
-type ModelCredentialKey =
-  | 'openaiTranscriptionModel'
-  | 'openaiTranslationModel'
-  | 'openaiTtsModel'
-  | 'openaiTitleModel'
-  | 'openaiConversationModel'
-  | 'openaiAssistantModel'
-  | 'openaiQaModel'
-  | 'geminiTranscriptionModel'
-  | 'geminiTranslationModel'
-  | 'geminiTtsModel'
-  | 'geminiTitleModel'
-  | 'geminiConversationModel'
-  | 'geminiAssistantModel'
-  | 'geminiQaModel'
-  | 'qwenTranscriptionModel'
-  | 'glmTranscriptionModel';
-
 type CredentialProvider = SettingsModelProviderItem<CredentialProviderId> & {
   fields: CredentialField[];
-  models: ModelField[];
 };
 
 type CredentialField = {
@@ -77,19 +42,6 @@ type CredentialField = {
   placeholder: string;
   secureTextEntry?: boolean;
   normalize?: (text: string) => string | undefined;
-};
-
-type ModelField = {
-  id: ModelCredentialKey;
-  label: string;
-  value: string;
-  fallback: string;
-};
-
-type ModelCatalogState = {
-  options: ModelOption[];
-  status: 'idle' | 'loading' | 'ready' | 'error' | 'missing-key';
-  error?: string;
 };
 
 const PROVIDER_FALLBACK_ICON_MAP: Record<CredentialProviderId, AppIconName> = {
@@ -109,13 +61,6 @@ export default function CredentialSettingsScreen() {
   const { settings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
   const [activeProviderId, setActiveProviderId] = useState<CredentialProviderId>('openai');
-  const [catalogs, setCatalogs] = useState<Record<ModelCatalogProvider, ModelCatalogState>>(() => ({
-    openai: { options: getFallbackModelOptions('openai'), status: 'idle' },
-    gemini: { options: getFallbackModelOptions('gemini'), status: 'idle' },
-    qwen: { options: getFallbackModelOptions('qwen'), status: 'idle' },
-    glm: { options: getFallbackModelOptions('glm'), status: 'idle' },
-  }));
-  const fetchedProvidersRef = useRef<Set<ModelCatalogProvider>>(new Set());
 
   const providers = useMemo<CredentialProvider[]>(
     () => [
@@ -123,8 +68,6 @@ export default function CredentialSettingsScreen() {
         id: 'openai',
         title: t('settings.credentials.sections.openai.title'),
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.openai,
-        modelProvider: 'openai',
-        remoteModelProvider: 'openai',
         fields: [
           {
             id: 'openaiBaseUrl',
@@ -142,57 +85,11 @@ export default function CredentialSettingsScreen() {
             normalize: normalizeSecret,
           },
         ],
-        models: [
-          {
-            id: 'openaiTranscriptionModel',
-            label: t('settings.credentials.labels.transcription_model'),
-            value: formState.openaiTranscriptionModel,
-            fallback: settings.credentials.openaiTranscriptionModel || '',
-          },
-          {
-            id: 'openaiTranslationModel',
-            label: t('settings.credentials.labels.translation_model'),
-            value: formState.openaiTranslationModel,
-            fallback: settings.credentials.openaiTranslationModel || '',
-          },
-          {
-            id: 'openaiTtsModel',
-            label: t('settings.credentials.labels.tts_model'),
-            value: formState.openaiTtsModel,
-            fallback: settings.credentials.openaiTtsModel || '',
-          },
-          {
-            id: 'openaiTitleModel',
-            label: t('settings.credentials.labels.title_model'),
-            value: formState.openaiTitleModel,
-            fallback: settings.credentials.openaiTitleModel || '',
-          },
-          {
-            id: 'openaiConversationModel',
-            label: t('settings.credentials.labels.conversation_model'),
-            value: formState.openaiConversationModel,
-            fallback: settings.credentials.openaiConversationModel || '',
-          },
-          {
-            id: 'openaiAssistantModel',
-            label: t('settings.credentials.labels.assistant_model'),
-            value: formState.openaiAssistantModel,
-            fallback: settings.credentials.openaiAssistantModel || '',
-          },
-          {
-            id: 'openaiQaModel',
-            label: t('settings.credentials.labels.qa_model'),
-            value: formState.openaiQaModel,
-            fallback: settings.credentials.openaiQaModel || '',
-          },
-        ],
       },
       {
         id: 'gemini',
         title: t('settings.credentials.sections.gemini.title'),
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.gemini,
-        modelProvider: 'gemini',
-        remoteModelProvider: 'gemini',
         fields: [
           {
             id: 'geminiApiKey',
@@ -201,50 +98,6 @@ export default function CredentialSettingsScreen() {
             placeholder: 'AIza...',
             secureTextEntry: true,
             normalize: normalizeSecret,
-          },
-        ],
-        models: [
-          {
-            id: 'geminiTranscriptionModel',
-            label: t('settings.credentials.labels.transcription_model'),
-            value: formState.geminiTranscriptionModel,
-            fallback: settings.credentials.geminiTranscriptionModel || '',
-          },
-          {
-            id: 'geminiTranslationModel',
-            label: t('settings.credentials.labels.translation_model'),
-            value: formState.geminiTranslationModel,
-            fallback: settings.credentials.geminiTranslationModel || '',
-          },
-          {
-            id: 'geminiTtsModel',
-            label: t('settings.credentials.labels.tts_model'),
-            value: formState.geminiTtsModel,
-            fallback: settings.credentials.geminiTtsModel || '',
-          },
-          {
-            id: 'geminiTitleModel',
-            label: t('settings.credentials.labels.title_model'),
-            value: formState.geminiTitleModel,
-            fallback: settings.credentials.geminiTitleModel || '',
-          },
-          {
-            id: 'geminiConversationModel',
-            label: t('settings.credentials.labels.conversation_model'),
-            value: formState.geminiConversationModel,
-            fallback: settings.credentials.geminiConversationModel || '',
-          },
-          {
-            id: 'geminiAssistantModel',
-            label: t('settings.credentials.labels.assistant_model'),
-            value: formState.geminiAssistantModel,
-            fallback: settings.credentials.geminiAssistantModel || '',
-          },
-          {
-            id: 'geminiQaModel',
-            label: t('settings.credentials.labels.qa_model'),
-            value: formState.geminiQaModel,
-            fallback: settings.credentials.geminiQaModel || '',
           },
         ],
       },
@@ -262,13 +115,11 @@ export default function CredentialSettingsScreen() {
             normalize: normalizeSecret,
           },
         ],
-        models: [],
       },
       {
         id: 'qwen',
         title: t('settings.credentials.sections.qwen.title'),
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.qwen,
-        modelProvider: 'qwen',
         fields: [
           {
             id: 'qwenApiKey',
@@ -279,20 +130,11 @@ export default function CredentialSettingsScreen() {
             normalize: normalizeSecret,
           },
         ],
-        models: [
-          {
-            id: 'qwenTranscriptionModel',
-            label: t('settings.credentials.labels.transcription_model'),
-            value: formState.qwenTranscriptionModel,
-            fallback: DEFAULT_QWEN_TRANSCRIPTION_MODEL,
-          },
-        ],
       },
       {
         id: 'glm',
         title: t('settings.credentials.sections.glm.title'),
         fallbackIcon: PROVIDER_FALLBACK_ICON_MAP.glm,
-        modelProvider: 'glm',
         fields: [
           {
             id: 'glmApiKey',
@@ -301,14 +143,6 @@ export default function CredentialSettingsScreen() {
             placeholder: 'token',
             secureTextEntry: true,
             normalize: normalizeSecret,
-          },
-        ],
-        models: [
-          {
-            id: 'glmTranscriptionModel',
-            label: t('settings.credentials.labels.transcription_model'),
-            value: formState.glmTranscriptionModel,
-            fallback: DEFAULT_GLM_TRANSCRIPTION_MODEL,
           },
         ],
       },
@@ -340,19 +174,12 @@ export default function CredentialSettingsScreen() {
             normalize: normalizeSecret,
           },
         ],
-        models: [],
       },
     ],
-    [formState, settings.credentials, t]
+    [formState, t]
   );
 
   const activeProvider = providers.find((provider) => provider.id === activeProviderId) ?? providers[0];
-  const activeCatalog = activeProvider.modelProvider
-    ? catalogs[activeProvider.modelProvider]
-    : undefined;
-
-  const getModelOptions = (field: ModelField, provider?: ModelCatalogProvider) =>
-    getModelSelectOptions(catalogs, provider, [field.value, field.fallback], field.id);
 
   const persistField = (field: CredentialField) => {
     const nextValue = field.normalize ? field.normalize(field.value) : normalizeSecret(field.value);
@@ -365,97 +192,6 @@ export default function CredentialSettingsScreen() {
   const updateFormField = (id: EditableCredentialKey, value: string) => {
     setFormState((prev) => ({ ...prev, [id]: value }));
   };
-
-  const updateModel = (field: ModelField, value: string) => {
-    const nextValue = value.trim() || field.fallback;
-    setFormState((prev) => ({ ...prev, [field.id]: nextValue }));
-    updateCredentials({ [field.id]: nextValue } as Partial<EngineCredentials>);
-  };
-
-  const refreshModels = useCallback(async (provider: ModelCatalogProvider, markFetched = true) => {
-    const apiKey =
-      provider === 'openai'
-        ? formState.openaiApiKey
-        : provider === 'gemini'
-          ? formState.geminiApiKey
-          : provider === 'qwen'
-            ? formState.qwenApiKey
-            : formState.glmApiKey;
-
-    if (!apiKey.trim()) {
-      setCatalogs((prev) => ({
-        ...prev,
-        [provider]: {
-          options: getFallbackModelOptions(provider),
-          status: 'missing-key',
-        },
-      }));
-      return;
-    }
-
-    if (provider !== 'openai' && provider !== 'gemini') {
-      setCatalogs((prev) => ({
-        ...prev,
-        [provider]: {
-          options: getFallbackModelOptions(provider),
-          status: 'ready',
-        },
-      }));
-      return;
-    }
-
-    setCatalogs((prev) => ({
-      ...prev,
-      [provider]: {
-        ...prev[provider],
-        status: 'loading',
-        error: undefined,
-      },
-    }));
-
-    try {
-      const options = await fetchProviderModels({
-        provider,
-        apiKey,
-        baseUrl: provider === 'openai' ? formState.openaiBaseUrl : undefined,
-      });
-      setCatalogs((prev) => ({
-        ...prev,
-        [provider]: {
-          options: mergeModelOptions(options, getFallbackModelOptions(provider)),
-          status: 'ready',
-        },
-      }));
-      if (markFetched) {
-        fetchedProvidersRef.current.add(provider);
-      }
-    } catch (error) {
-      setCatalogs((prev) => ({
-        ...prev,
-        [provider]: {
-          options: prev[provider].options.length
-            ? prev[provider].options
-            : getFallbackModelOptions(provider),
-          status: 'error',
-          error: error instanceof Error ? error.message : String(error),
-        },
-      }));
-    }
-  }, [
-    formState.geminiApiKey,
-    formState.glmApiKey,
-    formState.openaiApiKey,
-    formState.openaiBaseUrl,
-    formState.qwenApiKey,
-  ]);
-
-  useEffect(() => {
-    const provider = activeProvider.remoteModelProvider;
-    if (!provider || fetchedProvidersRef.current.has(provider)) {
-      return;
-    }
-    refreshModels(provider).catch(() => undefined);
-  }, [activeProvider.remoteModelProvider, refreshModels]);
 
   return (
     <AppScreen contentBottomInset={0} contentTopInset={0} edges={['left', 'right']} scroll={false}>
@@ -478,32 +214,8 @@ export default function CredentialSettingsScreen() {
             contentInsetAdjustmentBehavior="never">
             <SettingsModelDetailCard
               title={activeProvider.title}
-              description={
-                activeProvider.modelProvider
-                  ? activeProvider.remoteModelProvider
-                    ? t('settings.credentials.models.catalog_hint')
-                    : t('settings.credentials.models.local_hint')
-                  : t('settings.credentials.models.credentials_only')
-              }
-              fallbackIcon={activeProvider.fallbackIcon}
-              statusText={activeProvider.modelProvider ? resolveModelCatalogStatusText(t, activeCatalog) : undefined}
-              action={
-                activeProvider.remoteModelProvider ? (
-                  <Button
-                    isDisabled={activeCatalog?.status === 'loading'}
-                    isIconOnly
-                    onPress={() => refreshModels(activeProvider.remoteModelProvider!)}
-                    size="sm"
-                    variant="tertiary"
-                    accessibilityLabel={t('settings.credentials.models.refresh')}>
-                    {activeCatalog?.status === 'loading' ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      <AppIcon name="cloud-arrow-up" size={15} className="text-foreground" />
-                    )}
-                  </Button>
-                ) : null
-              }>
+              description={t('settings.credentials.models.credentials_only')}
+              fallbackIcon={activeProvider.fallbackIcon}>
               {activeProvider.fields.length ? (
                 <View className="gap-4">
                   {activeProvider.fields.map((field) => (
@@ -518,30 +230,6 @@ export default function CredentialSettingsScreen() {
                     />
                   ))}
                 </View>
-              ) : null}
-
-              {activeProvider.models.length ? (
-                <View className="gap-3">
-                  <Text type="body-sm" weight="semibold">
-                    {t('settings.credentials.models.title')}
-                  </Text>
-                  {activeProvider.models.map((field) => (
-                    <SettingsModelSelectField
-                      key={field.id}
-                      label={field.label}
-                      options={getModelOptions(field, activeProvider.modelProvider)}
-                      value={field.value}
-                      placeholder={field.fallback || t('settings.credentials.models.placeholder')}
-                      onChange={(value) => updateModel(field, value)}
-                    />
-                  ))}
-                </View>
-              ) : null}
-
-              {activeCatalog?.status === 'error' ? (
-                <Text type="body-xs" color="muted" numberOfLines={2}>
-                  {t('settings.credentials.models.fetch_failed')}
-                </Text>
               ) : null}
             </SettingsModelDetailCard>
           </ScrollView>

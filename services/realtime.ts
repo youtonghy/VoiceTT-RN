@@ -39,7 +39,8 @@ export function resolveRealtimeWsUrl(settings: AppSettings): string {
     .replace(/\/+$/, '')
     .replace(/^https:\/\//, 'wss://')
     .replace(/^http:\/\//, 'ws://');
-  return `${baseUrl}/v1/realtime?intent=transcription`;
+  const versionedBaseUrl = /\/v(?:1|1beta)$/.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
+  return `${versionedBaseUrl}/realtime?intent=transcription`;
 }
 
 export interface RealtimeCallbacks {

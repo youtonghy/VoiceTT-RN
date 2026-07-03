@@ -20,6 +20,13 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
+import { Gesture, GestureDetector, MouseButton } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from "@/components/context-menu";
 import { MarkdownText } from "@/components/markdown-text";
@@ -40,6 +47,33 @@ import { useSettings } from "@/contexts/settings-context";
 import { useTranscription } from "@/contexts/transcription-context";
 import { useIsTablet } from "@/hooks/use-is-tablet";
 import {
+    addHistoryNode,
+    countFolderDescendants,
+    createEmptyHistoryTree,
+    deleteHistoryNode,
+    deriveNextFolderIdFromTree,
+    deriveNextHistoryIdFromTree,
+    getChildNodes,
+    getFolderPath,
+    getHistoryConversation,
+    getHistoryFolder,
+    isConversationEmpty,
+    isValidMove,
+    moveHistoryNode,
+    normalizeHistoryTree,
+    sanitizeHistoryTree,
+    searchHistoryTree,
+    updateHistoryNode,
+    type AssistantMessage,
+    type HistoryConversation,
+    type HistoryFolder,
+    type HistoryFolderColorKey,
+    type HistoryNode,
+    type HistorySearchResult,
+    type HistoryTreeState,
+    type StoredHistoryPayloadV3,
+} from "@/services/history-tree";
+import {
     DEFAULT_OPENAI_BASE_URL,
     generateAssistantReply,
     generateConversationSummary,
@@ -54,22 +88,10 @@ import {
     type EngineCredentials,
 } from "@/types/settings";
 import { TranscriptionMessage, TranscriptQaItem } from "@/types/transcription";
-import type { TtsMessage } from "@/types/tts";
 import { Button, Card, Input, SearchField, Surface, Text, useThemeColor } from "heroui-native";
 
 const MESSAGE_TTS_FORMAT = "mp3";
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-type AssistantMessageStatus = "pending" | "succeeded" | "failed";
-
-type AssistantMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: number;
-  status: AssistantMessageStatus;
-  error?: string;
-};
 
 type ContextMenuState = {
   title?: string;
@@ -77,29 +99,36 @@ type ContextMenuState = {
   anchor?: ContextMenuAnchor;
 };
 
-type HistoryConversation = {
-  id: string;
-  title: string;
-  transcript: string;
-  translation?: string;
-  summary?: string;
-  summaryHidden: boolean;
-  createdAt: number;
-  messages: TranscriptionMessage[];
-  assistantMessages: AssistantMessage[];
-  ttsMessages: TtsMessage[];
+type HistoryRenameDialog =
+  | { kind: "conversation"; nodeId: string }
+  | { kind: "folder"; nodeId: string };
+
+type HistoryDropTarget =
+  | { type: "folder"; folderId: string }
+  | { type: "parent"; parentId: string | null };
+
+type HistoryRowLayout = {
+  target: HistoryDropTarget;
+  y: number;
+  height: number;
 };
 
-function createHistorySeed(): HistoryConversation[] {
-  return [];
+type DragState = {
+  nodeId: string;
+  overTarget: HistoryDropTarget | null;
+} | null;
+
+function createHistorySeed(): HistoryTreeState {
+  return createEmptyHistoryTree();
 }
 
 
 const HISTORY_SEED = createHistorySeed();
 
 const HISTORY_STORAGE_KEY = "@agents/history-conversations";
-const HISTORY_STORAGE_VERSION = 2;
+const HISTORY_STORAGE_VERSION = 3;
 const MOBILE_PANES = ["live", "history", "assistant"] as const;
+const HISTORY_FOLDER_COLORS: HistoryFolderColorKey[] = ["blue", "green", "orange", "pink", "purple", "slate"];
 
 type MobilePane = (typeof MOBILE_PANES)[number];
 
@@ -136,58 +165,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return result;
 }
 
-type StoredHistoryPayload = {
-  version?: number;
-  conversations?: unknown;
-  activeConversationId?: string | null;
-  nextIdCounter?: number;
-};
-
 function createAssistantMessageId(role: "user" | "assistant"): string {
   return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const sanitized: AssistantMessage[] = [];
-  raw.forEach((item) => {
-    if (!item || typeof item !== "object") {
-      return;
-    }
-    const candidate = item as Partial<AssistantMessage>;
-    if (candidate.role !== "user" && candidate.role !== "assistant") {
-      return;
-    }
-    const textContent = typeof candidate.content === "string" ? candidate.content.trim() : "";
-    if (!textContent) {
-      return;
-    }
-    const status: AssistantMessageStatus =
-      candidate.status === "failed" || candidate.status === "pending"
-        ? candidate.status
-        : "succeeded";
-
-    sanitized.push({
-      id:
-        typeof candidate.id === "string" && candidate.id.trim()
-          ? candidate.id
-          : createAssistantMessageId(candidate.role),
-      role: candidate.role,
-      content: textContent,
-      createdAt:
-        typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
-          ? candidate.createdAt
-          : Date.now(),
-      status,
-      error:
-        typeof candidate.error === "string" && candidate.error.trim()
-          ? candidate.error.trim()
-          : undefined,
-    });
-  });
-  return sanitized;
 }
 
 function areQaItemsEqual(left?: TranscriptQaItem[], right?: TranscriptQaItem[]): boolean {
@@ -206,90 +185,6 @@ function areQaItemsEqual(left?: TranscriptQaItem[], right?: TranscriptQaItem[]):
     }
   }
   return true;
-}
-
-function isConversationEmpty(conversation: HistoryConversation): boolean {
-  const hasTranscript = conversation.transcript.trim().length > 0;
-  const hasTranslation =
-    typeof conversation.translation === "string" && conversation.translation.trim().length > 0;
-  const hasSummary =
-    typeof conversation.summary === "string" && conversation.summary.trim().length > 0;
-  const hasMessages = conversation.messages.length > 0;
-  const hasAssistantMessages = conversation.assistantMessages.length > 0;
-  const hasTtsMessages = conversation.ttsMessages.length > 0;
-  return !(
-    hasTranscript ||
-    hasTranslation ||
-    hasSummary ||
-    hasMessages ||
-    hasAssistantMessages ||
-    hasTtsMessages
-  );
-}
-
-function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const sanitized: HistoryConversation[] = [];
-  raw.forEach((item) => {
-    if (!item || typeof item !== "object") {
-      return;
-    }
-    const candidate = item as Partial<HistoryConversation>;
-    if (typeof candidate.id !== "string" || typeof candidate.title !== "string") {
-      return;
-    }
-    sanitized.push({
-      id: candidate.id,
-      title: candidate.title,
-      transcript: typeof candidate.transcript === "string" ? candidate.transcript : "",
-      translation:
-        typeof candidate.translation === "string" ? candidate.translation : undefined,
-      summary: typeof candidate.summary === "string" ? candidate.summary : undefined,
-      summaryHidden: candidate.summaryHidden === true,
-      createdAt:
-        typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
-          ? candidate.createdAt
-          : Date.now(),
-      messages: Array.isArray(candidate.messages)
-        ? candidate.messages
-            .filter(
-              (message): message is TranscriptionMessage =>
-                !!message && typeof message === "object"
-            )
-            .map((message) => ({ ...message }))
-        : [],
-      assistantMessages: sanitizeAssistantMessages(candidate.assistantMessages),
-      ttsMessages: Array.isArray(candidate.ttsMessages)
-        ? candidate.ttsMessages
-            .filter((message): message is TtsMessage => !!message && typeof message === "object")
-            .map((message) => ({ ...message }))
-        : [],
-    });
-  });
-  return sanitized;
-}
-
-function deriveNextHistoryId(
-  conversations: HistoryConversation[],
-  fallback: number = 1
-): number {
-  let next = Math.max(fallback, 1);
-  conversations.forEach((item) => {
-    if (typeof item.id !== "string") {
-      return;
-    }
-    const match = item.id.match(/(\d+)$/);
-    if (!match) {
-      return;
-    }
-    const numeric = Number.parseInt(match[1], 10);
-    if (!Number.isNaN(numeric)) {
-      next = Math.max(next, numeric + 1);
-    }
-  });
-  return next;
 }
 
 export default function TranscriptionScreen() {
@@ -323,7 +218,7 @@ export default function TranscriptionScreen() {
   const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const previousMobilePagerWidthRef = useRef(0);
 
-  const [historyItems, setHistoryItems] = useState<HistoryConversation[]>(() => [...HISTORY_SEED]);
+  const [historyTree, setHistoryTree] = useState<HistoryTreeState>(() => HISTORY_SEED);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [assistantDraft, setAssistantDraft] = useState("");
@@ -332,14 +227,16 @@ export default function TranscriptionScreen() {
   const [mobilePagerWidth, setMobilePagerWidth] = useState(0);
   const [tabletDetail, setTabletDetail] = useState<"live" | "assistant">("live");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [renameDialog, setRenameDialog] = useState<{ conversationId: string } | null>(null);
+  const [renameDialog, setRenameDialog] = useState<HistoryRenameDialog | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const historyIdCounter = useRef(Math.max(HISTORY_SEED.length + 1, 1));
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<DragState>(null);
+  const historyIdCounter = useRef(deriveNextHistoryIdFromTree(HISTORY_SEED, 1));
+  const folderIdCounter = useRef(deriveNextFolderIdFromTree(HISTORY_SEED, 1));
+  const historyRowLayoutsRef = useRef<HistoryRowLayout[]>([]);
   const assistantAbortRef = useRef<AbortController | null>(null);
   const manualTitleAbortRef = useRef<AbortController | null>(null);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(() =>
-    HISTORY_SEED.length > 0 ? HISTORY_SEED[0].id : null
-  );
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const lastLoadedConversationIdRef = useRef<string | null>(null);
   const bootstrappedHistoryRef = useRef(false);
@@ -368,6 +265,30 @@ export default function TranscriptionScreen() {
     [mobilePagerWidth]
   );
 
+  const updateConversation = useCallback(
+    (conversationId: string, updater: (conversation: HistoryConversation) => HistoryConversation) => {
+      setHistoryTree((prev) => {
+        const conversation = getHistoryConversation(prev, conversationId);
+        if (!conversation) {
+          return prev;
+        }
+        return updateHistoryNode(prev, updater(conversation));
+      });
+    },
+    []
+  );
+
+  const scrollHistoryToTop = useCallback((animated = true) => {
+    const scrollToTop = () => {
+      historyScrollRef.current?.scrollTo({ y: 0, animated });
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(scrollToTop);
+    } else {
+      setTimeout(scrollToTop, 0);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -386,39 +307,40 @@ export default function TranscriptionScreen() {
           return;
         }
 
-        if (Array.isArray(parsed)) {
-          const conversations = sanitizeHistoryConversations(parsed);
-          historyIdCounter.current = deriveNextHistoryId(conversations, historyIdCounter.current);
-          setHistoryItems(conversations);
-          if (conversations.length > 0) {
-            setActiveConversationId((prev) =>
-              prev && conversations.some((item) => item.id === prev) ? prev : conversations[0].id
-            );
-          }
-          return;
+        const tree = sanitizeHistoryTree(parsed, createAssistantMessageId);
+        const normalizedTree = normalizeHistoryTree(tree);
+        const payload =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? (parsed as Partial<StoredHistoryPayloadV3>)
+            : {};
+        const computedNextConversation = deriveNextHistoryIdFromTree(
+          normalizedTree,
+          historyIdCounter.current
+        );
+        const computedNextFolder = deriveNextFolderIdFromTree(
+          normalizedTree,
+          folderIdCounter.current
+        );
+        historyIdCounter.current =
+          typeof payload.nextIdCounter === "number" && payload.nextIdCounter > 0
+            ? Math.max(payload.nextIdCounter, computedNextConversation)
+            : computedNextConversation;
+        folderIdCounter.current =
+          typeof payload.nextFolderIdCounter === "number" && payload.nextFolderIdCounter > 0
+            ? Math.max(payload.nextFolderIdCounter, computedNextFolder)
+            : computedNextFolder;
+        setHistoryTree(normalizedTree);
+        const storedActive = payload.activeConversationId;
+        if (storedActive && getHistoryConversation(normalizedTree, storedActive)) {
+          setActiveConversationId(storedActive);
+        } else {
+          const firstConversation = Object.values(normalizedTree.nodes)
+            .filter((node): node is HistoryConversation => node.kind === "conversation")
+            .sort((a, b) => b.createdAt - a.createdAt)[0];
+          setActiveConversationId(firstConversation?.id ?? null);
         }
-
-        if (parsed && typeof parsed === "object") {
-          const payload = parsed as StoredHistoryPayload;
-          const conversations = sanitizeHistoryConversations(payload.conversations ?? []);
-          const computedNext = deriveNextHistoryId(conversations, historyIdCounter.current);
-          const nextId =
-            typeof payload.nextIdCounter === "number" && payload.nextIdCounter > 0
-              ? Math.max(payload.nextIdCounter, computedNext)
-              : computedNext;
-          historyIdCounter.current = nextId;
-          setHistoryItems(conversations);
-          if (conversations.length > 0) {
-            const storedActive = payload.activeConversationId;
-            if (storedActive && conversations.some((item) => item.id === storedActive)) {
-              setActiveConversationId(storedActive);
-            } else {
-              setActiveConversationId((prev) =>
-                prev && conversations.some((item) => item.id === prev) ? prev : conversations[0].id
-              );
-            }
-          }
-        }
+        const storedFolder = payload.activeFolderId;
+        setActiveFolderId(storedFolder && getHistoryFolder(normalizedTree, storedFolder) ? storedFolder : null);
       } catch (loadError) {
         console.warn("[transcription] Failed to restore history conversations", loadError);
       } finally {
@@ -472,7 +394,7 @@ export default function TranscriptionScreen() {
     if (!pending) {
       return;
     }
-    const targetConversation = historyItems.find((item) => item.id === pending.conversationId);
+    const targetConversation = getHistoryConversation(historyTree, pending.conversationId);
     if (!targetConversation) {
       return;
     }
@@ -516,11 +438,7 @@ export default function TranscriptionScreen() {
         if (targetConversation.title === cleanTitle) {
           return;
         }
-        setHistoryItems((prev) =>
-          prev.map((item) =>
-            item.id === targetConversation.id ? { ...item, title: cleanTitle } : item
-          )
-        );
+        updateConversation(targetConversation.id, (item) => ({ ...item, title: cleanTitle }));
       })
       .catch((err) => {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -536,7 +454,7 @@ export default function TranscriptionScreen() {
           setAutoTitleTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoTitleTrigger, t]);
+  }, [historyTree, settings, autoTitleTrigger, t, updateConversation]);
 
 
 
@@ -545,7 +463,7 @@ export default function TranscriptionScreen() {
     if (!pending) {
       return;
     }
-    const targetConversation = historyItems.find((item) => item.id === pending.conversationId);
+    const targetConversation = getHistoryConversation(historyTree, pending.conversationId);
     if (!targetConversation) {
       return;
     }
@@ -590,11 +508,7 @@ export default function TranscriptionScreen() {
         if (!cleanSummary) {
           return;
         }
-        setHistoryItems((prev) =>
-          prev.map((item) =>
-            item.id === targetConversation.id ? { ...item, summary: cleanSummary } : item
-          )
-        );
+        updateConversation(targetConversation.id, (item) => ({ ...item, summary: cleanSummary }));
       })
       .catch((err) => {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -610,21 +524,27 @@ export default function TranscriptionScreen() {
           setAutoSummaryTrigger((prev) => prev + 1);
         }
       });
-  }, [historyItems, settings, autoSummaryTrigger, t]);
+  }, [historyTree, settings, autoSummaryTrigger, t, updateConversation]);
 
 
 
   useEffect(() => {
-    if (historyItems.length === 0) {
+    const conversations = Object.values(historyTree.nodes)
+      .filter((node): node is HistoryConversation => node.kind === "conversation")
+      .sort((a, b) => b.createdAt - a.createdAt);
+    if (conversations.length === 0) {
       if (activeConversationId !== null) {
         setActiveConversationId(null);
       }
       return;
     }
-    if (!activeConversationId || !historyItems.some((item) => item.id === activeConversationId)) {
-      setActiveConversationId(historyItems[0].id);
+    if (!activeConversationId || !getHistoryConversation(historyTree, activeConversationId)) {
+      setActiveConversationId(conversations[0].id);
     }
-  }, [activeConversationId, historyItems]);
+    if (activeFolderId && !getHistoryFolder(historyTree, activeFolderId)) {
+      setActiveFolderId(null);
+    }
+  }, [activeConversationId, activeFolderId, historyTree]);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -658,13 +578,11 @@ export default function TranscriptionScreen() {
     if (!currentActiveId) {
       return;
     }
-    setHistoryItems((prev) => {
-      const index = prev.findIndex((item) => item.id === currentActiveId);
-      if (index === -1) {
+    setHistoryTree((prev) => {
+      const existing = getHistoryConversation(prev, currentActiveId);
+      if (!existing) {
         return prev;
       }
-
-      const existing = prev[index];
       const currentMessages = messages;
       let hasDifference = existing.messages.length !== currentMessages.length;
       if (!hasDifference) {
@@ -721,25 +639,48 @@ export default function TranscriptionScreen() {
         updatedConversation.summaryHidden = false;
       }
 
-      const next = [...prev];
-      next[index] = updatedConversation;
-      return next;
+      return updateHistoryNode(prev, updatedConversation);
     });
   }, [messages]);
 
-  const filteredHistory = useMemo(() => {
-    const keyword = searchTerm.trim().toLowerCase();
-    if (!keyword) {
-      return historyItems;
-    }
-    return historyItems.filter((item) => {
-      const haystack = `${item.title} ${item.transcript} ${item.translation ?? ""} ${item.summary ?? ""}`.toLowerCase();
-      return haystack.includes(keyword);
-    });
-  }, [historyItems, searchTerm]);
+  const historySearchResults = useMemo(
+    () => searchHistoryTree(historyTree, searchTerm),
+    [historyTree, searchTerm]
+  );
+
+  const currentFolder = useMemo(
+    () => getHistoryFolder(historyTree, activeFolderId),
+    [activeFolderId, historyTree]
+  );
+
+  const currentFolderPath = useMemo(
+    () => getFolderPath(historyTree, activeFolderId),
+    [activeFolderId, historyTree]
+  );
+
+  const currentFolderNodes = useMemo(
+    () => getChildNodes(historyTree, activeFolderId),
+    [activeFolderId, historyTree]
+  );
+
+  const currentFolders = useMemo(
+    () =>
+      currentFolderNodes
+        .filter((node): node is HistoryFolder => node.kind === "folder")
+        .sort((a, b) => b.updatedAt - a.updatedAt),
+    [currentFolderNodes]
+  );
+
+  const currentConversations = useMemo(
+    () =>
+      currentFolderNodes
+        .filter((node): node is HistoryConversation => node.kind === "conversation")
+        .sort((a, b) => b.createdAt - a.createdAt),
+    [currentFolderNodes]
+  );
 
   const historyGroups = useMemo(() => {
-    const sorted = [...filteredHistory].sort((a, b) => b.createdAt - a.createdAt);
+    const sorted = [...currentConversations];
     const groups: { key: string; label: string; items: HistoryConversation[] }[] = [];
     let currentGroup: { key: string; label: string; items: HistoryConversation[] } | null = null;
 
@@ -757,14 +698,12 @@ export default function TranscriptionScreen() {
     });
 
     return groups;
-  }, [filteredHistory, i18n.language]);
+  }, [currentConversations, i18n.language]);
 
   const activeConversation = useMemo(
     () =>
-      activeConversationId
-        ? historyItems.find((item) => item.id === activeConversationId) ?? null
-        : null,
-    [activeConversationId, historyItems]
+      activeConversationId ? getHistoryConversation(historyTree, activeConversationId) : null,
+    [activeConversationId, historyTree]
   );
 
   useEffect(() => {
@@ -799,21 +738,14 @@ export default function TranscriptionScreen() {
         }
       }
 
-      const latestConversation = historyItems.length > 0 ? historyItems[0] : null;
+      const latestConversation = currentConversations.length > 0 ? currentConversations[0] : null;
       if (latestConversation && isConversationEmpty(latestConversation)) {
         setActiveConversationId(latestConversation.id);
         setSearchTerm("");
         replaceMessages([]);
 
         if (!suppressScroll) {
-          const scrollToTop = () => {
-            historyScrollRef.current?.scrollTo({ y: 0, animated: true });
-          };
-          if (typeof requestAnimationFrame === "function") {
-            requestAnimationFrame(scrollToTop);
-          } else {
-            setTimeout(scrollToTop, 0);
-          }
+          scrollHistoryToTop();
         }
 
         return latestConversation.id;
@@ -823,37 +755,32 @@ export default function TranscriptionScreen() {
       const newId = `conv-${idNumber}`;
       const now = Date.now();
       const nextConversation: HistoryConversation = {
+        kind: "conversation",
         id: newId,
         title: t('transcription.history.new_conversation', { id: idNumber }),
         transcript: "",
         translation: undefined,
         summary: undefined,
         summaryHidden: false,
+        parentId: activeFolderId,
         createdAt: now,
         messages: [],
         assistantMessages: [],
         ttsMessages: [],
       };
 
-      setHistoryItems((prev) => [nextConversation, ...prev]);
+      setHistoryTree((prev) => addHistoryNode(prev, nextConversation));
       setActiveConversationId(newId);
       setSearchTerm("");
       replaceMessages([]);
 
       if (!suppressScroll) {
-        const scrollToTop = () => {
-          historyScrollRef.current?.scrollTo({ y: 0, animated: true });
-        };
-        if (typeof requestAnimationFrame === "function") {
-          requestAnimationFrame(scrollToTop);
-        } else {
-          setTimeout(scrollToTop, 0);
-        }
+        scrollHistoryToTop();
       }
 
       return newId;
     },
-    [historyItems, historyScrollRef, replaceMessages, setActiveConversationId, setHistoryItems, setSearchTerm, stopSession, t]
+    [activeFolderId, currentConversations, replaceMessages, scrollHistoryToTop, stopSession, t]
   );
 
   const handleAddConversation = useCallback(async () => {
@@ -871,7 +798,8 @@ export default function TranscriptionScreen() {
 
 
   const handleSelectConversation = useCallback(async (conversationId: string) => {
-    if (!historyItems.some((item) => item.id === conversationId)) {
+    const conversation = getHistoryConversation(historyTree, conversationId);
+    if (!conversation) {
       return;
     }
     const scrollToTranscription = () => {
@@ -888,19 +816,23 @@ export default function TranscriptionScreen() {
       console.warn("[transcription] stopSession failed before switching conversation", sessionError);
     }
     setActiveConversationId(conversationId);
+    setActiveFolderId(conversation.parentId);
     scrollToTranscription();
-  }, [activeConversationId, historyItems, stopSession, switchToMobilePaneIndex]);
+  }, [activeConversationId, historyTree, stopSession, switchToMobilePaneIndex]);
 
   useEffect(() => {
     if (!historyLoaded) {
       return;
     }
 
-    const payload: StoredHistoryPayload = {
+    const payload: StoredHistoryPayloadV3 = {
       version: HISTORY_STORAGE_VERSION,
-      conversations: historyItems,
+      nodes: historyTree.nodes,
+      rootIds: historyTree.rootIds,
       activeConversationId,
+      activeFolderId,
       nextIdCounter: historyIdCounter.current,
+      nextFolderIdCounter: folderIdCounter.current,
     };
 
     AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(payload)).catch(
@@ -908,7 +840,7 @@ export default function TranscriptionScreen() {
         console.warn("[transcription] Failed to persist history conversations", persistError);
       }
     );
-  }, [activeConversationId, historyItems, historyLoaded]);
+  }, [activeConversationId, activeFolderId, historyTree, historyLoaded]);
 
 
   const handleSearchChange = useCallback((text: string) => {
@@ -962,11 +894,7 @@ export default function TranscriptionScreen() {
 
     setAssistantDraft('');
     setAssistantSending(true);
-    setHistoryItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== conversationId) {
-          return item;
-        }
+    updateConversation(conversationId, (item) => {
         const nextAssistantMessages: AssistantMessage[] = [
           ...item.assistantMessages,
           userMessage,
@@ -975,8 +903,7 @@ export default function TranscriptionScreen() {
           ...item,
           assistantMessages: nextAssistantMessages,
         };
-      })
-    );
+      });
 
     assistantAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1006,11 +933,7 @@ export default function TranscriptionScreen() {
         status: 'succeeded',
       };
 
-      setHistoryItems((prev) =>
-        prev.map((item) => {
-          if (item.id !== conversationId) {
-            return item;
-          }
+      updateConversation(conversationId, (item) => {
           const updatedMessages: AssistantMessage[] = item.assistantMessages.map((msg) =>
             msg.id === messageId ? { ...msg, status: 'succeeded' } : msg
           );
@@ -1022,18 +945,13 @@ export default function TranscriptionScreen() {
             ...item,
             assistantMessages: nextAssistantMessages,
           };
-        })
-      );
+        });
     } catch (err) {
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const rawMessage = err instanceof Error ? err.message : String(err);
       const displayMessage = rawMessage || t('assistant.errors.send_failed');
 
-      setHistoryItems((prev) =>
-        prev.map((item) => {
-          if (item.id !== conversationId) {
-            return item;
-          }
+      updateConversation(conversationId, (item) => {
           if (isAbort) {
             const filteredMessages: AssistantMessage[] = item.assistantMessages.filter(
               (msg) => msg.id !== messageId
@@ -1052,8 +970,7 @@ export default function TranscriptionScreen() {
             ...item,
             assistantMessages: updatedMessages,
           };
-        })
-      );
+        });
 
       if (!isAbort) {
         Alert.alert(t('alerts.assistant.failure'), displayMessage);
@@ -1062,7 +979,7 @@ export default function TranscriptionScreen() {
       assistantAbortRef.current = null;
       setAssistantSending(false);
     }
-  }, [assistantDraft, assistantSending, activeConversation, settings, setHistoryItems, t]);
+  }, [assistantDraft, assistantSending, activeConversation, settings, t, updateConversation]);
 
   const playTtsAudio = useCallback(
     async (audioUri: string) => {
@@ -1177,9 +1094,9 @@ export default function TranscriptionScreen() {
     historyLongPressRef.current = null;
   }, []);
 
-  const openRenameDialog = useCallback((conversation: HistoryConversation) => {
-    setRenameDraft(conversation.title);
-    setRenameDialog({ conversationId: conversation.id });
+  const openRenameDialog = useCallback((node: HistoryConversation | HistoryFolder) => {
+    setRenameDraft(node.title);
+    setRenameDialog({ kind: node.kind, nodeId: node.id });
   }, []);
 
   const handleRenameCancel = useCallback(() => {
@@ -1195,18 +1112,24 @@ export default function TranscriptionScreen() {
     if (!trimmed) {
       return;
     }
-    setHistoryItems((prev) =>
-      prev.map((item) =>
-        item.id === renameDialog.conversationId ? { ...item, title: trimmed } : item
-      )
-    );
+    setHistoryTree((prev) => {
+      const node = prev.nodes[renameDialog.nodeId];
+      if (!node) {
+        return prev;
+      }
+      return updateHistoryNode(prev, {
+        ...node,
+        title: trimmed,
+        ...(node.kind === "folder" ? { updatedAt: Date.now() } : {}),
+      });
+    });
     setRenameDialog(null);
     setRenameDraft("");
-  }, [renameDialog, renameDraft, setHistoryItems]);
+  }, [renameDialog, renameDraft]);
 
   const handleHistoryGenerateTitle = useCallback(
     async (conversationId: string) => {
-      const conversation = historyItems.find((item) => item.id === conversationId);
+      const conversation = getHistoryConversation(historyTree, conversationId);
       if (!conversation) {
         return;
       }
@@ -1238,11 +1161,7 @@ export default function TranscriptionScreen() {
         if (!cleanTitle) {
           return;
         }
-        setHistoryItems((prev) =>
-          prev.map((item) =>
-            item.id === conversationId ? { ...item, title: cleanTitle } : item
-          )
-        );
+        updateConversation(conversationId, (item) => ({ ...item, title: cleanTitle }));
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -1256,12 +1175,12 @@ export default function TranscriptionScreen() {
         }
       }
     },
-    [historyItems, settings, t]
+    [historyTree, settings, t, updateConversation]
   );
 
   const handleHistoryGenerateSummary = useCallback(
     async (conversationId: string) => {
-      const conversation = historyItems.find((item) => item.id === conversationId);
+      const conversation = getHistoryConversation(historyTree, conversationId);
       if (!conversation) {
         return;
       }
@@ -1297,13 +1216,11 @@ export default function TranscriptionScreen() {
         if (!cleanSummary) {
           return;
         }
-        setHistoryItems((prev) =>
-          prev.map((item) =>
-            item.id === conversationId
-              ? { ...item, summary: cleanSummary, summaryHidden: false }
-              : item
-          )
-        );
+        updateConversation(conversationId, (item) => ({
+          ...item,
+          summary: cleanSummary,
+          summaryHidden: false,
+        }));
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -1317,7 +1234,7 @@ export default function TranscriptionScreen() {
         }
       }
     },
-    [historyItems, settings, t]
+    [historyTree, settings, t, updateConversation]
   );
 
   const handleAssistantSummaryHide = useCallback(
@@ -1329,13 +1246,9 @@ export default function TranscriptionScreen() {
       if (autoSummaryPendingRef.current?.conversationId === conversation.id) {
         autoSummaryPendingRef.current = null;
       }
-      setHistoryItems((prev) =>
-        prev.map((item) =>
-          item.id === conversation.id ? { ...item, summaryHidden: true } : item
-        )
-      );
+      updateConversation(conversation.id, (item) => ({ ...item, summaryHidden: true }));
     },
-    [setHistoryItems]
+    [updateConversation]
   );
 
   const handleDeleteConversation = useCallback(
@@ -1352,12 +1265,42 @@ export default function TranscriptionScreen() {
             );
           }
         }
-        setHistoryItems((prev) => prev.filter((item) => item.id !== conversation.id));
+        setHistoryTree((prev) => deleteHistoryNode(prev, conversation.id));
       };
 
       void confirmDelete();
     },
-    [activeConversationId, setHistoryItems, stopSession]
+    [activeConversationId, stopSession]
+  );
+
+  const handleDeleteFolder = useCallback(
+    (folder: HistoryFolder) => {
+      const counts = countFolderDescendants(historyTree, folder.id);
+      Alert.alert(
+        t('transcription.history.folder.delete_title'),
+        t('transcription.history.folder.delete_message', {
+          folders: counts.folders,
+          conversations: counts.conversations,
+        }),
+        [
+          { text: t('common.actions.cancel'), style: 'cancel' },
+          {
+            text: t('transcription.history.actions.delete'),
+            style: 'destructive',
+            onPress: () => {
+              setHistoryTree((prev) => deleteHistoryNode(prev, folder.id));
+              if (activeFolderId === folder.id || getFolderPath(historyTree, activeFolderId).some((item) => item.id === folder.id)) {
+                setActiveFolderId(folder.parentId);
+              }
+              if (activeConversationId && !getHistoryConversation(deleteHistoryNode(historyTree, folder.id), activeConversationId)) {
+                setActiveConversationId(null);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [activeConversationId, activeFolderId, historyTree, t]
   );
 
   const handleAssistantSummaryMenu = useCallback(
@@ -1714,6 +1657,172 @@ export default function TranscriptionScreen() {
     ]
   );
 
+  const handleAddFolder = useCallback(() => {
+    const idNumber = folderIdCounter.current++;
+    const now = Date.now();
+    const folder: HistoryFolder = {
+      kind: "folder",
+      id: `folder-${idNumber}`,
+      title: t('transcription.history.folder.new_folder', { id: idNumber }),
+      colorKey: HISTORY_FOLDER_COLORS[(idNumber - 1) % HISTORY_FOLDER_COLORS.length],
+      parentId: activeFolderId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setHistoryTree((prev) => addHistoryNode(prev, folder));
+    openRenameDialog(folder);
+    scrollHistoryToTop();
+  }, [activeFolderId, openRenameDialog, scrollHistoryToTop, t]);
+
+  const handleFolderColorChange = useCallback((folder: HistoryFolder, colorKey: HistoryFolderColorKey) => {
+    setHistoryTree((prev) =>
+      updateHistoryNode(prev, {
+        ...folder,
+        colorKey,
+        updatedAt: Date.now(),
+      })
+    );
+  }, []);
+
+  const handleFolderLongPress = useCallback(
+    (folder: HistoryFolder, anchor?: ContextMenuAnchor) => {
+      historyLongPressRef.current = folder.id;
+      setContextMenu({
+        title: t('transcription.history.folder.actions_title'),
+        actions: [
+          {
+            label: t('transcription.history.folder.open'),
+            onPress: () => {
+              setActiveFolderId(folder.id);
+              setSearchTerm("");
+              scrollHistoryToTop(false);
+            },
+          },
+          {
+            label: t('transcription.history.actions.rename'),
+            onPress: () => {
+              openRenameDialog(folder);
+            },
+          },
+          ...HISTORY_FOLDER_COLORS.map((colorKey): ContextMenuAction => ({
+            label: t(`transcription.history.folder.colors.${colorKey}`),
+            onPress: () => {
+              handleFolderColorChange(folder, colorKey);
+            },
+          })),
+          {
+            label: t('transcription.history.actions.delete'),
+            variant: 'destructive',
+            onPress: () => {
+              handleDeleteFolder(folder);
+            },
+          },
+          {
+            label: t('common.actions.cancel'),
+            variant: 'cancel',
+          },
+        ],
+        anchor,
+      });
+    },
+    [handleDeleteFolder, handleFolderColorChange, openRenameDialog, scrollHistoryToTop, t]
+  );
+
+  const resolveDropTarget = useCallback((absoluteY: number): HistoryDropTarget | null => {
+    const match = historyRowLayoutsRef.current.find(
+      (layout) => absoluteY >= layout.y && absoluteY <= layout.y + layout.height
+    );
+    return match?.target ?? null;
+  }, []);
+
+  const registerDropTarget = useCallback((target: HistoryDropTarget, y: number, height: number) => {
+    historyRowLayoutsRef.current = [
+      ...historyRowLayoutsRef.current.filter((layout) => {
+        if (layout.target.type !== target.type) {
+          return true;
+        }
+        if (layout.target.type === "folder" && target.type === "folder") {
+          return layout.target.folderId !== target.folderId;
+        }
+        if (layout.target.type === "parent" && target.type === "parent") {
+          return layout.target.parentId !== target.parentId;
+        }
+        return true;
+      }),
+      { target, y, height },
+    ];
+  }, []);
+
+  const handleDragStart = useCallback((nodeId: string) => {
+    setContextMenu(null);
+    setDragState({ nodeId, overTarget: null });
+  }, []);
+
+  const handleDragMove = useCallback(
+    (nodeId: string, absoluteY: number) => {
+      const target = resolveDropTarget(absoluteY);
+      setDragState((prev) => {
+        if (!prev || prev.nodeId !== nodeId) {
+          return prev;
+        }
+        if (target?.type === prev.overTarget?.type) {
+          if (target?.type === "folder" && prev.overTarget?.type === "folder" && target.folderId === prev.overTarget.folderId) {
+            return prev;
+          }
+          if (target?.type === "parent" && prev.overTarget?.type === "parent" && target.parentId === prev.overTarget.parentId) {
+            return prev;
+          }
+        }
+        return { nodeId, overTarget: target };
+      });
+    },
+    [resolveDropTarget]
+  );
+
+  const handleDragEnd = useCallback(
+    (nodeId: string, absoluteY: number) => {
+      const target = resolveDropTarget(absoluteY);
+      setDragState(null);
+      if (!target) {
+        return;
+      }
+      const nextParentId = target.type === "folder" ? target.folderId : target.parentId;
+      setHistoryTree((prev) => (isValidMove(prev, nodeId, nextParentId) ? moveHistoryNode(prev, nodeId, nextParentId) : prev));
+    },
+    [resolveDropTarget]
+  );
+
+  const handleOpenFolder = useCallback(
+    (folderId: string) => {
+      if (!getHistoryFolder(historyTree, folderId)) {
+        return;
+      }
+      setActiveFolderId(folderId);
+      setSearchTerm("");
+      scrollHistoryToTop(false);
+    },
+    [historyTree, scrollHistoryToTop]
+  );
+
+  const handleNavigateToParent = useCallback(() => {
+    setActiveFolderId(currentFolder?.parentId ?? null);
+    scrollHistoryToTop(false);
+  }, [currentFolder, scrollHistoryToTop]);
+
+  const handleSearchResultPress = useCallback(
+    (result: HistorySearchResult) => {
+      if (result.node.kind === "folder") {
+        setActiveFolderId(result.node.id);
+        setSearchTerm("");
+        scrollHistoryToTop(false);
+        return;
+      }
+      setActiveFolderId(result.node.parentId);
+      void handleSelectConversation(result.node.id);
+    },
+    [handleSelectConversation, scrollHistoryToTop]
+  );
+
   const activeMobilePane: MobilePane = MOBILE_PANES[clampMobilePaneIndex(activeCarouselIndex)];
   const mobilePagerPageWidth = mobilePagerWidth || Math.max(1, Math.round(width - 32));
   const activeConversationTitle = activeConversation?.title ?? t('transcription.history.new_conversation', { id: historyIdCounter.current });
@@ -1722,7 +1831,7 @@ export default function TranscriptionScreen() {
     ? t('transcription.accessibility.stop_recording')
     : t('transcription.accessibility.start_recording');
   const showAssistantComposer = isTablet ? tabletDetail === "assistant" : activeMobilePane === 'assistant';
-  const historyCountLabel = String(historyItems.length);
+  const historyCountLabel = String(Object.values(historyTree.nodes).filter((node) => node.kind === "conversation").length);
 
   const assistantBubbleMaxWidth = useMemo(
     () => Math.max(220, Math.round(width * (isTablet ? 0.42 : 0.76))),
@@ -1786,7 +1895,7 @@ export default function TranscriptionScreen() {
               name="radio"
               size={17}
               color={isSessionActive ? dangerForeground : undefined}
-              className={isSessionActive ? undefined : 'text-accent'}
+              className={isSessionActive ? null : 'text-accent'}
               solid
             />
           </Button>
@@ -1832,7 +1941,9 @@ export default function TranscriptionScreen() {
                 {t('transcription.sections.history_title')}
               </Text>
               <Text type="body-xs" color="muted" numberOfLines={1}>
-                {activeConversationTitle}
+                {currentFolderPath.length > 0
+                  ? currentFolderPath.map((item) => item.title).join(" / ")
+                  : t('transcription.history.folder.root')}
               </Text>
             </View>
             <Text type="body-xs" color="muted" weight="bold">
@@ -1854,27 +1965,95 @@ export default function TranscriptionScreen() {
           ref={historyScrollRef}
           className="flex-1"
           contentContainerStyle={
-            historyGroups.length === 0 ? styles.historyEmptyContainer : styles.historyScrollContent
+            searchTerm.trim() && historySearchResults.length === 0
+              ? styles.historyEmptyContainer
+              : styles.historyScrollContent
           }
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled">
-          {historyGroups.length === 0 ? (
+          {searchTerm.trim() ? (
+            historySearchResults.length === 0 ? (
+              <StudioEmptyState
+                icon="magnifying-glass"
+                title={t('transcription.history.placeholder_search_empty')}
+              />
+            ) : (
+              <View style={styles.historyGroup}>
+                <Text type="body-xs" color="muted" weight="semibold">
+                  {t('transcription.history.search_results')}
+                </Text>
+                {historySearchResults.map((result) => (
+                  <HistoryStaticRow
+                    key={result.node.id}
+                    node={result.node}
+                    subtitle={
+                      result.path.length > 0
+                        ? result.path.map((item) => item.title).join(" / ")
+                        : t('transcription.history.folder.root')
+                    }
+                    isActive={result.node.id === activeConversationId}
+                    language={i18n.language}
+                    onPress={() => handleSearchResultPress(result)}
+                  />
+                ))}
+              </View>
+            )
+          ) : currentFolders.length === 0 && historyGroups.length === 0 && !currentFolder ? (
             <StudioEmptyState
-              icon="magnifying-glass"
-              title={t('transcription.history.placeholder_search_empty')}
+              icon="layer-group"
+              title={t('transcription.history.folder.empty')}
             />
           ) : (
-            historyGroups.map((group) => (
-              <View key={group.key} style={styles.historyGroup}>
-                <Text type="body-xs" color="muted" weight="semibold">
-                  {group.label}
-                </Text>
-                {group.items.map((item) => {
-                  const isActive = item.id === activeConversationId;
-                  return (
-                    <Pressable
+            <>
+              {currentFolder ? (
+                <HistoryParentRow
+                  label={t('transcription.history.folder.back')}
+                  target={{ type: "parent", parentId: currentFolder.parentId }}
+                  isDropActive={dragState?.overTarget?.type === "parent" && dragState.overTarget.parentId === currentFolder.parentId}
+                  onPress={handleNavigateToParent}
+                  registerDropTarget={registerDropTarget}
+                />
+              ) : null}
+              {currentFolders.length > 0 ? (
+                <View style={styles.historyGroup}>
+                  <Text type="body-xs" color="muted" weight="semibold">
+                    {t('transcription.history.folder.section')}
+                  </Text>
+                  {currentFolders.map((folder) => (
+                    <HistoryDraggableRow
+                      key={folder.id}
+                      node={folder}
+                      language={i18n.language}
+                      isActive={folder.id === activeFolderId}
+                      isDropActive={dragState?.overTarget?.type === "folder" && dragState.overTarget.folderId === folder.id}
+                      dropTarget={{ type: "folder", folderId: folder.id }}
+                      registerDropTarget={registerDropTarget}
+                      onDragStart={handleDragStart}
+                      onDragMove={handleDragMove}
+                      onDragEnd={handleDragEnd}
+                      onPress={() => handleOpenFolder(folder.id)}
+                      onOpenMenu={(anchor) => handleFolderLongPress(folder, anchor)}
+                    />
+                  ))}
+                </View>
+              ) : null}
+              {historyGroups.map((group) => (
+                <View key={group.key} style={styles.historyGroup}>
+                  <Text type="body-xs" color="muted" weight="semibold">
+                    {group.label}
+                  </Text>
+                  {group.items.map((item) => (
+                    <HistoryDraggableRow
                       key={item.id}
+                      node={item}
+                      language={i18n.language}
+                      isActive={item.id === activeConversationId}
+                      isDropActive={false}
+                      registerDropTarget={registerDropTarget}
+                      onDragStart={handleDragStart}
+                      onDragMove={handleDragMove}
+                      onDragEnd={handleDragEnd}
                       onPress={() => {
                         if (historyLongPressRef.current === item.id) {
                           historyLongPressRef.current = null;
@@ -1882,72 +2061,29 @@ export default function TranscriptionScreen() {
                         }
                         void handleSelectConversation(item.id);
                       }}
-                      onLongPress={
-                        isDesktopApp
-                          ? undefined
-                          : () => handleHistoryLongPress(item)
-                      }
-                      onPointerDown={(event) => {
-                        if (!isDesktopApp) {
-                          return;
-                        }
-                        if (event.nativeEvent.button === 2) {
-                          event.preventDefault();
-                          const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
-                            pageX?: number;
-                            pageY?: number;
-                            clientX?: number;
-                            clientY?: number;
-                          };
-                          handleHistoryLongPress(item, {
-                            x: typeof pageX === "number" ? pageX : clientX ?? 0,
-                            y: typeof pageY === "number" ? pageY : clientY ?? 0,
-                          });
-                        }
-                      }}
-                      delayLongPress={isDesktopApp ? undefined : 250}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('transcription.history.accessibility.view_conversation', { title: item.title })}
-                      className={[
-                        'rounded-2xl border px-3 py-3',
-                        isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
-                      ].join(' ')}>
-                      <View className="flex-row items-start gap-3">
-                        <View className={['mt-0.5 size-9 items-center justify-center rounded-2xl', isActive ? 'bg-accent' : 'bg-background'].join(' ')}>
-                          <AppIcon
-                            name="box-archive"
-                            size={16}
-                            className={isActive ? 'text-accent-foreground' : 'text-muted'}
-                            solid
-                          />
-                        </View>
-                        <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
-                          <Text weight="semibold" numberOfLines={1}>
-                            {item.title}
-                          </Text>
-                          <Text type="body-xs" color="muted">
-                            {formatRecordTime(item.createdAt, i18n.language)}
-                          </Text>
-                          {item.transcript.trim() ? (
-                            <Text numberOfLines={2} type="body-sm" color="muted">
-                              {item.transcript}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ))
+                      onOpenMenu={(anchor) => handleHistoryLongPress(item, anchor)}
+                    />
+                  ))}
+                </View>
+              ))}
+            </>
           )}
         </ScrollView>
-        <View className="border-t border-border p-3">
+        <View className="flex-row gap-2 border-t border-border p-3">
+          <Button
+            accessibilityLabel={t('transcription.history.folder.add')}
+            isIconOnly
+            onPress={handleAddFolder}
+            size="lg"
+            variant="secondary">
+            <AppIcon name="layer-group" size={18} className="text-accent" />
+          </Button>
           <Button
             accessibilityLabel={t('transcription.history.accessibility.add')}
             onPress={() => {
               void handleAddConversation();
             }}
+            className="min-w-0 flex-1"
             size="lg"
             variant="primary">
             <AppIcon name="comments" size={18} className="text-accent-foreground" />
@@ -2180,14 +2316,26 @@ export default function TranscriptionScreen() {
         >
           <Pressable style={styles.renameBackdrop} onPress={handleRenameCancel}>
             <Pressable style={styles.renameCardPressable} onPress={() => {}}>
-              <Card className="w-[88%] max-w-[420px] border border-border">
-                <Card.Body className="gap-4">
-                  <Text.Heading type="h3">{t('transcription.history.rename.title')}</Text.Heading>
+                <Card className="w-[88%] max-w-[420px] border border-border">
+                  <Card.Body className="gap-4">
+                  <Text.Heading type="h3">
+                    {renameDialog.kind === "folder"
+                      ? t('transcription.history.folder.rename_title')
+                      : t('transcription.history.rename.title')}
+                  </Text.Heading>
                   <FormInput
-                    label={t('transcription.history.rename.placeholder')}
+                    label={
+                      renameDialog.kind === "folder"
+                        ? t('transcription.history.folder.rename_placeholder')
+                        : t('transcription.history.rename.placeholder')
+                    }
                     value={renameDraft}
                     onChangeText={setRenameDraft}
-                    placeholder={t('transcription.history.rename.placeholder')}
+                    placeholder={
+                      renameDialog.kind === "folder"
+                        ? t('transcription.history.folder.rename_placeholder')
+                        : t('transcription.history.rename.placeholder')
+                    }
                     onBlur={undefined}
                   />
                   <View className="flex-row justify-end gap-2">
@@ -2337,6 +2485,248 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
 });
+
+function HistoryParentRow({
+  label,
+  target,
+  isDropActive,
+  onPress,
+  registerDropTarget,
+}: {
+  label: string;
+  target: HistoryDropTarget;
+  isDropActive: boolean;
+  onPress: () => void;
+  registerDropTarget: (target: HistoryDropTarget, y: number, height: number) => void;
+}) {
+  const rowRef = useRef<View | null>(null);
+  const measureTarget = useCallback(() => {
+    rowRef.current?.measureInWindow((_x, y, _width, height) => {
+      registerDropTarget(target, y, height);
+    });
+  }, [registerDropTarget, target]);
+
+  return (
+    <Pressable
+      ref={rowRef}
+      onLayout={measureTarget}
+      onPress={onPress}
+      accessibilityRole="button"
+      className={[
+        'rounded-2xl border px-3 py-3',
+        isDropActive ? 'border-accent bg-surface' : 'border-border bg-background',
+      ].join(' ')}>
+      <View className="flex-row items-center gap-3">
+        <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
+          <AppIcon name="chevron-right" size={16} className="text-muted" />
+        </View>
+        <Text weight="semibold">{label}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function HistoryStaticRow({
+  node,
+  subtitle,
+  isActive,
+  language,
+  onPress,
+}: {
+  node: HistoryNode;
+  subtitle: string;
+  isActive: boolean;
+  language: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className={[
+        'rounded-2xl border px-3 py-3',
+        isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
+      ].join(' ')}>
+      <HistoryRowContent node={node} subtitle={subtitle} language={language} isActive={isActive} />
+    </Pressable>
+  );
+}
+
+function HistoryDraggableRow({
+  node,
+  language,
+  isActive,
+  isDropActive,
+  dropTarget,
+  registerDropTarget,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onPress,
+  onOpenMenu,
+}: {
+  node: HistoryNode;
+  language: string;
+  isActive: boolean;
+  isDropActive: boolean;
+  dropTarget?: HistoryDropTarget;
+  registerDropTarget: (target: HistoryDropTarget, y: number, height: number) => void;
+  onDragStart: (nodeId: string) => void;
+  onDragMove: (nodeId: string, absoluteY: number) => void;
+  onDragEnd: (nodeId: string, absoluteY: number) => void;
+  onPress: () => void;
+  onOpenMenu: (anchor?: ContextMenuAnchor) => void;
+}) {
+  const rowRef = useRef<View | null>(null);
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const isDesktopApp =
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    Boolean((window as { electron?: unknown }).electron);
+
+  const measureTarget = useCallback(() => {
+    if (!dropTarget) {
+      return;
+    }
+    rowRef.current?.measureInWindow((_x, y, _width, height) => {
+      registerDropTarget(dropTarget, y, height);
+    });
+  }, [dropTarget, registerDropTarget]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+    zIndex: scale.value > 1 ? 2 : 0,
+  }));
+
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(260)
+    .mouseButton(MouseButton.LEFT)
+    .onStart(() => {
+      scale.value = withTiming(1.02, { duration: 120 });
+      runOnJS(onDragStart)(node.id);
+    })
+    .onUpdate((event) => {
+      translateY.value = event.translationY;
+      runOnJS(onDragMove)(node.id, event.absoluteY);
+    })
+    .onEnd((event) => {
+      runOnJS(onDragEnd)(node.id, event.absoluteY);
+    })
+    .onFinalize(() => {
+      translateY.value = withTiming(0, { duration: 140 });
+      scale.value = withTiming(1, { duration: 140 });
+    });
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={animatedStyle}>
+        <Pressable
+          ref={rowRef}
+          onLayout={measureTarget}
+          onPress={onPress}
+          onLongPress={isDesktopApp ? undefined : () => onOpenMenu()}
+          onPointerDown={(event) => {
+            if (!isDesktopApp) {
+              return;
+            }
+            if (event.nativeEvent.button === 2) {
+              event.preventDefault();
+              const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+                pageX?: number;
+                pageY?: number;
+                clientX?: number;
+                clientY?: number;
+              };
+              onOpenMenu({
+                x: typeof pageX === "number" ? pageX : clientX ?? 0,
+                y: typeof pageY === "number" ? pageY : clientY ?? 0,
+              });
+            }
+          }}
+          delayLongPress={650}
+          accessibilityRole="button"
+          className={[
+            'rounded-2xl border px-3 py-3',
+            isDropActive || isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
+          ].join(' ')}>
+          <HistoryRowContent
+            node={node}
+            subtitle={
+              node.kind === "folder"
+                ? formatRecordTime(node.updatedAt, language)
+                : formatRecordTime(node.createdAt, language)
+            }
+            language={language}
+            isActive={isActive}
+          />
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+function HistoryRowContent({
+  node,
+  subtitle,
+  language: _language,
+  isActive,
+}: {
+  node: HistoryNode;
+  subtitle: string;
+  language: string;
+  isActive: boolean;
+}) {
+  const iconClassName =
+    node.kind === "folder"
+      ? getFolderColorClassName(node.colorKey)
+      : isActive
+        ? 'text-accent-foreground'
+        : 'text-muted';
+  return (
+    <View className="flex-row items-start gap-3">
+      <View className={['mt-0.5 size-9 items-center justify-center rounded-2xl', isActive ? 'bg-accent' : 'bg-background'].join(' ')}>
+        <AppIcon
+          name={node.kind === "folder" ? "layer-group" : "box-archive"}
+          size={16}
+          className={iconClassName}
+          solid
+        />
+      </View>
+      <View className="min-w-0 flex-1 gap-1" style={styles.shrinkable}>
+        <Text weight="semibold" numberOfLines={1}>
+          {node.title}
+        </Text>
+        <Text type="body-xs" color="muted" numberOfLines={1}>
+          {subtitle}
+        </Text>
+        {node.kind === "conversation" && node.transcript.trim() ? (
+          <Text numberOfLines={2} type="body-sm" color="muted">
+            {node.transcript}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function getFolderColorClassName(colorKey: HistoryFolderColorKey): string {
+  switch (colorKey) {
+    case "green":
+      return "text-accent";
+    case "orange":
+      return "text-danger";
+    case "pink":
+      return "text-danger";
+    case "purple":
+      return "text-accent";
+    case "slate":
+      return "text-muted";
+    case "blue":
+    default:
+      return "text-accent";
+  }
+}
 
 
 function MessageBubble({

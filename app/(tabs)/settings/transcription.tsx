@@ -22,6 +22,7 @@ import {
 } from '@/components/settings/model-picker';
 import { useSettings } from '@/contexts/settings-context';
 import {
+  DEFAULT_OPENAI_BASE_URL,
   DEFAULT_GEMINI_TRANSCRIPTION_MODEL,
   DEFAULT_GLM_TRANSCRIPTION_MODEL,
   DEFAULT_OPENAI_REALTIME_DELAY,
@@ -71,6 +72,10 @@ export default function TranscriptionSettingsScreen() {
   const { t } = useTranslation();
   const { settings, updateSettings, updateCredentials } = useSettings();
   const { formState, setFormState } = useSettingsForm(settings);
+  const normalizedOpenAIBaseUrl =
+    (formState.openaiBaseUrl.trim() || DEFAULT_OPENAI_BASE_URL).replace(/\/+$/, '') ||
+    DEFAULT_OPENAI_BASE_URL;
+  const usesCustomOpenAIBaseUrl = normalizedOpenAIBaseUrl !== DEFAULT_OPENAI_BASE_URL;
 
   const { catalogs, ensureModelsFetched, refreshModels } = useSettingsModelCatalogs({
     openaiApiKey: formState.openaiApiKey,
@@ -250,34 +255,6 @@ export default function TranscriptionSettingsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View className="gap-3">
-            <Text type="body-sm" weight="semibold">
-              {t('settings.transcription.mode.title')}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              className="-mx-4 max-h-10 flex-grow-0"
-              contentContainerClassName="gap-2 px-4">
-              <OptionPill
-                label={t('settings.transcription.mode.upload')}
-                active={settings.transcriptionMode === 'upload'}
-                onPress={() => handleSelectMode('upload')}
-              />
-              <OptionPill
-                label={t('settings.transcription.mode.realtime')}
-                active={settings.transcriptionMode === 'realtime'}
-                onPress={() => handleSelectMode('realtime')}
-              />
-            </ScrollView>
-            <Text type="body-xs" color="muted">
-              {settings.transcriptionMode === 'realtime'
-                ? t('settings.transcription.mode.realtime_hint')
-                : t('settings.transcription.mode.upload_hint')}
-            </Text>
-          </View>
-
           <SettingsModelProviderStrip
             providers={providers}
             activeId={settings.transcriptionEngine}
@@ -322,7 +299,46 @@ export default function TranscriptionSettingsScreen() {
                 </View>
               ) : null
             }>
-            {activeProvider.modelLabel && activeProvider.modelValue && activeProvider.modelFallback ? (
+            {settings.transcriptionEngine === 'openai' ? (
+              <View className="gap-3">
+                <Text type="body-sm" weight="semibold">
+                  {t('settings.transcription.mode.title')}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  className="-mx-4 max-h-10 flex-grow-0"
+                  contentContainerClassName="gap-2 px-4">
+                  <OptionPill
+                    label={t('settings.transcription.mode.upload')}
+                    active={settings.transcriptionMode === 'upload'}
+                    onPress={() => handleSelectMode('upload')}
+                  />
+                  <OptionPill
+                    label={t('settings.transcription.mode.realtime')}
+                    active={settings.transcriptionMode === 'realtime'}
+                    onPress={() => handleSelectMode('realtime')}
+                  />
+                </ScrollView>
+                <Text type="body-xs" color="muted">
+                  {settings.transcriptionMode === 'realtime'
+                    ? t('settings.transcription.mode.realtime_hint')
+                    : t('settings.transcription.mode.upload_hint')}
+                </Text>
+                {settings.transcriptionMode === 'realtime' && usesCustomOpenAIBaseUrl ? (
+                  <Text type="body-xs" color="muted">
+                    {t('settings.transcription.mode.custom_base_realtime_warning')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {activeProvider.modelLabel &&
+            activeProvider.modelValue &&
+            activeProvider.modelFallback &&
+            (settings.transcriptionEngine !== 'openai' ||
+              settings.transcriptionMode === 'upload') ? (
               <SettingsModelSelectField
                 label={activeProvider.modelLabel}
                 value={activeProvider.modelValue}
@@ -330,13 +346,16 @@ export default function TranscriptionSettingsScreen() {
                 placeholder={activeProvider.modelFallback}
                 onChange={handleSelectModel}
               />
-            ) : (
+            ) : settings.transcriptionEngine !== 'openai' ? (
               <Text type="body-sm" color="muted">
                 {t('settings.credentials.models.credentials_only')}
               </Text>
-            )}
+            ) : null}
 
-            {activeProvider.promptLabel && activeProvider.promptValue !== undefined ? (
+            {activeProvider.promptLabel &&
+            activeProvider.promptValue !== undefined &&
+            (settings.transcriptionEngine !== 'openai' ||
+              settings.transcriptionMode === 'upload') ? (
               <FormInput
                 label={activeProvider.promptLabel}
                 value={activeProvider.promptValue}
@@ -349,7 +368,7 @@ export default function TranscriptionSettingsScreen() {
               />
             ) : null}
 
-            {settings.transcriptionMode === 'realtime' && settings.transcriptionEngine === 'openai' ? (
+            {settings.transcriptionEngine === 'openai' && settings.transcriptionMode === 'realtime' ? (
               <>
                 <SettingsModelSelectField
                   label={t('settings.transcription.labels.realtime_model')}
@@ -379,12 +398,6 @@ export default function TranscriptionSettingsScreen() {
               </>
             ) : null}
           </SettingsModelDetailCard>
-
-          {settings.transcriptionMode === 'realtime' && settings.transcriptionEngine !== 'openai' ? (
-            <Text type="body-sm" color="muted">
-              {t('settings.transcription.mode.realtime_requires_openai')}
-            </Text>
-          ) : null}
 
           {shouldShowNativeRealtimeFallbackNotice(settings) ? (
             <View className="rounded-xl border border-border bg-surface p-4">

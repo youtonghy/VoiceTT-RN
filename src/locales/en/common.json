@@ -57,7 +57,8 @@
       "start_failed": "Failed to start recording: {{message}}",
       "permission_denied": "Microphone permission not granted",
       "empty_recording": "Recording result is empty",
-      "system_capture_fallback": "System audio capture failed, so recording fell back to the microphone: {{message}}"
+      "system_capture_fallback": "System audio capture failed, so recording fell back to the microphone: {{message}}",
+      "realtime_upload_fallback": "Realtime transcription is unavailable, so this recording is using upload mode: {{message}}"
     },
     "messages": {
       "default_title": "Message #{{id}}"
@@ -76,6 +77,7 @@
       "search_placeholder": "Search transcripts or translations",
       "placeholder_search_empty": "No matching history.",
       "new_conversation": "New conversation {{id}}",
+      "search_results": "Search results",
       "actions": {
         "title": "Conversation actions",
         "share": "Share",
@@ -92,6 +94,28 @@
       "delete": {
         "title": "Delete conversation?",
         "message": "This will remove the conversation and its transcript."
+      },
+      "folder": {
+        "root": "All conversations",
+        "section": "Folders",
+        "back": "Back",
+        "empty": "This folder is empty.",
+        "add": "New folder",
+        "new_folder": "New folder {{id}}",
+        "actions_title": "Folder actions",
+        "open": "Open folder",
+        "rename_title": "Rename folder",
+        "rename_placeholder": "Folder name",
+        "delete_title": "Delete folder?",
+        "delete_message": "This will remove {{folders}} folders and {{conversations}} conversations inside it.",
+        "colors": {
+          "blue": "Blue folder",
+          "green": "Green folder",
+          "orange": "Orange folder",
+          "pink": "Pink folder",
+          "purple": "Purple folder",
+          "slate": "Gray folder"
+        }
       }
     },
     "export": {
@@ -458,7 +482,8 @@
         "upload_hint": "Record segments, then transcribe",
         "realtime_hint": "Stream audio for live transcription",
         "realtime_requires_openai": "Realtime requires the OpenAI engine.",
-        "native_fallback_notice": "Realtime streaming is not available on this device yet. Using upload mode."
+        "native_fallback_notice": "Realtime streaming is not available on this device yet. Using upload mode.",
+        "custom_base_realtime_warning": "This Base URL must support the OpenAI Realtime WebSocket API. If it rejects realtime, this recording will use upload mode."
       },
       "engines": {
         "openai": "OpenAI",

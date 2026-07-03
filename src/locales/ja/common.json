@@ -57,7 +57,8 @@
       "start_failed": "録音の開始に失敗しました: {{message}}",
       "permission_denied": "マイクの権限がありません",
       "empty_recording": "録音結果が空です",
-      "system_capture_fallback": "システム音声のキャプチャに失敗したため、録音はマイクに戻りました: {{message}}"
+      "system_capture_fallback": "システム音声のキャプチャに失敗したため、録音はマイクに戻りました: {{message}}",
+      "realtime_upload_fallback": "リアルタイム文字起こしを使用できないため、この録音はアップロードモードで続行します: {{message}}"
     },
     "messages": {
       "default_title": "メッセージ #{{id}}"
@@ -76,6 +77,7 @@
       "search_placeholder": "文字起こしまたは翻訳を検索",
       "placeholder_search_empty": "一致する履歴がありません。",
       "new_conversation": "新しい会話 {{id}}",
+      "search_results": "検索結果",
       "actions": {
         "title": "会話操作",
         "share": "共有",
@@ -92,6 +94,28 @@
       "delete": {
         "title": "会話を削除しますか？",
         "message": "この会話と転写内容が削除されます。"
+      },
+      "folder": {
+        "root": "すべての会話",
+        "section": "フォルダー",
+        "back": "戻る",
+        "empty": "このフォルダーは空です。",
+        "add": "新しいフォルダー",
+        "new_folder": "新しいフォルダー {{id}}",
+        "actions_title": "フォルダー操作",
+        "open": "フォルダーを開く",
+        "rename_title": "フォルダー名を変更",
+        "rename_placeholder": "フォルダー名",
+        "delete_title": "フォルダーを削除しますか？",
+        "delete_message": "中にある {{folders}} 個のフォルダーと {{conversations}} 件の会話が削除されます。",
+        "colors": {
+          "blue": "青いフォルダー",
+          "green": "緑のフォルダー",
+          "orange": "オレンジのフォルダー",
+          "pink": "ピンクのフォルダー",
+          "purple": "紫のフォルダー",
+          "slate": "グレーのフォルダー"
+        }
       }
     },
     "export": {
@@ -424,7 +448,8 @@
         "upload_hint": "セグメントを録音してから文字起こしします",
         "realtime_hint": "音声をストリーミングしてライブ文字起こしします",
         "realtime_requires_openai": "リアルタイムには OpenAI エンジンが必要です。",
-        "native_fallback_notice": "このデバイスではリアルタイムストリーミングはまだ利用できません。アップロードモードを使用します。"
+        "native_fallback_notice": "このデバイスではリアルタイムストリーミングはまだ利用できません。アップロードモードを使用します。",
+        "custom_base_realtime_warning": "この Base URL は OpenAI Realtime WebSocket API に対応している必要があります。リアルタイム接続が拒否された場合、この録音はアップロードモードを使用します。"
       },
       "engines": {
         "openai": "OpenAI",

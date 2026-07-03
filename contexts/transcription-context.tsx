@@ -1300,11 +1300,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         logTranscriptionDebug('[transcription] Metering source', { source: nextSource });
         meteringSourceRef.current = nextSource;
       }
-      const status = createRecordingStatusFromRecorderStatus(recorderStatus, metering);
+      const status = createRecordingStatusFromRecorderStatus(
+        {
+          ...recorderStatus,
+          durationMillis: Math.max(recorderStatus.durationMillis ?? 0, getBestKnownDurationMs()),
+        },
+        metering
+      );
       handleStatusUpdateRef.current?.(status);
     }, 100);
     logTranscriptionDebug('[transcription] status interval started');
-  }, [buildFallbackRecordingStatus, recorder, sessionStateRef]);
+  }, [buildFallbackRecordingStatus, getBestKnownDurationMs, recorder, sessionStateRef]);
 
   const stopAndResetRecording = useCallback(async () => {
     if (statusIntervalRef.current) {
@@ -1625,40 +1631,53 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     try {
       const effectiveMode = resolveEffectiveTranscriptionMode(settingsRef.current);
       if (effectiveMode === 'realtime') {
-        const stream = Platform.OS === 'web' ? await requestRealtimeMediaStream() : null;
-        realtimeModeRef.current = true;
-        realtimeStreamRef.current = stream;
-        realtimeStartedAtRef.current = Date.now();
-        if (stream) {
-          attachRealtimeMeteringStream(stream);
-        }
-        const realtimeSession = new RealtimeTranscriptionSession(settingsRef.current, {
-          onDelta: handleRealtimeDelta,
-          onCompleted: handleRealtimeCompleted,
-          onError: (sessionError) => {
-            console.warn('[transcription] Realtime session error', sessionError);
-            setError(sessionError.message);
-          },
-          onOpen: () => undefined,
-          onClose: () => undefined,
-        });
-        realtimeSessionRef.current = realtimeSession;
-        await realtimeSession.connect();
-        realtimeCaptureRef.current = createPcmCapture(stream, (chunk) => {
-          if (Platform.OS !== 'web') {
-            realtimeNativeMeteringRef.current = pcm16Base64ToMeteringDb(chunk);
+        try {
+          const stream = Platform.OS === 'web' ? await requestRealtimeMediaStream() : null;
+          realtimeModeRef.current = true;
+          realtimeStreamRef.current = stream;
+          realtimeStartedAtRef.current = Date.now();
+          if (stream) {
+            attachRealtimeMeteringStream(stream);
           }
-          realtimeSessionRef.current?.appendAudio(chunk);
-        });
-        await realtimeCaptureRef.current.ready;
-        if (sessionIdRef.current !== nextSessionId) {
-          stopRealtimeResources();
+          const realtimeSession = new RealtimeTranscriptionSession(settingsRef.current, {
+            onDelta: handleRealtimeDelta,
+            onCompleted: handleRealtimeCompleted,
+            onError: (sessionError) => {
+              console.warn('[transcription] Realtime session error', sessionError);
+              setError(sessionError.message);
+            },
+            onOpen: () => undefined,
+            onClose: () => undefined,
+          });
+          realtimeSessionRef.current = realtimeSession;
+          await realtimeSession.connect();
+          realtimeCaptureRef.current = createPcmCapture(stream, (chunk) => {
+            if (Platform.OS !== 'web') {
+              realtimeNativeMeteringRef.current = pcm16Base64ToMeteringDb(chunk);
+            }
+            realtimeSessionRef.current?.appendAudio(chunk);
+          });
+          await realtimeCaptureRef.current.ready;
+          if (sessionIdRef.current !== nextSessionId) {
+            stopRealtimeResources();
+            return;
+          }
+          setSessionState('recording');
+          startRealtimeStatusPolling();
+          logTranscriptionDebug('[transcription] realtime recording started successfully');
           return;
+        } catch (realtimeStartError) {
+          console.warn('[transcription] Realtime startup failed; falling back to upload mode', realtimeStartError);
+          stopRealtimeResources();
+          if (sessionIdRef.current !== nextSessionId) {
+            return;
+          }
+          const message =
+            realtimeStartError instanceof Error
+              ? realtimeStartError.message
+              : String(realtimeStartError);
+          setError(t('transcription.errors.realtime_upload_fallback', { message }));
         }
-        setSessionState('recording');
-        startRealtimeStatusPolling();
-        logTranscriptionDebug('[transcription] realtime recording started successfully');
-        return;
       }
 
       const shouldRequestMicrophonePermission =
@@ -1841,15 +1860,6 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       });
       return;
     }
-    if (status.canRecord === false) {
-      void stopSession({
-        discardCurrentSegment: true,
-        cancelPendingTasks: true,
-        failureMessage: t('transcription.errors.start_failed', { message: 'canRecord=false' }),
-      });
-      return;
-    }
-
     const durationMs = status.durationMillis ?? 0;
     if (!status.isRecording && !status.isDoneRecording && durationMs <= 0) {
       logTranscriptionDebug('[transcription] handleStatusUpdate - skipping (not recording and duration=0)');

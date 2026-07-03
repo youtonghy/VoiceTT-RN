@@ -58,7 +58,16 @@ export type AppIconName =
   | 'volume-high'
   | 'wand-magic-sparkles'
   | 'wave-square';
-export const AppIcon = withUniwind(FontAwesome6);
+const UniWindFontAwesome6 = withUniwind(FontAwesome6);
+
+type AppIconProps = Omit<ComponentProps<typeof FontAwesome6>, 'name'> & {
+  name: AppIconName;
+  className?: string | null;
+};
+
+export function AppIcon({ className, ...props }: AppIconProps) {
+  return <UniWindFontAwesome6 {...props} className={className ?? null} />;
+}
 
 export function AppScreen({
   title,
@@ -353,7 +362,7 @@ export function FormInput({
       <Input
         autoCapitalize={autoCapitalize}
         autoCorrect={autoCorrect}
-        className={className || undefined}
+        {...(className ? { className } : {})}
         editable={editable}
         keyboardType={keyboardType}
         multiline={multiline}

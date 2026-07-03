@@ -177,7 +177,7 @@ export function ContextMenu({
                     <Text
                       type="body-sm"
                       weight="semibold"
-                      className={action.variant === "destructive" ? "text-danger" : undefined}
+                      {...(action.variant === "destructive" ? { className: "text-danger" } : {})}
                       style={[
                         styles.desktopMenuLabel,
                       ]}

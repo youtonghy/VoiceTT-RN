@@ -57,7 +57,8 @@
       "start_failed": "녹음 시작에 실패했습니다: {{message}}",
       "permission_denied": "마이크 권한이 없습니다",
       "empty_recording": "녹음 결과가 비어 있습니다",
-      "system_capture_fallback": "시스템 오디오 캡처에 실패해 녹음이 마이크로 전환되었습니다: {{message}}"
+      "system_capture_fallback": "시스템 오디오 캡처에 실패해 녹음이 마이크로 전환되었습니다: {{message}}",
+      "realtime_upload_fallback": "실시간 전사를 사용할 수 없어 이번 녹음은 업로드 모드로 진행합니다: {{message}}"
     },
     "messages": {
       "default_title": "메시지 #{{id}}"
@@ -76,6 +77,7 @@
       "search_placeholder": "전사 또는 번역 검색",
       "placeholder_search_empty": "일치하는 기록이 없습니다.",
       "new_conversation": "새 대화 {{id}}",
+      "search_results": "검색 결과",
       "actions": {
         "title": "대화 작업",
         "share": "공유",
@@ -92,6 +94,28 @@
       "delete": {
         "title": "대화를 삭제할까요?",
         "message": "이 대화와 전사 내용이 삭제됩니다."
+      },
+      "folder": {
+        "root": "모든 대화",
+        "section": "폴더",
+        "back": "뒤로",
+        "empty": "이 폴더는 비어 있습니다.",
+        "add": "새 폴더",
+        "new_folder": "새 폴더 {{id}}",
+        "actions_title": "폴더 작업",
+        "open": "폴더 열기",
+        "rename_title": "폴더 이름 변경",
+        "rename_placeholder": "폴더 이름",
+        "delete_title": "폴더를 삭제할까요?",
+        "delete_message": "안에 있는 폴더 {{folders}}개와 대화 {{conversations}}개가 삭제됩니다.",
+        "colors": {
+          "blue": "파란색 폴더",
+          "green": "초록색 폴더",
+          "orange": "주황색 폴더",
+          "pink": "분홍색 폴더",
+          "purple": "보라색 폴더",
+          "slate": "회색 폴더"
+        }
       }
     },
     "export": {
@@ -424,7 +448,8 @@
         "upload_hint": "구간을 녹음한 뒤 전사합니다",
         "realtime_hint": "오디오를 스트리밍하여 실시간으로 전사합니다",
         "realtime_requires_openai": "실시간 모드는 OpenAI 엔진이 필요합니다.",
-        "native_fallback_notice": "이 기기에서는 아직 실시간 스트리밍을 사용할 수 없습니다. 업로드 모드를 사용합니다."
+        "native_fallback_notice": "이 기기에서는 아직 실시간 스트리밍을 사용할 수 없습니다. 업로드 모드를 사용합니다.",
+        "custom_base_realtime_warning": "이 Base URL은 OpenAI Realtime WebSocket API를 지원해야 합니다. 실시간 연결이 거부되면 이번 녹음은 업로드 모드를 사용합니다."
       },
       "engines": {
         "openai": "OpenAI",

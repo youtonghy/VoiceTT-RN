@@ -57,7 +57,8 @@
       "start_failed": "No se pudo iniciar la grabación: {{message}}",
       "permission_denied": "Permiso de micrófono no concedido",
       "empty_recording": "El resultado de la grabación está vacío",
-      "system_capture_fallback": "La captura de audio del sistema falló, así que la grabación volvió al micrófono: {{message}}"
+      "system_capture_fallback": "La captura de audio del sistema falló, así que la grabación volvió al micrófono: {{message}}",
+      "realtime_upload_fallback": "La transcripción en tiempo real no está disponible, así que esta grabación usará el modo de carga: {{message}}"
     },
     "messages": {
       "default_title": "Mensaje #{{id}}"
@@ -76,6 +77,7 @@
       "search_placeholder": "Buscar transcripciones o traducciones",
       "placeholder_search_empty": "No hay historial coincidente.",
       "new_conversation": "Nueva conversación {{id}}",
+      "search_results": "Resultados de búsqueda",
       "actions": {
         "title": "Acciones de conversación",
         "share": "Compartir",
@@ -92,6 +94,28 @@
       "delete": {
         "title": "¿Eliminar conversación?",
         "message": "Se eliminará la conversación y su transcripción."
+      },
+      "folder": {
+        "root": "Todas las conversaciones",
+        "section": "Carpetas",
+        "back": "Volver",
+        "empty": "Esta carpeta está vacía.",
+        "add": "Nueva carpeta",
+        "new_folder": "Nueva carpeta {{id}}",
+        "actions_title": "Acciones de carpeta",
+        "open": "Abrir carpeta",
+        "rename_title": "Renombrar carpeta",
+        "rename_placeholder": "Nombre de carpeta",
+        "delete_title": "¿Eliminar carpeta?",
+        "delete_message": "Se eliminarán {{folders}} carpetas y {{conversations}} conversaciones dentro.",
+        "colors": {
+          "blue": "Carpeta azul",
+          "green": "Carpeta verde",
+          "orange": "Carpeta naranja",
+          "pink": "Carpeta rosa",
+          "purple": "Carpeta morada",
+          "slate": "Carpeta gris"
+        }
       }
     },
     "export": {
@@ -424,7 +448,8 @@
         "upload_hint": "Graba segmentos y luego transcribe",
         "realtime_hint": "Transmite audio para transcripción en vivo",
         "realtime_requires_openai": "El modo en tiempo real requiere el motor de OpenAI.",
-        "native_fallback_notice": "La transcripción en tiempo real aún no está disponible en este dispositivo. Se usará el modo de carga."
+        "native_fallback_notice": "La transcripción en tiempo real aún no está disponible en este dispositivo. Se usará el modo de carga.",
+        "custom_base_realtime_warning": "Esta URL base debe admitir la API WebSocket Realtime de OpenAI. Si rechaza la conexión en tiempo real, esta grabación usará el modo de carga."
       },
       "engines": {
         "openai": "OpenAI",

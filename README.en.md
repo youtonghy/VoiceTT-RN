@@ -16,8 +16,8 @@ Before using it, make sure you have consent to record/process audio and comply w
 - Optional translation with configurable target language and engines
 - Conversation-level title/summary generation for fast review
 - QA extraction: automatic or manual analysis for completed transcript segments
-- History browsing: day grouping, search, conversation switching, and continuing sessions
-- Credentials management: API keys/base URLs/model names stored securely (falls back to unencrypted storage on web)
+- History browsing: folder/nested-folder organization, search, conversation switching, and continuing sessions
+- Credentials management: API keys/base URLs stored securely (falls back to unencrypted storage on web); model names live in their workflow settings
 - Internationalization (i18n) via `i18next`, locale resources in `src/locales`
 
 ### Architecture
@@ -40,7 +40,7 @@ bun install
 bunx expo start
 ```
 
-Configure engine API keys / base URLs / model names in Settings -> Credentials.
+Configure engine API keys / base URLs in Settings -> Credentials. Configure transcription, translation, summary, Q&A, and TTS models in their own settings pages.
 
 ### Desktop (Windows/macOS + Electron)
 
@@ -59,6 +59,8 @@ Static build + preview:
 bun run desktop:build
 bun run desktop:start
 ```
+
+`bun run desktop:build` regenerates the Expo web renderer used by Electron; after UI, routing, or web behavior changes, rebuild before previewing.
 
 Set `EXPO_WEB_PORT` to override the dev server port (default 19006).
 

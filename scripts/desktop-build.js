@@ -15,6 +15,12 @@ const expoCommand = path.join(
 const stubDir = path.join(rootDir, 'node_modules', 'fsevents');
 let createdStub = false;
 
+function cleanBuildArtifacts() {
+  for (const directory of ['web-build', 'dist']) {
+    fs.rmSync(path.join(rootDir, directory), { recursive: true, force: true });
+  }
+}
+
 function ensureFseventsStub() {
   if (process.platform !== 'win32') {
     return;
@@ -70,6 +76,8 @@ function runCommand(command, args, options = {}) {
 async function main() {
   ensureFseventsStub();
   try {
+    cleanBuildArtifacts();
+
     await runCommand(expoCommand, ['export', '--platform', 'web', '--output-dir', 'web-build'], {
       cwd: rootDir,
     });
