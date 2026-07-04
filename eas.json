@@ -17,14 +17,6 @@
     "production": {
       "autoIncrement": true
     },
-    "test_ipa": {
-      "extends": "production",
-      "distribution": "internal",
-      "ios": {
-        "buildConfiguration": "Release",
-        "credentialsSource": "local"
-      }
-    },
     "production_apk": {
       "extends": "production",
       "android": {

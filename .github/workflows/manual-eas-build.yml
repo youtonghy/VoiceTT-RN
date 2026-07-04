@@ -147,8 +147,6 @@ jobs:
     needs: prepare_release
     runs-on: macos-latest
     env:
-      EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
-      EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
       RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
     steps:
       - name: Checkout
@@ -165,63 +163,52 @@ jobs:
       - name: Install dependencies
         run: bun ci
 
-      - name: Restore local iOS signing credentials
-        env:
-          EAS_LOCAL_CREDENTIALS_JSON: ${{ secrets.EAS_LOCAL_CREDENTIALS_JSON }}
+      - name: Generate iOS native project
+        run: bunx expo prebuild --platform ios --clean --non-interactive
+
+      - name: Install CocoaPods
+        run: pod install --project-directory=ios
+
+      - name: Build unsigned iOS/iPadOS archive
         run: |
-          if [ -n "$EAS_LOCAL_CREDENTIALS_JSON" ]; then
-            printf '%s' "$EAS_LOCAL_CREDENTIALS_JSON" > credentials.json
-          else
-            echo "No EAS_LOCAL_CREDENTIALS_JSON secret provided; using credentials.json from checkout if present."
-          fi
+          set -euo pipefail
 
-      - name: Build iOS/iPadOS test IPA locally
-        run: bunx eas-cli build --platform ios --profile test_ipa --non-interactive --local
+          ARCHIVE_ROOT="build/ios-unsigned"
+          ARCHIVE_PATH="$ARCHIVE_ROOT/VoiceTT.xcarchive"
+          APP_PATH="$ARCHIVE_PATH/Products/Applications/VoiceTT.app"
+          IPA_ROOT="artifacts/ios-unsigned-ipa"
 
-      - name: Locate iOS artifact
-        id: find_ios_artifact
-        run: |
-          find_latest() {
-            python3 - "$@" <<'PY'
-          import pathlib, sys
-
-          root = pathlib.Path(sys.argv[1])
-          exts = sys.argv[2:]
-          paths = [p for ext in exts for p in root.rglob(f'*{ext}')]
-          print(max(paths, key=lambda p: p.stat().st_mtime).resolve() if paths else "")
-          PY
-          }
-
+          rm -rf "$ARCHIVE_ROOT" "$IPA_ROOT"
           mkdir -p artifacts
 
-          ARTIFACT=$(find_latest "." .ipa)
+          xcodebuild \
+            -workspace ios/VoiceTT.xcworkspace \
+            -scheme VoiceTT \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$ARCHIVE_PATH" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
+            archive
 
-          if [ -z "$ARTIFACT" ]; then
-            TAR=$(find_latest "." .tar.gz)
-            if [ -n "$TAR" ]; then
-              echo "Extracting $TAR to locate iOS artifact"
-              TMPDIR=$(mktemp -d)
-              tar -xzf "$TAR" -C "$TMPDIR"
-              INNER=$(find_latest "$TMPDIR" .ipa)
-              if [ -n "$INNER" ]; then
-                DEST="artifacts/$(basename "$INNER")"
-                cp "$INNER" "$DEST"
-                ARTIFACT="$DEST"
-              fi
-            fi
-          fi
-
-          if [ -z "$ARTIFACT" ]; then
-            echo "No iOS artifact found"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Unsigned app bundle was not produced at $APP_PATH"
             exit 1
           fi
-          echo "path=$ARTIFACT" >> "$GITHUB_OUTPUT"
-          ls -lh "$ARTIFACT"
 
-      - name: Upload iOS artifact to draft release
+          mkdir -p "$IPA_ROOT/Payload"
+          cp -R "$APP_PATH" "$IPA_ROOT/Payload/"
+          (cd "$IPA_ROOT" && zip -qry ../VoiceTT-ios-unsigned.ipa Payload)
+          tar -czf artifacts/VoiceTT-ios-unsigned.xcarchive.tar.gz -C "$ARCHIVE_ROOT" VoiceTT.xcarchive
+          ls -lh artifacts/VoiceTT-ios-unsigned.ipa artifacts/VoiceTT-ios-unsigned.xcarchive.tar.gz
+
+      - name: Upload unsigned iOS artifacts to draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$RELEASE_TAG" "${{ steps.find_ios_artifact.outputs.path }}" --clobber
+        run: gh release upload "$RELEASE_TAG" artifacts/VoiceTT-ios-unsigned.ipa artifacts/VoiceTT-ios-unsigned.xcarchive.tar.gz --clobber
 
   desktop_windows:
     needs: prepare_release
