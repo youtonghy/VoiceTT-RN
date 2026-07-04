@@ -150,7 +150,7 @@ jobs:
 
   ios:
     needs: prepare_release
-    runs-on: macos-26-xlarge
+    runs-on: macos-26
     env:
       RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
     steps:
