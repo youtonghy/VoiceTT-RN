@@ -39,7 +39,8 @@ function copyFileSync(source, destination) {
 }
 
 function addIosSourceFile(project, projectName, filename) {
-  if (project.hasFile(filename)) {
+  const projectFilePath = `${projectName}/${filename}`;
+  if (project.hasFile(projectFilePath)) {
     return;
   }
   const target = project.getTarget('com.apple.product-type.application');
@@ -47,7 +48,7 @@ function addIosSourceFile(project, projectName, filename) {
     throw new Error('Unable to find iOS application target for realtime audio module');
   }
   addBuildSourceFileToGroup({
-    filepath: filename,
+    filepath: projectFilePath,
     groupName: projectName,
     project,
     targetUuid: target.uuid,
