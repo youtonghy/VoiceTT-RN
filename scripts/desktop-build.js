@@ -3,8 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
-const bunxCommand = process.platform === 'win32' ? 'bunx.cmd' : 'bunx';
-const useShell = process.platform === 'win32';
+const bunCommand = process.execPath;
 
 const stubDir = path.join(rootDir, 'node_modules', 'fsevents');
 let createdStub = false;
@@ -52,7 +51,6 @@ function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       ...options,
-      shell: useShell,
       stdio: 'inherit',
     });
 
@@ -72,7 +70,7 @@ async function main() {
   try {
     cleanBuildArtifacts();
 
-    await runCommand(bunxCommand, ['expo', 'export', '--platform', 'web', '--output-dir', 'web-build'], {
+    await runCommand(bunCommand, ['x', 'expo', 'export', '--platform', 'web', '--output-dir', 'web-build'], {
       cwd: rootDir,
     });
 
@@ -81,7 +79,7 @@ async function main() {
       env.ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES = 'true';
     }
 
-    await runCommand(bunxCommand, ['electron-builder', '--publish', 'never'], {
+    await runCommand(bunCommand, ['x', 'electron-builder', '--publish', 'never'], {
       cwd: rootDir,
       env,
     });
