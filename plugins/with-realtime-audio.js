@@ -5,6 +5,7 @@ const {
   IOSConfig,
   withDangerousMod,
   withAndroidManifest,
+  withStringsXml,
   withMainApplication,
   withXcodeProject,
 } = require('expo/config-plugins');
@@ -21,6 +22,16 @@ const ANDROID_MODULE_FILE = `${MODULE_NAME}.kt`;
 const ANDROID_PACKAGE_FILE = 'RealtimeAudioPackage.kt';
 const ANDROID_SERVICE_FILE = 'RealtimeAudioForegroundService.kt';
 const ANDROID_SERVICE_NAME = `${ANDROID_PACKAGE}.RealtimeAudioForegroundService`;
+const ANDROID_NOTIFICATION_STRINGS = [
+  {
+    $: { name: 'realtime_audio_notification_title' },
+    _: 'VoiceTT recording audio',
+  },
+  {
+    $: { name: 'realtime_audio_notification_body' },
+    _: 'Realtime transcription is running.',
+  },
+];
 
 function copyFileSync(source, destination) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
@@ -126,6 +137,14 @@ function withRealtimeAudioAndroid(config) {
         },
       });
     }
+    return config;
+  });
+
+  config = withStringsXml(config, (config) => {
+    config.modResults = AndroidConfig.Strings.setStringItem(
+      ANDROID_NOTIFICATION_STRINGS,
+      config.modResults
+    );
     return config;
   });
 
