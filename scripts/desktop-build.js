@@ -5,12 +5,6 @@ const path = require('path');
 const rootDir = path.resolve(__dirname, '..');
 const bunxCommand = process.platform === 'win32' ? 'bunx.cmd' : 'bunx';
 const useShell = process.platform === 'win32';
-const expoCommand = path.join(
-  rootDir,
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'expo.cmd' : 'expo'
-);
 
 const stubDir = path.join(rootDir, 'node_modules', 'fsevents');
 let createdStub = false;
@@ -78,7 +72,7 @@ async function main() {
   try {
     cleanBuildArtifacts();
 
-    await runCommand(expoCommand, ['export', '--platform', 'web', '--output-dir', 'web-build'], {
+    await runCommand(bunxCommand, ['expo', 'export', '--platform', 'web', '--output-dir', 'web-build'], {
       cwd: rootDir,
     });
 
