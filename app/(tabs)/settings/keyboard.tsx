@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Text } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { ActionCard, AppCard, AppIcon, AppScreen, type AppIconName } from '@/components/native/app-shell';
 
 const WEBSITE_URL = 'https://vtt.tokisantike.net/zh-CN/keyboard';

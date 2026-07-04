@@ -18,6 +18,7 @@ import {
   DEFAULT_OPENAI_TITLE_MODEL,
   DEFAULT_OPENAI_TTS_MODEL,
 } from '@/types/settings';
+import { resolveOpenAICompatibleUrl } from '@/services/openai-url';
 
 export type ModelCatalogProvider = 'openai' | 'gemini' | 'qwen' | 'glm';
 export type RemoteModelCatalogProvider = 'openai' | 'gemini';
@@ -151,14 +152,7 @@ export async function fetchProviderModels({
 }
 
 export function resolveOpenAICompatibleModelsUrl(input: string): string {
-  const trimmed = input.trim().replace(/\/+$/, '') || DEFAULT_OPENAI_BASE_URL;
-  if (/\/models$/i.test(trimmed)) {
-    return trimmed;
-  }
-  if (/\/v\d+(?:beta)?$/i.test(trimmed)) {
-    return `${trimmed}/models`;
-  }
-  return `${trimmed}/v1/models`;
+  return resolveOpenAICompatibleUrl(input || DEFAULT_OPENAI_BASE_URL, '/models');
 }
 
 function uniqueModelOptions(values: string[]) {

@@ -37,7 +37,8 @@
       "copy_transcript": "复制原文",
       "copy_translation": "复制译文",
       "read_transcript": "朗读原文",
-      "read_translation": "朗读译文"
+      "read_translation": "朗读译文",
+      "retry_segment": "重试分段"
     },
     "controls": {
       "start": "开始录音",
@@ -57,7 +58,14 @@
       "start_failed": "启动录音失败: {{message}}",
       "permission_denied": "麦克风权限未授权",
       "empty_recording": "录音结果为空",
-      "system_capture_fallback": "系统声音捕获失败，已回退到麦克风录音：{{message}}",
+      "system_capture_failed": "系统声音捕获失败：{{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "屏幕与系统声音权限被拒绝",
+        "no_display_source": "没有可用于环回捕获的屏幕来源",
+        "no_audio_track": "所选屏幕来源没有提供系统声音轨道",
+        "unavailable": "当前桌面运行环境不支持系统声音捕获",
+        "unknown": "桌面捕获请求失败"
+      },
       "realtime_upload_fallback": "实时转写不可用，本次录音已改用上传模式：{{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "分享",
         "copy": "复制",
         "rename": "重命名",
+        "move": "移动",
         "generate_title": "生成标题",
         "delete": "删除"
       },
@@ -95,6 +104,10 @@
         "title": "删除对话？",
         "message": "将移除此对话及其转写内容。"
       },
+      "move": {
+        "title": "移动到文件夹",
+        "no_targets": "没有可用的目标位置。"
+      },
       "folder": {
         "root": "全部对话",
         "section": "文件夹",
@@ -104,6 +117,7 @@
         "new_folder": "新文件夹{{id}}",
         "actions_title": "文件夹操作",
         "open": "打开文件夹",
+        "color_menu": "文件夹颜色",
         "rename_title": "重命名文件夹",
         "rename_placeholder": "文件夹名称",
         "delete_title": "删除文件夹？",
@@ -686,7 +700,8 @@
       "actions": {
         "activate": "激活 / 切换",
         "sync_time": "联网校时",
-        "clear": "清除授权"
+        "clear": "清除授权",
+        "copy_device_uid": "复制设备 UID"
       },
       "placeholders": {
         "license_code": "输入激活码（LIC1.xxx）"
@@ -704,5 +719,9 @@
         "sync_failed": "校时失败：{{message}}"
       }
     }
+  },
+  "history_storage": {
+    "read_only": "历史存储来自更新版本的应用。更新应用前，此页面将以只读模式打开。",
+    "load_failed": "无法加载历史存储。为保护现有历史，已禁用编辑。"
   }
 }

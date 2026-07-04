@@ -1,4 +1,4 @@
-import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
+import { resolveOpenAICompatibleUrl } from '@/services/openai-url';
 import { validateApiKey, validateModelName } from '@/services/input-validation';
 import {
   AppSettings,
@@ -37,6 +37,7 @@ const MAX_TTS_INPUT_CHARS = 4000;
 const MIN_TTS_INPUT_CHARS = 1;
 const MIN_TTS_SPEED = 0.25;
 const MAX_TTS_SPEED = 4;
+const DEFAULT_TTS_TIMEOUT_MS = 60000;
 const GEMINI_TTS_SAMPLE_RATE = 24000;
 const GEMINI_TTS_CHANNELS = 1;
 const GEMINI_TTS_BITS_PER_SAMPLE = 16;
@@ -51,9 +52,12 @@ const BASE64_LOOKUP = (() => {
   return table;
 })();
 
-function resolveOpenAIBaseUrl(settings: AppSettings): string {
-  const baseUrl = settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
-  return baseUrl.replace(/\/$/, '');
+function resolveOpenAIUrl(settings: AppSettings, path: string): string {
+  return resolveOpenAICompatibleUrl(settings.credentials.openaiBaseUrl, path);
+}
+
+function maskSecret(value: string, secret: string): string {
+  return value.split(secret).join('[REDACTED]');
 }
 
 function resolveMimeType(format: TextToSpeechFormat): string {
@@ -120,10 +124,26 @@ function normalizeSpeed(speed?: number): number | undefined {
 }
 
 export async function synthesizeSpeech(options: TextToSpeechOptions): Promise<TextToSpeechResult> {
-  if (options.settings.ttsEngine === 'gemini') {
-    return synthesizeSpeechWithGemini(options);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TTS_TIMEOUT_MS);
+  const abortFromCaller = () => timeoutController.abort();
+  if (options.signal) {
+    if (options.signal.aborted) {
+      timeoutController.abort();
+    } else {
+      options.signal.addEventListener('abort', abortFromCaller, { once: true });
+    }
   }
-  return synthesizeSpeechWithOpenAI(options);
+  const nextOptions = { ...options, signal: timeoutController.signal };
+  try {
+    if (options.settings.ttsEngine === 'gemini') {
+      return await synthesizeSpeechWithGemini(nextOptions);
+    }
+    return await synthesizeSpeechWithOpenAI(nextOptions);
+  } finally {
+    clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', abortFromCaller);
+  }
 }
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -309,7 +329,7 @@ async function synthesizeSpeechWithOpenAI(
     payload.speed = speed;
   }
 
-  const url = `${resolveOpenAIBaseUrl(options.settings)}/v1/audio/speech`;
+  const url = resolveOpenAIUrl(options.settings, '/audio/speech');
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -382,11 +402,12 @@ async function synthesizeSpeechWithGemini(
     payload.systemInstruction = { parts: [{ text: prompt }] };
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal: options.signal,
@@ -394,7 +415,7 @@ async function synthesizeSpeechWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini TTS failed: ' + (safeError || response.statusText));
   }
 

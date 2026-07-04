@@ -7,13 +7,13 @@ import {
 import { deleteAsync } from 'expo-file-system/legacy';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, Spinner, useThemeColor } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { AppIcon } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
 import { transcribeSegment, type TranscriptionSegmentPayload } from '@/services/transcription';

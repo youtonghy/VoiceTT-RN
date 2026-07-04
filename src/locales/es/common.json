@@ -37,7 +37,8 @@
       "copy_transcript": "Copiar transcripción",
       "copy_translation": "Copiar traducción",
       "read_transcript": "Leer transcripción en voz alta",
-      "read_translation": "Leer traducción en voz alta"
+      "read_translation": "Leer traducción en voz alta",
+      "retry_segment": "Reintentar segmento"
     },
     "controls": {
       "start": "Iniciar grabación",
@@ -57,7 +58,14 @@
       "start_failed": "No se pudo iniciar la grabación: {{message}}",
       "permission_denied": "Permiso de micrófono no concedido",
       "empty_recording": "El resultado de la grabación está vacío",
-      "system_capture_fallback": "La captura de audio del sistema falló, así que la grabación volvió al micrófono: {{message}}",
+      "system_capture_failed": "La captura de audio del sistema falló: {{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "Se denegó el permiso de pantalla y audio del sistema",
+        "no_display_source": "No había una fuente de pantalla disponible para la captura loopback",
+        "no_audio_track": "La fuente de pantalla seleccionada no proporcionó una pista de audio del sistema",
+        "unavailable": "La captura de audio del sistema no está disponible en este entorno de escritorio",
+        "unknown": "La solicitud de captura de escritorio falló"
+      },
       "realtime_upload_fallback": "La transcripción en tiempo real no está disponible, así que esta grabación usará el modo de carga: {{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "Compartir",
         "copy": "Copiar",
         "rename": "Renombrar",
+        "move": "Mover",
         "generate_title": "Generar título",
         "delete": "Eliminar"
       },
@@ -95,6 +104,10 @@
         "title": "¿Eliminar conversación?",
         "message": "Se eliminará la conversación y su transcripción."
       },
+      "move": {
+        "title": "Mover a carpeta",
+        "no_targets": "No hay destinos disponibles."
+      },
       "folder": {
         "root": "Todas las conversaciones",
         "section": "Carpetas",
@@ -104,6 +117,7 @@
         "new_folder": "Nueva carpeta {{id}}",
         "actions_title": "Acciones de carpeta",
         "open": "Abrir carpeta",
+        "color_menu": "Color de carpeta",
         "rename_title": "Renombrar carpeta",
         "rename_placeholder": "Nombre de carpeta",
         "delete_title": "¿Eliminar carpeta?",
@@ -652,7 +666,8 @@
       "actions": {
         "activate": "Activar / Reemplazar",
         "sync_time": "Sincronizar hora",
-        "clear": "Eliminar licencia"
+        "clear": "Eliminar licencia",
+        "copy_device_uid": "Copiar UID del dispositivo"
       },
       "placeholders": {
         "license_code": "Ingresa el código (LIC1.xxx)"
@@ -669,6 +684,44 @@
         "activation_failed": "Fallo de activación: {{message}}",
         "sync_failed": "Fallo al sincronizar la hora: {{message}}"
       }
+    },
+    "keyboard": {
+      "title": "Recomendado: VoiceTT-Keyboard",
+      "subtitle": "Un asistente de dictado para escritorio con atajos globales, transcripción instantánea y acciones de texto con IA.",
+      "free_badge": "Totalmente gratis, sin anuncios",
+      "free_description": "VoiceTT-Keyboard es gratuito y no contiene publicidad.",
+      "overview_title": "Qué hace",
+      "overview_body": "Mantén pulsado tu atajo en cualquier app, habla y suelta para transcribir e insertar texto directamente en la posición del cursor.",
+      "features_title": "Destacados",
+      "features": {
+        "global_input": {
+          "title": "Entrada de voz con atajo global",
+          "body": "Úsalo en editores, chats, documentos y terminales sin cambiar de ventana."
+        },
+        "multi_engine": {
+          "title": "Transcripción multi motor",
+          "body": "Admite varios backends de reconocimiento para elegir velocidad, calidad y perfil de privacidad."
+        },
+        "ai_cards": {
+          "title": "Tarjetas de activación IA",
+          "body": "Usa comandos de voz para ejecutar plantillas de prompt e insertar automáticamente una salida pulida."
+        }
+      },
+      "links_title": "Enlaces",
+      "links": {
+        "website": {
+          "label": "Sitio oficial"
+        },
+        "repository": {
+          "label": "Repositorio de GitHub"
+        }
+      },
+      "open_link_error_title": "No se pudo abrir el enlace",
+      "open_link_error_body": "Inténtalo de nuevo más tarde."
     }
+  },
+  "history_storage": {
+    "read_only": "El historial se creó con una versión más reciente de la app. Esta página queda en modo de solo lectura hasta actualizar.",
+    "load_failed": "No se pudo cargar el historial. La edición está desactivada para proteger el historial existente."
   }
 }

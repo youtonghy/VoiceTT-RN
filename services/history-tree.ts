@@ -129,6 +129,33 @@ export function sanitizeAssistantMessages(
   return sanitized;
 }
 
+function sanitizeTranscriptionMessages(raw: unknown): TranscriptionMessage[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((message): message is TranscriptionMessage => {
+      if (!message || typeof message !== "object") {
+        return false;
+      }
+      const candidate = message as Partial<TranscriptionMessage>;
+      return (
+        typeof candidate.id === "number" &&
+        Number.isFinite(candidate.id) &&
+        typeof candidate.title === "string" &&
+        (candidate.status === "pending" ||
+          candidate.status === "transcribing" ||
+          candidate.status === "completed" ||
+          candidate.status === "failed") &&
+        typeof candidate.createdAt === "number" &&
+        Number.isFinite(candidate.createdAt) &&
+        typeof candidate.updatedAt === "number" &&
+        Number.isFinite(candidate.updatedAt)
+      );
+    })
+    .map((message) => ({ ...message }));
+}
+
 export function sanitizeHistoryConversation(
   raw: unknown,
   createAssistantId: (role: "user" | "assistant") => string,
@@ -157,14 +184,7 @@ export function sanitizeHistoryConversation(
       typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
         ? candidate.createdAt
         : Date.now(),
-    messages: Array.isArray(candidate.messages)
-      ? candidate.messages
-          .filter(
-            (message): message is TranscriptionMessage =>
-              !!message && typeof message === "object"
-          )
-          .map((message) => ({ ...message }))
-      : [],
+    messages: sanitizeTranscriptionMessages(candidate.messages),
     assistantMessages: sanitizeAssistantMessages(candidate.assistantMessages, createAssistantId),
     ttsMessages: Array.isArray(candidate.ttsMessages)
       ? candidate.ttsMessages
@@ -264,7 +284,7 @@ export function normalizeHistoryTree(tree: HistoryTreeState): HistoryTreeState {
   });
 
   Object.values(nodes).forEach((node) => {
-    if (node.parentId && !nodes[node.parentId]) {
+    if (node.parentId && (!nodes[node.parentId] || nodes[node.parentId].kind !== "folder")) {
       node.parentId = null;
     }
     if (node.kind === "folder" && node.parentId && isDescendantOf(nodes, node.parentId, node.id)) {

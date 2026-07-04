@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { Button, Spinner, Text } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { AppIcon, AppScreen, FormInput, type AppIconName } from '@/components/native/app-shell';
 import {
   getModelSelectOptions,

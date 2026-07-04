@@ -137,7 +137,6 @@ const TIME_ENDPOINTS: TrustedTimeEndpoint[] = [
 
 const PUBLIC_KEY_TOML_ASSET = require('../pro-public.toml');
 let cachedPublicKey: Uint8Array | null = null;
-let cachedPublicKeyError: Error | null = null;
 let cachedSecureStoreAvailable: boolean | null = null;
 
 export type LicensePayload = {
@@ -215,13 +214,14 @@ function parsePayload(payloadSegment: string): LicensePayload {
 
 function validatePayload(payload: LicensePayload) {
   const isLifetime = payload.isLifetime === true || payload.exp === 0;
+  const isFirstUse = payload.bindMode === 'first_use';
   if (payload.v !== 1) {
     throw new Error('Unsupported license version');
   }
   if (payload.product !== PRODUCT_ID) {
     throw new Error('Invalid product');
   }
-  if (!payload.deviceUid || typeof payload.deviceUid !== 'string') {
+  if (!isFirstUse && (!payload.deviceUid || typeof payload.deviceUid !== 'string')) {
     throw new Error('Device binding required');
   }
   if (!isLifetime && !ALLOWED_DAYS.has(payload.planDays)) {
@@ -357,17 +357,13 @@ async function getPublicKeyBytes(): Promise<Uint8Array> {
     cachedPublicKey = normalizePublicKeyBytes(cachedPublicKey);
     return cachedPublicKey;
   }
-  if (cachedPublicKeyError) {
-    throw cachedPublicKeyError;
-  }
   try {
     const content = await readPublicKeyToml();
     const keyBase64Url = parsePublicKeyFromToml(content);
     cachedPublicKey = normalizePublicKeyBytes(base64UrlToBytes(keyBase64Url));
     return cachedPublicKey;
   } catch (error) {
-    cachedPublicKeyError = error instanceof Error ? error : new Error(String(error));
-    throw cachedPublicKeyError;
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 
@@ -484,14 +480,15 @@ export async function activateProLicense(code: string): Promise<StoredLicense> {
   if (!isLifetime && expMs !== null && trustedNow > expMs) {
     throw new Error('LICENSE_EXPIRED');
   }
-  if (payload.deviceUid !== deviceUid) {
+  const isFirstUse = payload.bindMode === 'first_use';
+  if (!isFirstUse && payload.deviceUid !== deviceUid) {
     throw new Error('DEVICE_MISMATCH');
   }
 
   const stored: StoredLicense = {
     code,
     payload,
-    boundDeviceUid: payload.deviceUid,
+    boundDeviceUid: isFirstUse ? deviceUid : payload.deviceUid ?? undefined,
     activatedAtTrustedMs: trustedNow,
   };
   await storageSet(LICENSE_KEY, JSON.stringify(stored));
@@ -514,15 +511,35 @@ export async function clearProLicense(): Promise<void> {
   await storageDelete(LICENSE_KEY);
 }
 
+async function verifiedStoredLicense(stored: StoredLicense): Promise<StoredLicense> {
+  if (!stored.code) {
+    throw new Error('Missing signed license code');
+  }
+  const { payloadSegment, signatureSegment } = parseLicense(stored.code);
+  await verifySignature(payloadSegment, signatureSegment);
+  const payload = parsePayload(payloadSegment);
+  validatePayload(payload);
+  return {
+    ...stored,
+    payload,
+    boundDeviceUid:
+      payload.bindMode === 'first_use'
+        ? stored.boundDeviceUid
+        : payload.deviceUid ?? stored.boundDeviceUid,
+  };
+}
+
 export async function getProStatus(): Promise<ProStatus> {
-  const stored = await getStoredLicense();
-  if (!stored) {
+  const rawStored = await getStoredLicense();
+  if (!rawStored) {
     return { isActive: false, reason: 'no_license' };
   }
+  let stored: StoredLicense;
   try {
-    validatePayload(stored.payload);
+    stored = await verifiedStoredLicense(rawStored);
   } catch {
-    return { isActive: false, reason: 'invalid', payload: stored.payload };
+    await storageDelete(LICENSE_KEY).catch(() => undefined);
+    return { isActive: false, reason: 'invalid', payload: rawStored.payload };
   }
 
   let trustedNow: number;
@@ -551,7 +568,9 @@ export async function getProStatus(): Promise<ProStatus> {
   }
 
   const deviceUid = await getDeviceUid();
-  if (stored.payload.deviceUid !== deviceUid) {
+  const boundDeviceUid =
+    stored.payload.bindMode === 'first_use' ? stored.boundDeviceUid : stored.payload.deviceUid;
+  if (boundDeviceUid !== deviceUid) {
     return { isActive: false, reason: 'device_mismatch', payload: stored.payload, expiresAtMs: expMs ?? undefined };
   }
 
@@ -561,6 +580,6 @@ export async function getProStatus(): Promise<ProStatus> {
     payload: stored.payload,
     expiresAtMs: expMs ?? undefined,
     trustedNowMs: trustedNow,
-    boundDeviceUid: stored.boundDeviceUid,
+    boundDeviceUid,
   };
 }

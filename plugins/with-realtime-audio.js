@@ -4,6 +4,7 @@ const {
   AndroidConfig,
   IOSConfig,
   withDangerousMod,
+  withAndroidManifest,
   withMainApplication,
   withXcodeProject,
 } = require('expo/config-plugins');
@@ -18,6 +19,8 @@ const IOS_BRIDGE_FILE = `${MODULE_NAME}.m`;
 const ANDROID_PACKAGE = 'com.unbaked0692.vtt.realtimeaudio';
 const ANDROID_MODULE_FILE = `${MODULE_NAME}.kt`;
 const ANDROID_PACKAGE_FILE = 'RealtimeAudioPackage.kt';
+const ANDROID_SERVICE_FILE = 'RealtimeAudioForegroundService.kt';
+const ANDROID_SERVICE_NAME = `${ANDROID_PACKAGE}.RealtimeAudioForegroundService`;
 
 function copyFileSync(source, destination) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
@@ -74,7 +77,11 @@ function withRealtimeAudioIos(config) {
 }
 
 function withRealtimeAudioAndroid(config) {
-  config = AndroidConfig.Permissions.withPermissions(config, ['android.permission.RECORD_AUDIO']);
+  config = AndroidConfig.Permissions.withPermissions(config, [
+    'android.permission.RECORD_AUDIO',
+    'android.permission.FOREGROUND_SERVICE',
+    'android.permission.FOREGROUND_SERVICE_MICROPHONE',
+  ]);
 
   config = withDangerousMod(config, [
     'android',
@@ -96,9 +103,31 @@ function withRealtimeAudioAndroid(config) {
         path.join(pluginSourceRoot, ANDROID_PACKAGE_FILE),
         path.join(destinationRoot, ANDROID_PACKAGE_FILE)
       );
+      copyFileSync(
+        path.join(pluginSourceRoot, ANDROID_SERVICE_FILE),
+        path.join(destinationRoot, ANDROID_SERVICE_FILE)
+      );
       return config;
     },
   ]);
+
+  config = withAndroidManifest(config, (config) => {
+    const application = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+    application.service = application.service ?? [];
+    const hasService = application.service.some(
+      (service) => service.$?.['android:name'] === ANDROID_SERVICE_NAME
+    );
+    if (!hasService) {
+      application.service.push({
+        $: {
+          'android:name': ANDROID_SERVICE_NAME,
+          'android:exported': 'false',
+          'android:foregroundServiceType': 'microphone',
+        },
+      });
+    }
+    return config;
+  });
 
   return withMainApplication(config, (config) => {
     const contents = config.modResults.contents;

@@ -7,4 +7,17 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'ImportDeclaration[source.value="react-native"] ImportSpecifier[imported.name="Alert"]',
+          message: 'Use "@/components/app-alert" so Alert works on Electron/web.',
+        },
+      ],
+      'react/no-unstable-nested-components': ['warn', { allowAsProps: true }],
+    },
+  },
 ]);

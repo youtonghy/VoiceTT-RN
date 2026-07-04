@@ -63,6 +63,7 @@ class RealtimeAudioModule(private val reactContext: ReactApplicationContext) :
       return
     }
 
+    RealtimeAudioForegroundService.start(reactContext)
     audioRecord = recorder
     isCapturing.set(true)
     val thread = HandlerThread("RealtimeAudioCapture")
@@ -99,15 +100,21 @@ class RealtimeAudioModule(private val reactContext: ReactApplicationContext) :
     val buffer = ShortArray(chunkSamples)
     try {
       recorder.startRecording()
+      if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+        throw IllegalStateException("AudioRecord failed to start recording")
+      }
       while (isCapturing.get()) {
         val read = recorder.read(buffer, 0, buffer.size)
         if (read > 0) {
           emitChunk(buffer, read)
+        } else if (read < 0) {
+          throw IllegalStateException("AudioRecord read failed with code $read")
         }
       }
     } catch (error: Throwable) {
       emitError(error.message ?: "Realtime audio capture failed")
     } finally {
+      isCapturing.set(false)
       try {
         recorder.stop()
       } catch (_: Throwable) {
@@ -116,6 +123,7 @@ class RealtimeAudioModule(private val reactContext: ReactApplicationContext) :
       if (audioRecord === recorder) {
         audioRecord = null
       }
+      RealtimeAudioForegroundService.stop(reactContext)
     }
   }
 
@@ -129,6 +137,7 @@ class RealtimeAudioModule(private val reactContext: ReactApplicationContext) :
     }
     captureThread?.quitSafely()
     captureThread = null
+    RealtimeAudioForegroundService.stop(reactContext)
   }
 
   private fun emitChunk(buffer: ShortArray, read: Int) {

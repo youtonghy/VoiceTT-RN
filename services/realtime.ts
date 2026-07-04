@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { resolveOpenAIRealtimeUrl } from '@/services/openai-url';
 import {
   AppSettings,
   DEFAULT_OPENAI_REALTIME_DELAY,
@@ -7,8 +8,6 @@ import {
   OPENAI_REALTIME_DELAY_OPTIONS,
   type OpenAIRealtimeDelay,
 } from '@/types/settings';
-
-const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
 
 export function isRealtimeSupported(): boolean {
   if (typeof WebSocket === 'undefined') {
@@ -35,12 +34,7 @@ export function resolveRealtimeDelay(settings: AppSettings): OpenAIRealtimeDelay
 }
 
 export function resolveRealtimeWsUrl(settings: AppSettings): string {
-  const baseUrl = (settings.credentials.openaiBaseUrl?.trim() || DEFAULT_OPENAI_BASE_URL)
-    .replace(/\/+$/, '')
-    .replace(/^https:\/\//, 'wss://')
-    .replace(/^http:\/\//, 'ws://');
-  const versionedBaseUrl = /\/v(?:1|1beta)$/.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
-  return `${versionedBaseUrl}/realtime?intent=transcription`;
+  return resolveOpenAIRealtimeUrl(settings.credentials.openaiBaseUrl, '/realtime?intent=transcription');
 }
 
 export interface RealtimeCallbacks {

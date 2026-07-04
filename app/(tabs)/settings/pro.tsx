@@ -1,20 +1,22 @@
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button, Text } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { AppCard, AppIcon, AppScreen, FormInput } from '@/components/native/app-shell';
 import {
   activateProLicense,
   clearProLicense,
   getDeviceUid,
   getProStatus,
+  syncTrustedTime,
   type ProStatus,
 } from '@/services/pro';
 
 export default function ProScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [deviceUid, setDeviceUid] = useState('');
   const [licenseDraft, setLicenseDraft] = useState('');
   const [status, setStatus] = useState<ProStatus | null>(null);
@@ -80,6 +82,19 @@ export default function ProScreen() {
     }
   }, [refreshStatus, t]);
 
+  const handleSyncTime = useCallback(async () => {
+    setIsBusy(true);
+    try {
+      await syncTrustedTime();
+      await refreshStatus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      Alert.alert(t('settings.pro.errors.sync_failed', { message }));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [refreshStatus, t]);
+
   const statusLabel = useMemo(() => {
     if (!status) {
       return t('settings.pro.status.inactive');
@@ -116,8 +131,11 @@ export default function ProScreen() {
     if (!status.expiresAtMs) {
       return '--';
     }
-    return new Date(status.expiresAtMs).toLocaleString();
-  }, [status, t]);
+    return new Intl.DateTimeFormat(i18n.language, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(status.expiresAtMs));
+  }, [i18n.language, status, t]);
 
   const planDaysText =
     status?.payload?.isLifetime || status?.payload?.exp === 0
@@ -163,7 +181,7 @@ export default function ProScreen() {
               {deviceUid || '--'}
             </Text>
             <Button
-              accessibilityLabel="Copy device UID"
+              accessibilityLabel={t('settings.pro.actions.copy_device_uid')}
               isDisabled={!deviceUid}
               isIconOnly
               onPress={handleCopyDeviceUid}
@@ -204,6 +222,11 @@ export default function ProScreen() {
           <Button isDisabled={isBusy} onPress={handleClear} variant="danger-soft">
             <Button.Label>{t('settings.pro.actions.clear')}</Button.Label>
           </Button>
+          {showSyncHint ? (
+            <Button isDisabled={isBusy} onPress={handleSyncTime} variant="tertiary">
+              <Button.Label>{t('settings.pro.actions.sync_time')}</Button.Label>
+            </Button>
+          ) : null}
         </View>
       </AppCard>
     </AppScreen>

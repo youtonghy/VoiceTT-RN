@@ -1,6 +1,5 @@
 import {
   useAudioRecorder,
-  RecordingOptions,
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
   getRecordingPermissionsAsync,
@@ -18,10 +17,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
+import { Alert } from '@/components/app-alert';
+import { METERING_RECORDING_OPTIONS } from '@/constants/recording-options';
 import { useSettings } from '@/contexts/settings-context';
 import {
   resolveEffectiveTranscriptionMode,
@@ -94,6 +95,7 @@ interface TranscriptionContextValue {
   clearError: () => void;
   replaceMessages: (nextMessages: TranscriptionMessage[]) => void;
   updateMessageQa: (messageId: number, payload: UpdateMessageQaPayload) => void;
+  retrySegment: (messageId: number) => Promise<void>;
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | undefined>(undefined);
@@ -118,6 +120,26 @@ type DesktopRecorderWithMediaRecorder = AudioRecorder & {
   mediaRecorder?: MediaRecorder | null;
 };
 
+type DesktopCaptureFallbackReason =
+  | 'permission_denied'
+  | 'no_display_source'
+  | 'no_audio_track'
+  | 'unavailable'
+  | 'unknown';
+
+class DesktopCaptureError extends Error {
+  reason: DesktopCaptureFallbackReason;
+
+  constructor(reason: DesktopCaptureFallbackReason, message: string, cause?: unknown) {
+    super(message);
+    this.name = 'DesktopCaptureError';
+    this.reason = reason;
+    if (cause !== undefined) {
+      (this as { cause?: unknown }).cause = cause;
+    }
+  }
+}
+
 let preferredDesktopAudioInputId: string | null = null;
 let preferredCaptureMode: AudioCaptureMode = 'microphone';
 let desktopAudioOverrideInstalled = false;
@@ -128,6 +150,8 @@ let desktopMeteringStream: MediaStream | null = null;
 let desktopMeteringContext: AudioContext | null = null;
 let desktopMeteringAnalyser: AnalyserNode | null = null;
 let desktopMeteringData: Uint8Array<ArrayBuffer> | null = null;
+let desktopSystemAudioStream: MediaStream | null = null;
+let desktopSystemAudioStreamRequest: Promise<MediaStream> | null = null;
 
 function updatePreferredDesktopAudioInputId(value: string | null) {
   preferredDesktopAudioInputId = value;
@@ -135,39 +159,146 @@ function updatePreferredDesktopAudioInputId(value: string | null) {
 
 function updatePreferredCaptureMode(value: AudioCaptureMode) {
   preferredCaptureMode = value === 'system' ? 'system' : 'microphone';
+  if (preferredCaptureMode !== 'system') {
+    clearDesktopSystemAudioStream();
+  }
 }
 
-function notifyDesktopCaptureFallback(error: unknown) {
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error ?? 'unknown');
+}
+
+function getErrorName(error: unknown) {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+function classifyDesktopCaptureError(error: unknown): DesktopCaptureFallbackReason {
+  if (error instanceof DesktopCaptureError) {
+    return error.reason;
+  }
+  const message = getErrorMessage(error).toLowerCase();
+  const name = getErrorName(error).toLowerCase();
+  if (
+    name.includes('notallowed') ||
+    name.includes('permission') ||
+    message.includes('permission denied') ||
+    message.includes('permission') ||
+    message.includes('denied') ||
+    message.includes('not allowed')
+  ) {
+    return 'permission_denied';
+  }
+  if (message.includes('no screen') || message.includes('no display') || message.includes('display source')) {
+    return 'no_display_source';
+  }
+  if (message.includes('audio track')) {
+    return 'no_audio_track';
+  }
+  if (message.includes('not available') || message.includes('unavailable')) {
+    return 'unavailable';
+  }
+  return 'unknown';
+}
+
+function notifyDesktopCaptureFailed(error: unknown) {
   if (typeof window === 'undefined') {
     return;
   }
-  const message = error instanceof Error ? error.message : String(error ?? 'unknown');
+  const message = getErrorMessage(error);
+  const reason = classifyDesktopCaptureError(error);
   window.dispatchEvent(
-    new CustomEvent('voicett-desktop-capture-fallback', {
-      detail: { message },
+    new CustomEvent('voicett-desktop-capture-failed', {
+      detail: { message, reason },
     })
   );
 }
 
-async function getDesktopSystemAudioStream(): Promise<MediaStream> {
-  if (!navigator.mediaDevices?.getDisplayMedia) {
-    throw new Error('System audio capture is not available in this desktop runtime.');
-  }
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: {
-      autoGainControl: false,
-      echoCancellation: false,
-      noiseSuppression: false,
-    },
+function formatDesktopCaptureFailureMessage(
+  t: TFunction<'common'>,
+  error: unknown,
+  reasonOverride?: unknown,
+) {
+  const fallbackReason =
+    typeof reasonOverride === 'string' ? reasonOverride : classifyDesktopCaptureError(error);
+  const reasonKey = [
+    'permission_denied',
+    'no_display_source',
+    'no_audio_track',
+    'unavailable',
+    'unknown',
+  ].includes(fallbackReason)
+    ? fallbackReason
+    : 'unknown';
+  return t('transcription.errors.system_capture_failed', {
+    message: `${t(`transcription.errors.system_capture_reasons.${reasonKey}`)} (${getErrorMessage(error)})`,
   });
+}
+
+function isLiveAudioStream(stream: MediaStream | null): stream is MediaStream {
+  return Boolean(stream?.getAudioTracks().some((track) => track.readyState === 'live'));
+}
+
+function clearDesktopSystemAudioStream(options: { stop?: boolean } = {}) {
+  const shouldStop = options.stop !== false;
+  const stream = desktopSystemAudioStream;
+  desktopSystemAudioStream = null;
+  desktopSystemAudioStreamRequest = null;
+  if (desktopMeteringStream === stream) {
+    stopDesktopMetering();
+  }
+  if (shouldStop) {
+    stream?.getTracks().forEach((track) => track.stop());
+  }
+}
+
+async function acquireDesktopSystemAudioStream(): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new DesktopCaptureError(
+      'unavailable',
+      'System audio capture is not available in this desktop runtime.'
+    );
+  }
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: {
+        autoGainControl: false,
+        echoCancellation: false,
+        noiseSuppression: false,
+      },
+    });
+  } catch (error) {
+    throw new DesktopCaptureError(classifyDesktopCaptureError(error), getErrorMessage(error), error);
+  }
   stream.getVideoTracks().forEach((track) => track.stop());
   const [audioTrack] = stream.getAudioTracks();
   if (!audioTrack) {
     stream.getTracks().forEach((track) => track.stop());
-    throw new Error('System audio capture did not return an audio track.');
+    throw new DesktopCaptureError(
+      'no_audio_track',
+      'System audio capture did not return an audio track.'
+    );
   }
-  return new MediaStream([audioTrack]);
+  const audioStream = new MediaStream([audioTrack]);
+  audioTrack.addEventListener('ended', () => {
+    if (desktopSystemAudioStream === audioStream) {
+      clearDesktopSystemAudioStream({ stop: false });
+    }
+  });
+  desktopSystemAudioStream = audioStream;
+  return audioStream;
+}
+
+async function getDesktopSystemAudioStream(): Promise<MediaStream> {
+  if (isLiveAudioStream(desktopSystemAudioStream)) {
+    return desktopSystemAudioStream;
+  }
+  clearDesktopSystemAudioStream({ stop: false });
+  desktopSystemAudioStreamRequest ??= acquireDesktopSystemAudioStream().finally(() => {
+    desktopSystemAudioStreamRequest = null;
+  });
+  return desktopSystemAudioStreamRequest;
 }
 
 function applyPreferredAudioInput(
@@ -304,12 +435,13 @@ function installDesktopAudioInputOverride() {
           return stream;
         })
         .catch((error) => {
-          console.warn('[desktop-input] System audio capture failed, falling back to microphone', error);
-          notifyDesktopCaptureFallback(error);
-          return originalGetUserMedia!(normalizedConstraints).then((stream) => {
-            attachDesktopMeteringStream(stream);
-            return stream;
+          console.warn('[desktop-input] System audio getDisplayMedia failed', {
+            reason: classifyDesktopCaptureError(error),
+            name: getErrorName(error),
+            message: getErrorMessage(error),
           });
+          notifyDesktopCaptureFailed(error);
+          return Promise.reject(error);
         });
     }
     const { nextConstraints, shouldFallback } = applyPreferredAudioInput(
@@ -365,7 +497,7 @@ function resolveDesktopRecordingStream(recorder: AudioRecorder): MediaStream | n
 }
 
 function buildDesktopMediaRecorderOptions(): MediaRecorderOptions {
-  const recordingOptions = buildRecordingOptions();
+  const recordingOptions = METERING_RECORDING_OPTIONS;
   const webOptions = recordingOptions.web;
   const options: MediaRecorderOptions = {};
   const mimeType = webOptions?.mimeType;
@@ -632,29 +764,6 @@ function pcm16Base64ToMeteringDb(pcm16Base64: string): number | undefined {
   }
 }
 
-function buildRecordingOptions(): RecordingOptions {
-  return {
-    isMeteringEnabled: true,
-    extension: '.m4a',
-    sampleRate: 44100,
-    numberOfChannels: 1,
-    bitRate: 128000,
-    android: {
-      outputFormat: 'mpeg4',
-      audioEncoder: 'aac',
-      audioSource: 'voice_recognition',
-    },
-    ios: {
-      audioQuality: 96, // HIGH
-      outputFormat: 'aac',
-    },
-    web: {
-      mimeType: 'audio/webm',
-      bitsPerSecond: 128000,
-    },
-  };
-}
-
 function useLatestRef<T>(value: T) {
   const ref = useRef(value);
   useEffect(() => {
@@ -762,17 +871,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     if (!isElectronDesktop || typeof window === 'undefined') {
       return;
     }
-    const handleCaptureFallback = (event: Event) => {
-      const detail = (event as CustomEvent<{ message?: unknown }>).detail;
-      setError(
-        t('transcription.errors.system_capture_fallback', {
-          message: typeof detail?.message === 'string' ? detail.message : 'unknown',
-        })
-      );
+    const handleCaptureFailed = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        message?: unknown;
+        reason?: unknown;
+      }>).detail;
+      const technicalMessage = typeof detail?.message === 'string' ? detail.message : 'unknown';
+      setError(formatDesktopCaptureFailureMessage(t, new Error(technicalMessage), detail?.reason));
     };
-    window.addEventListener('voicett-desktop-capture-fallback', handleCaptureFallback);
+    window.addEventListener('voicett-desktop-capture-failed', handleCaptureFailed);
     return () => {
-      window.removeEventListener('voicett-desktop-capture-fallback', handleCaptureFallback);
+      window.removeEventListener('voicett-desktop-capture-failed', handleCaptureFailed);
     };
   }, [t]);
 
@@ -788,7 +897,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const qaAutoModeRef = useLatestRef(qaAutoMode);
 
   const [error, setError] = useState<string | null>(null);
-  const recorder = useAudioRecorder(buildRecordingOptions());
+  const recorder = useAudioRecorder(METERING_RECORDING_OPTIONS);
   const isRecording = isSessionActive;
 
   const segmentStateRef = useRef<InternalSegmentState>({ ...initialSegmentState });
@@ -802,6 +911,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   const realtimeModeRef = useRef(false);
   const realtimeSessionRef = useRef<RealtimeTranscriptionSession | null>(null);
   const realtimeCaptureRef = useRef<PcmCapture | null>(null);
+  const stopSessionRef = useRef<((options?: StopSessionOptions) => Promise<void>) | null>(null);
   const realtimeStreamRef = useRef<MediaStream | null>(null);
   const realtimeMeteringContextRef = useRef<AudioContext | null>(null);
   const realtimeMeteringAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -906,6 +1016,20 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       registry.delete(token);
     });
   }, [setMessagesAndRef, t]);
+
+  const waitForPendingTasks = useCallback(async (sessionId: string, timeoutMs = 30000) => {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      const hasPending = Array.from(pendingTaskRegistryRef.current.values()).some(
+        (task) => task.sessionId === sessionId
+      );
+      if (!hasPending) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  }, []);
 
   const replaceMessages = useCallback((nextMessages: TranscriptionMessage[]) => {
     cancelPendingTasks();
@@ -1073,12 +1197,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       });
   }, [isTaskCurrent, resolveRealtimeMessageId, settingsRef, t, updateMessage]);
 
-  const stopRealtimeResources = useCallback(() => {
+  const stopRealtimeResources = useCallback((options: { stopStream?: boolean } = {}) => {
     realtimeCaptureRef.current?.stop();
     realtimeCaptureRef.current = null;
     realtimeSessionRef.current?.close();
     realtimeSessionRef.current = null;
-    realtimeStreamRef.current?.getTracks().forEach((track) => track.stop());
+    if (options.stopStream !== false) {
+      realtimeStreamRef.current?.getTracks().forEach((track) => track.stop());
+      if (realtimeStreamRef.current === desktopSystemAudioStream) {
+        clearDesktopSystemAudioStream({ stop: false });
+      }
+    }
     realtimeStreamRef.current = null;
     if (realtimeMeteringContextRef.current) {
       realtimeMeteringContextRef.current.close().catch(() => undefined);
@@ -1128,6 +1257,127 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
     }
   }, []);
+
+  const retrySegment = useCallback(async (messageId: number) => {
+    const message = messagesRef.current.find((item) => item.id === messageId);
+    const segment = message?.segment;
+    if (!message || !segment?.fileUri) {
+      setError(t('transcription.errors.empty_recording'));
+      return;
+    }
+
+    const taskToken = `retry:${messageId}:${Date.now()}`;
+    const transcriptionController = new AbortController();
+    pendingTaskRegistryRef.current.set(taskToken, {
+      token: taskToken,
+      sessionId: 'retry',
+      messageId,
+      transcriptionController,
+      translationController: null,
+    });
+
+    updateMessage(messageId, (msg) => ({
+      ...msg,
+      status: 'transcribing',
+      error: undefined,
+      translationStatus:
+        settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none'
+          ? 'pending'
+          : msg.translationStatus,
+      translationError: undefined,
+      updatedAt: Date.now(),
+    }));
+
+    const payload: TranscriptionSegmentPayload = {
+      fileUri: segment.fileUri,
+      startOffsetMs: segment.startOffsetMs,
+      endOffsetMs: segment.endOffsetMs,
+      durationMs: segment.durationMs,
+      messageId,
+    };
+
+    try {
+      const transcription = await transcribeSegment(
+        payload,
+        settingsRef.current,
+        transcriptionController.signal
+      );
+      if (!isTaskCurrent(taskToken)) {
+        return;
+      }
+      const activeTask = pendingTaskRegistryRef.current.get(taskToken);
+      if (activeTask) {
+        activeTask.transcriptionController = null;
+      }
+
+      const shouldTranslate =
+        settingsRef.current.enableTranslation && settingsRef.current.translationEngine !== 'none';
+      updateMessage(messageId, (msg) => ({
+        ...msg,
+        status: 'completed',
+        transcript: transcription.text,
+        language: transcription.language || msg.language,
+        translationStatus: shouldTranslate ? 'pending' : msg.translationStatus,
+        updatedAt: Date.now(),
+      }));
+
+      if (shouldTranslate && isTaskCurrent(taskToken)) {
+        const translationController = new AbortController();
+        const pendingTask = pendingTaskRegistryRef.current.get(taskToken);
+        if (pendingTask) {
+          pendingTask.translationController = translationController;
+        }
+        try {
+          const translationResult = await withTimeout(
+            translateText(transcription.text, settingsRef.current, translationController.signal),
+            settingsRef.current.translationTimeoutSec * 1000,
+            () => translationController.abort()
+          );
+          if (!isTaskCurrent(taskToken)) {
+            return;
+          }
+          const trimmed = translationResult.text?.trim();
+          updateMessage(messageId, (msg) => ({
+            ...msg,
+            translation: trimmed || msg.translation,
+            translationStatus: trimmed ? 'completed' : 'failed',
+            translationError: trimmed ? undefined : t('translation.errors.empty_result'),
+            updatedAt: Date.now(),
+          }));
+        } catch (translateError: any) {
+          if (isTaskCurrent(taskToken)) {
+            updateMessage(messageId, (msg) => ({
+              ...msg,
+              translationStatus: 'failed',
+              translationError: translateError?.message || t('translation.status.failed'),
+              updatedAt: Date.now(),
+            }));
+          }
+        }
+      }
+    } catch (retryError) {
+      if (isTaskCurrent(taskToken)) {
+        updateMessage(messageId, (msg) => ({
+          ...msg,
+          status: 'failed',
+          error: retryError instanceof Error ? retryError.message : String(retryError),
+          translationStatus: msg.translationStatus === 'pending' ? 'failed' : msg.translationStatus,
+          translationError:
+            msg.translationStatus === 'pending'
+              ? retryError instanceof Error
+                ? retryError.message
+                : String(retryError)
+              : msg.translationError,
+          updatedAt: Date.now(),
+        }));
+      }
+    } finally {
+      if (isTaskCurrent(taskToken)) {
+        pendingTaskRegistryRef.current.delete(taskToken);
+      }
+      cleanupRecordingFile(segment.fileUri);
+    }
+  }, [cleanupRecordingFile, isTaskCurrent, messagesRef, settingsRef, t, updateMessage]);
 
   const getBestKnownDurationMs = useCallback(() => {
     const durations: number[] = [];
@@ -1220,14 +1470,61 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
   }, [readRealtimeMeteringDb, sessionStateRef]);
 
   const requestRealtimeMediaStream = useCallback(async (): Promise<MediaStream> => {
+    if (isElectronDesktop && settingsRef.current.audioCaptureMode === 'system') {
+      const stream = await getDesktopSystemAudioStream();
+      attachDesktopMeteringStream(stream);
+      return stream;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('getUserMedia unavailable');
     }
     return navigator.mediaDevices.getUserMedia({ audio: true });
-  }, []);
+  }, [settingsRef]);
 
   const startNewRecording = useCallback(async () => {
     logTranscriptionDebug('[transcription] startNewRecording - preparing to record');
+    const useDesktopSystemRecording =
+      isElectronDesktop && settingsRef.current.audioCaptureMode === 'system';
+    if (useDesktopSystemRecording) {
+      const stream = await getDesktopSystemAudioStream();
+      attachDesktopMeteringStream(stream);
+      desktopSegmentStreamRef.current = stream;
+      if (desktopSegmentRecorderRef.current) {
+        stopDesktopSegmentRecorder(desktopSegmentRecorderRef.current).catch((stopError) => {
+          console.warn('[transcription] Failed to stop existing desktop segment recorder', stopError);
+        });
+      }
+      const segmentRecorder = createDesktopSegmentRecorder(stream);
+      if (!segmentRecorder) {
+        throw new DesktopCaptureError(
+          'unavailable',
+          'Desktop system audio segment recorder is unavailable.'
+        );
+      }
+      segmentRecorder.start();
+      desktopSegmentRecorderRef.current = segmentRecorder;
+      segmentBaseMsRef.current = 0;
+      recordingStartedAtRef.current = Date.now();
+      lastRecorderStatusRef.current = null;
+      statusPollFailureCountRef.current = 0;
+      meteringSourceRef.current = 'desktop';
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+      }
+      statusIntervalRef.current = setInterval(() => {
+        if (sessionStateRef.current !== 'starting' && sessionStateRef.current !== 'recording') {
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
+          recordingStartedAtRef.current = null;
+          return;
+        }
+        handleStatusUpdateRef.current?.(buildFallbackRecordingStatus());
+      }, 100);
+      logTranscriptionDebug('[transcription] Desktop system segment recorder started');
+      return;
+    }
     await recorder.prepareToRecordAsync();
     logTranscriptionDebug('[transcription] recorder prepared, starting record');
     recorder.record();
@@ -1310,7 +1607,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       handleStatusUpdateRef.current?.(status);
     }, 100);
     logTranscriptionDebug('[transcription] status interval started');
-  }, [buildFallbackRecordingStatus, getBestKnownDurationMs, recorder, sessionStateRef]);
+  }, [buildFallbackRecordingStatus, getBestKnownDurationMs, recorder, sessionStateRef, settingsRef]);
 
   const stopAndResetRecording = useCallback(async () => {
     if (statusIntervalRef.current) {
@@ -1386,7 +1683,15 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         updatedAt: Date.now(),
       }));
       let normalizedUri: string | null = null;
+      const isDesktopSystemCaptureMode =
+        isElectronDesktop && settingsRef.current.audioCaptureMode === 'system';
       let useDesktopSegmenter = isElectronDesktop && desktopSegmentRecorderRef.current !== null;
+      if (isDesktopSystemCaptureMode && !useDesktopSegmenter) {
+        throw new DesktopCaptureError(
+          'unavailable',
+          'Desktop system audio segment recorder is unavailable.'
+        );
+      }
       if (useDesktopSegmenter) {
         try {
           const segmentRecorder = desktopSegmentRecorderRef.current;
@@ -1415,7 +1720,10 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
             }
           }
         } catch (segmentError) {
-          console.warn('[transcription] Desktop segment capture failed, falling back', segmentError);
+          console.warn('[transcription] Desktop segment capture failed', segmentError);
+          if (isDesktopSystemCaptureMode) {
+            throw segmentError;
+          }
           useDesktopSegmenter = false;
           normalizedUri = null;
           originalFileUri = null;
@@ -1589,6 +1897,16 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       return taskToken;
     } catch (segmentError) {
+      if (taskToken && !isTaskCurrent(taskToken)) {
+        return taskToken;
+      }
+      if (isElectronDesktop && settingsRef.current.audioCaptureMode === 'system') {
+        sessionIdRef.current = null;
+        setQaAutoMode(false);
+        setSessionState('failed');
+        setError(formatDesktopCaptureFailureMessage(t, segmentError));
+        clearDesktopSystemAudioStream();
+      }
       updateMessage(currentMessageId, (msg) => ({
         ...msg,
         status: 'failed',
@@ -1603,10 +1921,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       if (taskToken && isTaskCurrent(taskToken)) {
         pendingTaskRegistryRef.current.delete(taskToken);
       }
-      if (payload.fileUri) {
+      const shouldCleanupAudio = !taskToken || isTaskCurrent(taskToken);
+      if (shouldCleanupAudio && payload.fileUri) {
         cleanupRecordingFile(payload.fileUri);
       }
-      if (originalFileUri && originalFileUri !== payload.fileUri) {
+      if (shouldCleanupAudio && originalFileUri && originalFileUri !== payload.fileUri) {
         cleanupRecordingFile(originalFileUri);
       }
     }
@@ -1651,12 +1970,22 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           });
           realtimeSessionRef.current = realtimeSession;
           await realtimeSession.connect();
-          realtimeCaptureRef.current = createPcmCapture(stream, (chunk) => {
-            if (Platform.OS !== 'web') {
-              realtimeNativeMeteringRef.current = pcm16Base64ToMeteringDb(chunk);
+          realtimeCaptureRef.current = createPcmCapture(
+            stream,
+            (chunk) => {
+              if (Platform.OS !== 'web') {
+                realtimeNativeMeteringRef.current = pcm16Base64ToMeteringDb(chunk);
+              }
+              realtimeSessionRef.current?.appendAudio(chunk);
+            },
+            (captureError) => {
+              void stopSessionRef.current?.({
+                discardCurrentSegment: true,
+                cancelPendingTasks: true,
+                failureMessage: captureError.message,
+              });
             }
-            realtimeSessionRef.current?.appendAudio(chunk);
-          });
+          );
           await realtimeCaptureRef.current.ready;
           if (sessionIdRef.current !== nextSessionId) {
             stopRealtimeResources();
@@ -1668,9 +1997,17 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
           return;
         } catch (realtimeStartError) {
           console.warn('[transcription] Realtime startup failed; falling back to upload mode', realtimeStartError);
-          stopRealtimeResources();
+          const isDesktopSystemCaptureMode =
+            isElectronDesktop && settingsRef.current.audioCaptureMode === 'system';
+          const canReuseSystemStream =
+            isDesktopSystemCaptureMode && isLiveAudioStream(desktopSystemAudioStream);
+          stopRealtimeResources({ stopStream: !canReuseSystemStream });
           if (sessionIdRef.current !== nextSessionId) {
             return;
+          }
+          if (isDesktopSystemCaptureMode && !canReuseSystemStream) {
+            notifyDesktopCaptureFailed(realtimeStartError);
+            throw realtimeStartError;
           }
           const message =
             realtimeStartError instanceof Error
@@ -1705,23 +2042,35 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       }
       setSessionState('recording');
       logTranscriptionDebug('[transcription] recording started successfully');
-    } catch (startError) {
-      console.error('[transcription] Failed to start session', startError);
-      if (sessionIdRef.current === nextSessionId) {
-        sessionIdRef.current = null;
+      } catch (startError) {
+        console.error('[transcription] Failed to start session', startError);
+        if (sessionIdRef.current === nextSessionId) {
+          sessionIdRef.current = null;
+        }
+        setQaAutoMode(false);
+        stopRealtimeResources();
+        if (desktopSegmentRecorderRef.current) {
+          const segmentRecorder = desktopSegmentRecorderRef.current;
+          desktopSegmentRecorderRef.current = null;
+          await stopDesktopSegmentRecorder(segmentRecorder).catch((stopError) => {
+            console.warn('[transcription] Failed to stop desktop segment recorder after start failure', stopError);
+          });
+        }
+        await stopAndResetRecording();
+        resetSegmentState();
+        desktopSegmentStreamRef.current = null;
+        clearDesktopSystemAudioStream();
+        setSessionState('failed');
+        setError(
+          isElectronDesktop &&
+            settingsRef.current.audioCaptureMode === 'system' &&
+            startError instanceof DesktopCaptureError
+            ? formatDesktopCaptureFailureMessage(t, startError)
+            : startError instanceof Error && startError.message === t('transcription.errors.permission_denied')
+            ? startError.message
+            : t('transcription.errors.start_failed', { message: (startError as Error).message })
+        );
       }
-      setQaAutoMode(false);
-      stopRealtimeResources();
-      await stopAndResetRecording();
-      resetSegmentState();
-      desktopSegmentStreamRef.current = null;
-      setSessionState('failed');
-      setError(
-        startError instanceof Error && startError.message === t('transcription.errors.permission_denied')
-          ? startError.message
-          : t('transcription.errors.start_failed', { message: (startError as Error).message })
-      );
-    }
   }, [
     attachRealtimeMeteringStream,
     createSessionId,
@@ -1828,6 +2177,18 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     resetSegmentState();
     segmentBaseMsRef.current = 0;
     desktopSegmentStreamRef.current = null;
+    clearDesktopSystemAudioStream();
+
+    if (currentSessionId && !shouldCancelPendingTasks) {
+      const drained = await waitForPendingTasks(currentSessionId);
+      if (!drained) {
+        cancelPendingTasks({
+          sessionId: currentSessionId,
+          markMessagesFailed: true,
+          failureMessage,
+        });
+      }
+    }
 
     if (options?.failureMessage) {
       setSessionState('failed');
@@ -1835,7 +2196,11 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     setSessionState('idle');
-  }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, stopRealtimeResources, t, updateMessage]);
+  }, [cancelPendingTasks, resetSegmentState, sessionStateRef, stopAndResetRecording, stopRealtimeResources, t, updateMessage, waitForPendingTasks]);
+
+  useEffect(() => {
+    stopSessionRef.current = stopSession;
+  }, [stopSession]);
 
   const toggleSession = useCallback(async (options?: SessionToggleOptions) => {
     logTranscriptionDebug('[transcription] toggleSession called, state:', sessionStateRef.current);
@@ -1843,7 +2208,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       return;
     }
     if (sessionStateRef.current === 'recording') {
-      await stopSession();
+      await stopSession({ cancelPendingTasks: false });
     } else {
       await startSession(options);
     }
@@ -1979,6 +2344,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
       stopDesktopMetering();
       stopAndResetRecording();
       desktopSegmentStreamRef.current = null;
+      clearDesktopSystemAudioStream();
     };
   }, [cancelPendingTasks, stopAndResetRecording, stopRealtimeResources]);
 
@@ -1989,6 +2355,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
     stopSession,
     replaceMessages,
     updateMessageQa,
+    retrySegment,
     isRecording,
     sessionState,
     error,
@@ -1998,7 +2365,7 @@ export function TranscriptionProvider({ children }: React.PropsWithChildren) {
         setSessionState('idle');
       }
     },
-  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, updateMessageQa, isRecording, sessionState, error, sessionStateRef]);
+  }), [messages, isSessionActive, toggleSession, stopSession, replaceMessages, updateMessageQa, retrySegment, isRecording, sessionState, error, sessionStateRef]);
   return <TranscriptionContext.Provider value={value}>{children}</TranscriptionContext.Provider>;
 }
 

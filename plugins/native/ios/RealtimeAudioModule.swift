@@ -128,7 +128,7 @@ class RealtimeAudioModule: RCTEventEmitter {
       }
       mixed /= Float(channelCount)
       let clamped = max(-1, min(1, mixed))
-      let scaled = clamped < 0 ? clamped * Float(Int16.max + 1) : clamped * Float(Int16.max)
+      let scaled = clamped < 0 ? clamped * 32768.0 : clamped * Float(Int16.max)
       samples.append(Int16(scaled))
     }
 

@@ -122,8 +122,7 @@ export function validateApiKey(apiKey: unknown): ValidationResult {
     };
   }
 
-  // API keys should only contain alphanumeric characters, hyphens, and underscores
-  if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+  if (/[\s\x00-\x1F\x7F]/.test(trimmed)) {
     return {
       valid: false,
       error: 'API key contains invalid characters'

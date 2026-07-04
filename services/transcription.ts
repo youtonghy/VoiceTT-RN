@@ -25,6 +25,7 @@ import {
 } from '@/types/settings';
 import { SegmentedTranscriptionResult, TranslationResult } from '@/types/transcription';
 import { validatePrompt, validateTemperature } from '@/services/input-validation';
+import { resolveOpenAICompatibleUrl } from '@/services/openai-url';
 import { isNativeRealtimeAvailable } from '@/services/realtime-audio';
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com';
@@ -58,14 +59,19 @@ const DASHSCOPE_MULTIMODAL_ENDPOINT =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 const SONIOX_API_BASE_URL = 'https://api.soniox.com';
 const SONIOX_POLL_INTERVAL_MS = 1000;
+const SONIOX_MAX_POLL_MS = 10 * 60 * 1000;
 const DOUBAO_SUBMIT_URL = 'https://openspeech.bytedance.com/api/v1/auc/submit';
 const DOUBAO_QUERY_URL = 'https://openspeech.bytedance.com/api/v1/auc/query';
 const DOUBAO_POLL_INTERVAL_MS = 2000;
 const DOUBAO_MAX_POLL_ATTEMPTS = 90;
 const GLM_TRANSCRIPTION_URL = 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions';
 
-function resolveOpenAIBaseUrl(settings: AppSettings) {
-  return (settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL).replace(/\/$/, '');
+function resolveOpenAIUrl(settings: AppSettings, path: string): string {
+  return resolveOpenAICompatibleUrl(settings.credentials.openaiBaseUrl, path);
+}
+
+function maskSecret(value: string, secret: string): string {
+  return value.split(secret).join('[REDACTED]');
 }
 
 export function resolveTranscriptionModel(settings: AppSettings): string {
@@ -513,7 +519,7 @@ async function transcribeWithOpenAI(
   ensureFileExists(payload.fileUri);
   await assertAudioUriExists(payload.fileUri);
 
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/audio/transcriptions';
+  const url = resolveOpenAIUrl(settings, '/audio/transcriptions');
 
   const formData = new FormData();
   await appendAudioToFormData(formData, payload.fileUri);
@@ -574,8 +580,7 @@ async function transcribeWithGemini(
   }
 
   const model = resolveTranscriptionModel(settings);
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const languageHint =
     settings.transcriptionLanguage && settings.transcriptionLanguage !== 'auto'
@@ -628,6 +633,7 @@ async function transcribeWithGemini(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payloadJson),
     signal,
@@ -635,7 +641,7 @@ async function transcribeWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini transcription failed: ' + (safeError || response.statusText));
   }
 
@@ -961,8 +967,13 @@ async function waitForSonioxTranscription(
   transcriptionId: string,
   signal?: AbortSignal
 ): Promise<void> {
+  const startedAt = Date.now();
+  let pollIntervalMs = SONIOX_POLL_INTERVAL_MS;
   while (true) {
     throwIfAborted(signal);
+    if (Date.now() - startedAt > SONIOX_MAX_POLL_MS) {
+      throw new Error('Soniox transcription timed out');
+    }
     const statusData = await sonioxJsonRequest(
       apiKey,
       `/v1/transcriptions/${transcriptionId}`,
@@ -980,9 +991,10 @@ async function waitForSonioxTranscription(
           : 'Unknown Soniox transcription error';
       throw new Error(message);
     }
-    await sleep(SONIOX_POLL_INTERVAL_MS, signal).catch((error) => {
+    await sleep(pollIntervalMs, signal).catch((error) => {
       throw error;
     });
+    pollIntervalMs = Math.min(pollIntervalMs * 1.5, 10000);
   }
 }
 
@@ -1318,10 +1330,6 @@ function buildOpenAITranslationPayload(
       DEFAULT_OPENAI_TRANSLATION_TEMPERATURE
     ),
     max_output_tokens: 1024,
-    modalities: ['text'],
-    response_format: {
-      type: 'text',
-    },
     ...(options?.stream ? { stream: true } : {}),
   };
 }
@@ -1336,7 +1344,7 @@ async function translateWithOpenAI(
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for translation');
   }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const url = resolveOpenAIUrl(settings, '/responses');
   const payload = buildOpenAITranslationPayload(text, targetLanguage, settings);
 
   const response = await fetch(url, {
@@ -1374,8 +1382,7 @@ async function translateWithGemini(
   }
 
   const model = resolveTranslationModel(settings);
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const userPromptRaw = settings.geminiTranslationPrompt?.trim();
   let userPrompt = userPromptRaw;
@@ -1415,6 +1422,7 @@ async function translateWithGemini(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payloadJson),
     signal,
@@ -1422,7 +1430,7 @@ async function translateWithGemini(
 
   if (!response.ok) {
     const errorText = await response.text();
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini translation failed: ' + (safeError || response.statusText));
   }
 
@@ -1504,7 +1512,7 @@ async function translateWithOpenAIStream(
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for translation');
   }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const url = resolveOpenAIUrl(settings, '/responses');
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -1575,6 +1583,14 @@ export async function translateTextStream(
   }
   if (settings.translationEngine !== 'openai') {
     return translateText(text, settings, callbacks.signal);
+  }
+  if (Platform.OS !== 'web') {
+    return translateWithOpenAI(
+      text,
+      settings.translationTargetLanguage,
+      settings,
+      callbacks.signal
+    );
   }
   return translateWithOpenAIStream(
     text,
@@ -1704,7 +1720,7 @@ async function generateTitleWithOpenAI(
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for title summarization');
   }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const url = resolveOpenAIUrl(settings, '/responses');
   const model = settings.credentials.openaiTitleModel?.trim() || DEFAULT_OPENAI_TITLE_MODEL;
   const payload = {
     model,
@@ -1725,10 +1741,6 @@ async function generateTitleWithOpenAI(
       DEFAULT_OPENAI_TITLE_TEMPERATURE
     ),
     max_output_tokens: DEFAULT_TITLE_RESPONSE_MAX_TOKENS,
-    modalities: ['text'],
-    response_format: {
-      type: 'text',
-    },
   };
 
   const response = await fetch(url, {
@@ -1765,8 +1777,7 @@ async function generateTitleWithGemini(
     throw new Error('Missing Gemini API key for title summarization');
   }
   const model = settings.credentials.geminiTitleModel?.trim() || DEFAULT_GEMINI_TITLE_MODEL;
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const payload = {
     contents: [
       {
@@ -1790,6 +1801,7 @@ async function generateTitleWithGemini(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -1798,7 +1810,7 @@ async function generateTitleWithGemini(
   if (!response.ok) {
     const errorText = await response.text();
     // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini title generation failed: ' + (safeError || response.statusText));
   }
 
@@ -1862,7 +1874,7 @@ async function generateConversationSummaryWithOpenAI(
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for conversation summarization');
   }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const url = resolveOpenAIUrl(settings, '/responses');
   const model =
     settings.credentials.openaiConversationModel?.trim() || DEFAULT_OPENAI_CONVERSATION_MODEL;
   const payload = {
@@ -1884,10 +1896,6 @@ async function generateConversationSummaryWithOpenAI(
       DEFAULT_OPENAI_CONVERSATION_TEMPERATURE
     ),
     max_output_tokens: DEFAULT_CONVERSATION_RESPONSE_MAX_TOKENS,
-    modalities: ['text'],
-    response_format: {
-      type: 'text',
-    },
   };
 
   const response = await fetch(url, {
@@ -1925,8 +1933,7 @@ async function generateConversationSummaryWithGemini(
   }
   const model =
     settings.credentials.geminiConversationModel?.trim() || DEFAULT_GEMINI_CONVERSATION_MODEL;
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const payload = {
     contents: [
       {
@@ -1950,6 +1957,7 @@ async function generateConversationSummaryWithGemini(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -1958,7 +1966,7 @@ async function generateConversationSummaryWithGemini(
   if (!response.ok) {
     const errorText = await response.text();
     // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini conversation summarization failed: ' + (safeError || response.statusText));
   }
 
@@ -2095,7 +2103,7 @@ async function generateAssistantReplyWithOpenAI({
   if (!apiKey) {
     throw new Error('Missing OpenAI API key for conversation assistant');
   }
-  const url = resolveOpenAIBaseUrl(settings) + '/v1/responses';
+  const url = resolveOpenAIUrl(settings, '/responses');
   const model =
     settings.credentials.openaiAssistantModel?.trim() ||
     settings.credentials.openaiConversationModel?.trim() ||
@@ -2128,8 +2136,6 @@ async function generateAssistantReplyWithOpenAI({
       DEFAULT_OPENAI_ASSISTANT_TEMPERATURE
     ),
     max_output_tokens: DEFAULT_ASSISTANT_RESPONSE_MAX_TOKENS,
-    modalities: ['text'],
-    response_format: { type: 'text' },
   };
 
   const response = await fetch(url, {
@@ -2170,8 +2176,7 @@ async function generateAssistantReplyWithGemini({
     settings.credentials.geminiAssistantModel?.trim() ||
     settings.credentials.geminiConversationModel?.trim() ||
     DEFAULT_GEMINI_ASSISTANT_MODEL;
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const contents = history.map((message) => ({
     role: message.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: message.content }],
@@ -2195,6 +2200,7 @@ async function generateAssistantReplyWithGemini({
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -2203,7 +2209,7 @@ async function generateAssistantReplyWithGemini({
   if (!response.ok) {
     const errorText = await response.text();
     // Sanitize error to not expose API key
-    const safeError = errorText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const safeError = maskSecret(errorText, apiKey);
     throw new Error('Gemini conversation assistant failed: ' + (safeError || response.statusText));
   }
 

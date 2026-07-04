@@ -5,7 +5,6 @@ import {
   DEFAULT_OPENAI_QA_TEMPERATURE,
   DEFAULT_QA_PROMPT,
 } from '@/types/settings';
-import { DEFAULT_OPENAI_BASE_URL } from '@/services/transcription';
 import { TranscriptQaItem } from '@/types/transcription';
 import {
   validateTranscript,
@@ -17,6 +16,7 @@ import {
 } from '@/services/input-validation';
 import { RateLimiter, DEFAULT_RATE_LIMITS } from '@/services/rate-limiter';
 import { createSafeError, ErrorCategory } from '@/services/error-handler';
+import { resolveOpenAICompatibleUrl } from '@/services/openai-url';
 
 export interface ExtractTranscriptQuestionsOptions {
   transcript: string;
@@ -34,9 +34,18 @@ const MAX_ANSWER_TOKENS = 384;
 const openaiQaRateLimiter = new RateLimiter('openai-qa', DEFAULT_RATE_LIMITS.qa);
 const geminiQaRateLimiter = new RateLimiter('gemini-qa', DEFAULT_RATE_LIMITS.qa);
 
-function resolveOpenAIBaseUrl(settings: AppSettings): string {
-  const baseUrl = settings.credentials.openaiBaseUrl || DEFAULT_OPENAI_BASE_URL;
-  return baseUrl.replace(/\/$/, '');
+function resolveOpenAIUrl(settings: AppSettings, path: string): string {
+  return resolveOpenAICompatibleUrl(settings.credentials.openaiBaseUrl, path);
+}
+
+function errorCategoryForStatus(status: number): ErrorCategory {
+  if (status === 401 || status === 403) {
+    return ErrorCategory.AUTHENTICATION;
+  }
+  if (status === 429) {
+    return ErrorCategory.RATE_LIMIT;
+  }
+  return ErrorCategory.NETWORK;
 }
 
 function sanitizeQaItems(raw: unknown): TranscriptQaItem[] {
@@ -245,7 +254,7 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
   const validatedTranscript = transcriptValidation.sanitized!;
 
   const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
-  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
+  const url = resolveOpenAIUrl(settings, '/chat/completions');
   const payload = {
     model,
     messages: [
@@ -282,7 +291,7 @@ async function extractQuestionsWithOpenAI(transcript: string, settings: AppSetti
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('OpenAI question extraction failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -340,7 +349,7 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
   const validatedTranscript = transcriptValidation.sanitized!;
 
   const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
-  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
+  const url = resolveOpenAIUrl(settings, '/chat/completions');
   const payload = {
     model,
     messages: [
@@ -374,7 +383,7 @@ async function answerQuestionWithOpenAI(question: string, transcript: string, se
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('OpenAI question answering failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -419,7 +428,7 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
   }
   const prompt = promptValidation.sanitized!;
 
-  const url = `${resolveOpenAIBaseUrl(settings)}/v1/chat/completions`;
+  const url = resolveOpenAIUrl(settings, '/chat/completions');
   const payload = {
     model,
     messages: [
@@ -456,7 +465,7 @@ async function extractWithOpenAI({ transcript, settings, signal }: ExtractTransc
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('OpenAI Q&A extraction failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -523,8 +532,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
   const validatedTranscript = transcriptValidation.sanitized!;
 
   const prompt = 'You are a real-time call assistant. Given a recent transcript segment, extract up to three clear questions implied or asked. Respond in JSON with a `questions` array containing the question texts. Use the same language as the transcript. If there is no question, return an empty array. IMPORTANT: Only return the question text itself without any additional commentary or context.';
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const payload = {
     contents: [
       {
@@ -548,6 +556,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -557,7 +566,7 @@ async function extractQuestionsWithGemini(transcript: string, settings: AppSetti
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('Gemini question extraction failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -615,8 +624,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
   const validatedTranscript = transcriptValidation.sanitized!;
 
   const prompt = 'You are a helpful assistant. Answer the question concisely and factually. Use the provided transcript context when relevant, but prioritize answering the question directly even if the answer is not explicitly in the transcript. Provide a clear, helpful answer. You can use Markdown formatting to structure your response with headings, lists, code blocks, and emphasis where appropriate.';
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const payload = {
     contents: [
       {
@@ -640,6 +648,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -649,7 +658,7 @@ async function answerQuestionWithGemini(question: string, transcript: string, se
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('Gemini question answering failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -694,8 +703,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
   }
   const prompt = promptValidation.sanitized!;
 
-  // Note: Gemini API requires key as URL parameter - avoid logging the full URL
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const payload = {
     contents: [
       {
@@ -719,6 +727,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(payload),
     signal,
@@ -728,7 +737,7 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
     const errorText = await response.text();
     const safeError = createSafeError(
       new Error('Gemini Q&A extraction failed: ' + (errorText || response.statusText)),
-      ErrorCategory.NETWORK
+      errorCategoryForStatus(response.status)
     );
     throw new Error(safeError.userMessage);
   }
@@ -740,35 +749,12 @@ async function extractWithGemini({ transcript, settings, signal }: ExtractTransc
 
 export async function extractTranscriptQuestions(options: ExtractTranscriptQuestionsOptions): Promise<TranscriptQaItem[]> {
   const transcript = options.transcript.trim();
-  const contextTranscript = (options.contextTranscript ?? options.transcript).trim();
   if (!transcript) {
     return [];
   }
 
-  // Use the original single-call approach for better reliability
-  try {
-    if (options.settings.qaEngine === 'gemini') {
-      return await extractWithGemini(options);
-    } else {
-      return await extractWithOpenAI(options);
-    }
-  } catch (error) {
-    // Fallback: try to extract questions only from the transcript
-    const questionRegex = /[^.!?]*\?/g;
-    const questions = transcript.match(questionRegex) || [];
-    const items: TranscriptQaItem[] = [];
-
-    questions
-      .map(q => q.trim())
-      .filter(q => q.length > 5)
-      .slice(0, 3)
-      .forEach(question => {
-        items.push({
-          question,
-          answer: 'Unable to generate answer. Please check your API credentials and try again.'
-        });
-      });
-
-    return items;
+  if (options.settings.qaEngine === 'gemini') {
+    return await extractWithGemini(options);
   }
+  return await extractWithOpenAI(options);
 }

@@ -24,6 +24,7 @@ export async function secureSetItem(key: string, value: string): Promise<void> {
   if (USE_SECURE_STORE) {
     try {
       await SecureStore.setItemAsync(storageKey, value);
+      await AsyncStorage.removeItem(storageKey).catch(() => undefined);
       return;
     } catch (error) {
       if (__DEV__) {
@@ -50,8 +51,9 @@ export async function secureGetItem(key: string): Promise<string | null> {
       return await SecureStore.getItemAsync(storageKey);
     } catch (error) {
       if (__DEV__) {
-        console.warn('[SecureStorage] Failed to read from secure store, trying fallback:', error);
+        console.warn('[SecureStorage] Failed to read from secure store:', error);
       }
+      return null;
     }
   }
 
@@ -68,7 +70,6 @@ export async function secureRemoveItem(key: string): Promise<void> {
   if (USE_SECURE_STORE) {
     try {
       await SecureStore.deleteItemAsync(storageKey);
-      return;
     } catch (error) {
       if (__DEV__) {
         console.warn('[SecureStorage] Failed to delete from secure store:', error);
@@ -76,7 +77,6 @@ export async function secureRemoveItem(key: string): Promise<void> {
     }
   }
 
-  // Fallback to AsyncStorage
   await AsyncStorage.removeItem(storageKey);
 }
 

@@ -2,9 +2,10 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, Linking, View } from 'react-native';
+import { Image, Linking, View } from 'react-native';
 import { Button, PressableFeedback, Text } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { ActionCard, AppCard, AppIcon, AppScreen } from '@/components/native/app-shell';
 import { buildSettingsMenuGroups, type RouteHref, type SettingsMenuEntry } from '@/components/settings/settings-menu';
 import { useIsTablet } from '@/hooks/use-is-tablet';

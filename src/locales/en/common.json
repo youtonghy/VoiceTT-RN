@@ -37,7 +37,8 @@
       "copy_transcript": "Copy transcript",
       "copy_translation": "Copy translation",
       "read_transcript": "Read transcript aloud",
-      "read_translation": "Read translation aloud"
+      "read_translation": "Read translation aloud",
+      "retry_segment": "Retry segment"
     },
     "controls": {
       "start": "Start recording",
@@ -57,7 +58,14 @@
       "start_failed": "Failed to start recording: {{message}}",
       "permission_denied": "Microphone permission not granted",
       "empty_recording": "Recording result is empty",
-      "system_capture_fallback": "System audio capture failed, so recording fell back to the microphone: {{message}}",
+      "system_capture_failed": "System audio capture failed: {{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "Screen and system audio permission was denied",
+        "no_display_source": "No display source was available for loopback capture",
+        "no_audio_track": "The selected display source did not provide a system audio track",
+        "unavailable": "System audio capture is not available in this desktop runtime",
+        "unknown": "The desktop capture request failed"
+      },
       "realtime_upload_fallback": "Realtime transcription is unavailable, so this recording is using upload mode: {{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "Share",
         "copy": "Copy",
         "rename": "Rename",
+        "move": "Move",
         "generate_title": "Generate title",
         "delete": "Delete"
       },
@@ -95,6 +104,10 @@
         "title": "Delete conversation?",
         "message": "This will remove the conversation and its transcript."
       },
+      "move": {
+        "title": "Move to folder",
+        "no_targets": "No available destination."
+      },
       "folder": {
         "root": "All conversations",
         "section": "Folders",
@@ -104,6 +117,7 @@
         "new_folder": "New folder {{id}}",
         "actions_title": "Folder actions",
         "open": "Open folder",
+        "color_menu": "Folder color",
         "rename_title": "Rename folder",
         "rename_placeholder": "Folder name",
         "delete_title": "Delete folder?",
@@ -686,7 +700,8 @@
       "actions": {
         "activate": "Activate / Replace",
         "sync_time": "Sync time",
-        "clear": "Clear license"
+        "clear": "Clear license",
+        "copy_device_uid": "Copy device UID"
       },
       "placeholders": {
         "license_code": "Enter license code (LIC1.xxx)"
@@ -704,5 +719,9 @@
         "sync_failed": "Time sync failed: {{message}}"
       }
     }
+  },
+  "history_storage": {
+    "read_only": "History storage was created by a newer app version. This page is in read-only mode until the app is updated.",
+    "load_failed": "History storage could not be loaded. Editing is disabled to protect your existing history."
   }
 }

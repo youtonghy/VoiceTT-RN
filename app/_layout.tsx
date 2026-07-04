@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { I18nextProvider } from 'react-i18next';
 
+import { AppAlertProvider } from '@/components/app-alert';
 import { I18nSettingsSync } from '@/components/i18n-settings-sync';
 import { ProTrustedTimeSync } from '@/components/pro-trusted-time-sync';
 import { SettingsProvider } from '@/contexts/settings-context';
@@ -65,9 +66,11 @@ export default function RootLayout() {
           <SettingsProvider>
             <I18nSettingsSync />
             <ProTrustedTimeSync />
-            <TranscriptionProvider>
-              <RootLayoutNav />
-            </TranscriptionProvider>
+            <AppAlertProvider>
+              <TranscriptionProvider>
+                <RootLayoutNav />
+              </TranscriptionProvider>
+            </AppAlertProvider>
           </SettingsProvider>
         </I18nextProvider>
       </HeroUINativeProvider>

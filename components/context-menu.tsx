@@ -11,15 +11,22 @@ import {
 } from "react-native";
 import { Card, Text, useThemeColor } from "heroui-native";
 
+import { AppIcon, type AppIconName } from "@/components/native/app-shell";
+
 export type ContextMenuAction = {
   label: string;
+  icon?: AppIconName;
+  subActions?: ContextMenuAction[];
   onPress?: () => void;
   variant?: "cancel" | "destructive";
+  dismissOnPress?: boolean;
+  isDisabled?: boolean;
 };
 
 export type ContextMenuAnchor = {
   x: number;
   y: number;
+  alignX?: "start" | "end";
 };
 
 type ContextMenuProps = {
@@ -44,6 +51,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function estimateMenuHeight(actionCount: number, hasTitle: boolean): number {
+  const titleHeight = hasTitle ? MENU_TITLE_HEIGHT + MENU_TITLE_GAP : 0;
+  const itemsHeight =
+    actionCount * MENU_ITEM_HEIGHT +
+    Math.max(actionCount - 1, 0) * MENU_ITEM_GAP;
+  return MENU_PADDING * 2 + titleHeight + itemsHeight;
+}
+
 export function ContextMenu({
   visible,
   title,
@@ -58,6 +73,10 @@ export function ContextMenu({
     actions: ContextMenuAction[];
     anchor?: ContextMenuAnchor;
   }>({ title, actions, anchor });
+  const [desktopSubmenu, setDesktopSubmenu] = useState<{
+    actions: ContextMenuAction[];
+    index: number;
+  } | null>(null);
   const [menuLayout, setMenuLayout] = useState<{ width: number; height: number } | null>(null);
   const [isMounted, setIsMounted] = useState(visible);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
@@ -76,25 +95,50 @@ export function ContextMenu({
     [isDesktop, renderState.actions]
   );
 
+  const desktopSubmenuActions = useMemo(
+    () => desktopSubmenu?.actions.filter((action) => action.variant !== "cancel") ?? [],
+    [desktopSubmenu]
+  );
+
   const estimatedHeight = useMemo(() => {
-    const titleHeight = renderState.title ? MENU_TITLE_HEIGHT + MENU_TITLE_GAP : 0;
-    const itemsHeight =
-      visibleActions.length * MENU_ITEM_HEIGHT +
-      Math.max(visibleActions.length - 1, 0) * MENU_ITEM_GAP;
-    return MENU_PADDING * 2 + titleHeight + itemsHeight;
+    return estimateMenuHeight(visibleActions.length, Boolean(renderState.title));
   }, [renderState.title, visibleActions.length]);
 
   const menuHeight = menuLayout?.height ?? estimatedHeight;
   const anchorX = renderState.anchor?.x ?? width / 2;
   const anchorY = renderState.anchor?.y ?? height / 2;
+  const anchorLeft = renderState.anchor?.alignX === "end" ? anchorX - MENU_WIDTH : anchorX;
   const maxLeft = Math.max(MENU_MARGIN, width - MENU_WIDTH - MENU_MARGIN);
   const maxTop = Math.max(MENU_MARGIN, height - menuHeight - MENU_MARGIN);
-  const left = clamp(anchorX, MENU_MARGIN, maxLeft);
+  const left = clamp(anchorLeft, MENU_MARGIN, maxLeft);
   const top = clamp(anchorY, MENU_MARGIN, maxTop);
+  const submenuHeight = estimateMenuHeight(desktopSubmenuActions.length, false);
+  const submenuTop = desktopSubmenu
+    ? clamp(
+        top +
+          MENU_PADDING +
+          (renderState.title ? MENU_TITLE_HEIGHT + MENU_TITLE_GAP : 0) +
+          desktopSubmenu.index * (MENU_ITEM_HEIGHT + MENU_ITEM_GAP),
+        MENU_MARGIN,
+        Math.max(MENU_MARGIN, height - submenuHeight - MENU_MARGIN)
+      )
+    : top;
+  const submenuRightLeft = left + MENU_WIDTH + MENU_ITEM_GAP;
+  const submenuPreferredLeft =
+    submenuRightLeft + MENU_WIDTH + MENU_MARGIN <= width
+      ? submenuRightLeft
+      : left - MENU_WIDTH - MENU_ITEM_GAP;
+  const submenuLeft = clamp(
+    submenuPreferredLeft,
+    MENU_MARGIN,
+    Math.max(MENU_MARGIN, width - MENU_WIDTH - MENU_MARGIN)
+  );
 
   useEffect(() => {
     if (visible) {
       setRenderState({ title, actions, anchor });
+      setDesktopSubmenu(null);
+      setMenuLayout(null);
     }
   }, [actions, anchor, title, visible]);
 
@@ -138,6 +182,66 @@ export function ContextMenu({
     return null;
   }
 
+  const handleActionPress = (action: ContextMenuAction, index: number) => {
+    if (action.isDisabled) {
+      return;
+    }
+    if (action.subActions?.length) {
+      if (isDesktop) {
+        setDesktopSubmenu({ actions: action.subActions, index });
+      } else {
+        const cancelAction = renderState.actions.find((item) => item.variant === "cancel");
+        setRenderState({
+          title: action.label,
+          actions: cancelAction ? [...action.subActions, cancelAction] : action.subActions,
+          anchor: renderState.anchor,
+        });
+      }
+      return;
+    }
+    if (action.dismissOnPress !== false) {
+      onRequestClose();
+    }
+    action.onPress?.();
+  };
+
+  const renderActionContent = (action: ContextMenuAction, iconSize: number) => (
+    <View style={styles.menuItemContent}>
+      {action.icon ? (
+        <View style={styles.menuItemIcon}>
+          <AppIcon
+            name={action.icon}
+            size={iconSize}
+            className={
+              action.variant === "cancel" || action.variant === "destructive"
+                ? "text-danger"
+                : "text-muted"
+            }
+          />
+        </View>
+      ) : null}
+      <Text
+        type={isDesktop ? "body-sm" : "body"}
+        weight="semibold"
+        className={
+          action.variant === "cancel" || action.variant === "destructive"
+            ? "text-danger"
+            : undefined
+        }
+        numberOfLines={1}
+        style={[
+          isDesktop ? styles.desktopMenuLabel : styles.sheetLabel,
+          styles.menuItemLabel,
+        ]}
+      >
+        {action.label}
+      </Text>
+      {action.subActions?.length ? (
+        <AppIcon name="chevron-right" size={12} className="text-muted" />
+      ) : null}
+    </View>
+  );
+
   if (isDesktop) {
     return (
       <Modal transparent visible onRequestClose={onRequestClose}>
@@ -156,39 +260,70 @@ export function ContextMenu({
               className="bg-surface"
               style={[styles.desktopMenuCard, { borderColor: surfaceBorder }]}
             >
-              {title ? (
+              {renderState.title ? (
                 <Text type="body-sm" weight="semibold" style={styles.desktopMenuTitle}>
-                  {title}
+                  {renderState.title}
                 </Text>
               ) : null}
               <View style={styles.desktopMenuList}>
-                {visibleActions.map((action) => (
+                {visibleActions.map((action, index) => (
                   <Pressable
-                    key={action.label}
-                    onPress={() => {
-                      onRequestClose();
-                      action.onPress?.();
+                    key={`${action.label}-${index}`}
+                    onHoverIn={() => {
+                      if (action.isDisabled) {
+                        return;
+                      }
+                      if (action.subActions?.length) {
+                        setDesktopSubmenu({ actions: action.subActions, index });
+                      } else {
+                        setDesktopSubmenu(null);
+                      }
                     }}
+                    onPress={() => handleActionPress(action, index)}
+                    accessibilityState={{ disabled: action.isDisabled }}
                     style={({ pressed }) => [
                       styles.desktopMenuItem,
-                      pressed && { backgroundColor: pressedBackground },
+                      action.isDisabled && styles.disabledItem,
+                      pressed && !action.isDisabled && { backgroundColor: pressedBackground },
                     ]}
                   >
-                    <Text
-                      type="body-sm"
-                      weight="semibold"
-                      {...(action.variant === "destructive" ? { className: "text-danger" } : {})}
-                      style={[
-                        styles.desktopMenuLabel,
-                      ]}
-                    >
-                      {action.label}
-                    </Text>
+                    {renderActionContent(action, 13)}
                   </Pressable>
                 ))}
               </View>
             </Card>
           </Pressable>
+          {desktopSubmenu && desktopSubmenuActions.length > 0 ? (
+            <Pressable
+              style={[
+                styles.desktopMenuContainer,
+                { left: submenuLeft, top: submenuTop, width: MENU_WIDTH },
+              ]}
+              onPress={() => {}}
+            >
+              <Card
+                className="bg-surface"
+                style={[styles.desktopMenuCard, { borderColor: surfaceBorder }]}
+              >
+                <View style={styles.desktopMenuList}>
+                  {desktopSubmenuActions.map((action, index) => (
+                    <Pressable
+                      key={`${action.label}-${index}`}
+                      onPress={() => handleActionPress(action, index)}
+                      accessibilityState={{ disabled: action.isDisabled }}
+                      style={({ pressed }) => [
+                        styles.desktopMenuItem,
+                        action.isDisabled && styles.disabledItem,
+                        pressed && !action.isDisabled && { backgroundColor: pressedBackground },
+                      ]}
+                    >
+                      {renderActionContent(action, 13)}
+                    </Pressable>
+                  ))}
+                </View>
+              </Card>
+            </Pressable>
+          ) : null}
         </Pressable>
       </Modal>
     );
@@ -199,43 +334,29 @@ export function ContextMenu({
       <AnimatedPressable style={[styles.sheetBackdrop, { opacity }]} onPress={onRequestClose}>
         <Pressable style={styles.sheetCardPressable} onPress={() => {}}>
           <Card className="bg-surface" style={[styles.sheetCard, { borderColor: surfaceBorder }]}>
-            {title ? (
+            {renderState.title ? (
               <Text
                 type="h6"
                 weight="bold"
                 style={styles.sheetTitle}
               >
-                {title}
+                {renderState.title}
               </Text>
             ) : null}
             <View style={styles.sheetList}>
               {visibleActions.map((action) => (
                 <Pressable
                   key={action.label}
-                  onPress={() => {
-                    onRequestClose();
-                    action.onPress?.();
-                  }}
+                  onPress={() => handleActionPress(action, 0)}
+                  accessibilityState={{ disabled: action.isDisabled }}
                   style={({ pressed }) => [
                     styles.sheetItem,
                     { backgroundColor: sheetItemBackground },
-                    pressed && styles.sheetItemPressed,
+                    action.isDisabled && styles.disabledItem,
+                    pressed && !action.isDisabled && styles.sheetItemPressed,
                   ]}
                 >
-                  <Text
-                    type="body"
-                    weight="semibold"
-                    className={
-                      action.variant === "cancel" || action.variant === "destructive"
-                        ? "text-danger"
-                        : undefined
-                    }
-                    style={[
-                      styles.sheetLabel,
-                    ]}
-                  >
-                    {action.label}
-                  </Text>
+                  {renderActionContent(action, 15)}
                 </Pressable>
               ))}
             </View>
@@ -281,6 +402,20 @@ const styles = StyleSheet.create({
   desktopMenuLabel: {
     fontSize: 14,
   },
+  menuItemContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
+  },
+  menuItemIcon: {
+    alignItems: "center",
+    width: 18,
+  },
+  menuItemLabel: {
+    flex: 1,
+    minWidth: 0,
+  },
   sheetBackdrop: {
     flex: 1,
     justifyContent: "flex-end",
@@ -316,6 +451,9 @@ const styles = StyleSheet.create({
   },
   sheetItemPressed: {
     opacity: 0.85,
+  },
+  disabledItem: {
+    opacity: 0.5,
   },
   sheetLabel: {
     fontSize: 15,

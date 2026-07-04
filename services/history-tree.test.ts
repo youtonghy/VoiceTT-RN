@@ -4,6 +4,7 @@ import {
   addHistoryNode,
   countFolderDescendants,
   createEmptyHistoryTree,
+  deleteHistoryNode,
   deriveNextFolderIdFromTree,
   deriveNextHistoryIdFromTree,
   getChildNodes,
@@ -11,6 +12,8 @@ import {
   isValidMove,
   migrateFlatConversations,
   moveHistoryNode,
+  normalizeHistoryTree,
+  sanitizeHistoryTree,
   searchHistoryTree,
   type HistoryConversation,
   type HistoryFolder,
@@ -123,5 +126,63 @@ describe("history tree", () => {
     });
     expect(deriveNextFolderIdFromTree(tree)).toBe(6);
     expect(deriveNextHistoryIdFromTree(tree)).toBe(8);
+  });
+
+  test("deletes nested folders and conversations as a cascade", () => {
+    let tree = createEmptyHistoryTree();
+    tree = addHistoryNode(tree, folder("folder-1"));
+    tree = addHistoryNode(tree, folder("folder-2", "folder-1"));
+    tree = addHistoryNode(tree, conversation("conv-3", "folder-2"));
+
+    const deleted = deleteHistoryNode(tree, "folder-1");
+
+    expect(Object.keys(deleted.nodes)).toEqual([]);
+    expect(deleted.rootIds).toEqual([]);
+  });
+
+  test("drops malformed messages while sanitizing conversations", () => {
+    const tree = sanitizeHistoryTree(
+      {
+        nodes: {
+          "conv-1": {
+            ...conversation("conv-1"),
+            messages: [
+              {
+                id: 1,
+                title: "Valid",
+                status: "completed",
+                translationStatus: "idle",
+                createdAt: 1,
+                updatedAt: 1,
+              },
+              {
+                id: "bad",
+                title: "Invalid",
+                status: "completed",
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+          },
+        },
+        rootIds: ["conv-1"],
+      },
+      createAssistantId
+    );
+
+    expect((tree.nodes["conv-1"] as HistoryConversation).messages).toHaveLength(1);
+  });
+
+  test("normalizes conversations whose parent points at a conversation", () => {
+    const tree = normalizeHistoryTree({
+      nodes: {
+        "conv-1": conversation("conv-1"),
+        "conv-2": conversation("conv-2", "conv-1"),
+      },
+      rootIds: ["conv-1"],
+    });
+
+    expect(tree.nodes["conv-2"].parentId).toBeNull();
+    expect(tree.rootIds).toContain("conv-2");
   });
 });

@@ -21,7 +21,8 @@ export function isNativeRealtimeAvailable(): boolean {
 
 export function createPcmCapture(
   _stream: MediaStream | null,
-  onChunk: (pcm16Base64: string) => void
+  onChunk: (pcm16Base64: string) => void,
+  onError?: (error: Error) => void
 ): PcmCapture {
   if (!RealtimeAudioModule || !emitter) {
     throw new Error('RealtimeAudioModule is not available. Ensure you are using a dev build.');
@@ -38,7 +39,9 @@ export function createPcmCapture(
   const errorSubscription = emitter.addListener(
     'realtimeAudioError',
     (event: { message?: string }) => {
-      console.warn('[realtime-audio] Native capture error', event?.message);
+      const message = event?.message || 'Native realtime audio capture failed';
+      console.warn('[realtime-audio] Native capture error', message);
+      onError?.(new Error(message));
     }
   );
   let stopped = false;

@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAudioPlayer } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
@@ -6,7 +5,6 @@ import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
     type LayoutChangeEvent,
     Modal,
     type NativeScrollEvent,
@@ -20,14 +18,8 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import { Gesture, GestureDetector, MouseButton } from "react-native-gesture-handler";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
+import { Alert } from "@/components/app-alert";
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from "@/components/context-menu";
 import { MarkdownText } from "@/components/markdown-text";
 import VoiceInputButton from "@/components/voice-input-button";
@@ -60,8 +52,6 @@ import {
     isConversationEmpty,
     isValidMove,
     moveHistoryNode,
-    normalizeHistoryTree,
-    sanitizeHistoryTree,
     searchHistoryTree,
     updateHistoryNode,
     type AssistantMessage,
@@ -71,8 +61,11 @@ import {
     type HistoryNode,
     type HistorySearchResult,
     type HistoryTreeState,
-    type StoredHistoryPayloadV3,
 } from "@/services/history-tree";
+import {
+    loadHistoryStorage,
+    persistHistoryStorage,
+} from "@/services/history-storage";
 import {
     DEFAULT_OPENAI_BASE_URL,
     generateAssistantReply,
@@ -103,21 +96,6 @@ type HistoryRenameDialog =
   | { kind: "conversation"; nodeId: string }
   | { kind: "folder"; nodeId: string };
 
-type HistoryDropTarget =
-  | { type: "folder"; folderId: string }
-  | { type: "parent"; parentId: string | null };
-
-type HistoryRowLayout = {
-  target: HistoryDropTarget;
-  y: number;
-  height: number;
-};
-
-type DragState = {
-  nodeId: string;
-  overTarget: HistoryDropTarget | null;
-} | null;
-
 function createHistorySeed(): HistoryTreeState {
   return createEmptyHistoryTree();
 }
@@ -125,8 +103,6 @@ function createHistorySeed(): HistoryTreeState {
 
 const HISTORY_SEED = createHistorySeed();
 
-const HISTORY_STORAGE_KEY = "@agents/history-conversations";
-const HISTORY_STORAGE_VERSION = 3;
 const MOBILE_PANES = ["live", "history", "assistant"] as const;
 const HISTORY_FOLDER_COLORS: HistoryFolderColorKey[] = ["blue", "green", "orange", "pink", "purple", "slate"];
 
@@ -202,6 +178,7 @@ export default function TranscriptionScreen() {
     toggleSession,
     stopSession,
     replaceMessages,
+    retrySegment,
     sessionState,
   } = useTranscription();
   const isDesktopApp =
@@ -213,13 +190,14 @@ export default function TranscriptionScreen() {
   const assistantScrollRef = useRef<ScrollView | null>(null);
   const mobilePagerRef = useRef<ScrollView | null>(null);
   const transcriptionScrollOffsetRef = useRef(0);
-  const historyLongPressRef = useRef<string | null>(null);
   const assistantInputRef = useRef<TextInput | null>(null);
   const ttsPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const previousMobilePagerWidthRef = useRef(0);
 
   const [historyTree, setHistoryTree] = useState<HistoryTreeState>(() => HISTORY_SEED);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
+  const [historyReadOnly, setHistoryReadOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [assistantDraft, setAssistantDraft] = useState("");
   const [assistantSending, setAssistantSending] = useState(false);
@@ -230,10 +208,8 @@ export default function TranscriptionScreen() {
   const [renameDialog, setRenameDialog] = useState<HistoryRenameDialog | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const [dragState, setDragState] = useState<DragState>(null);
   const historyIdCounter = useRef(deriveNextHistoryIdFromTree(HISTORY_SEED, 1));
   const folderIdCounter = useRef(deriveNextFolderIdFromTree(HISTORY_SEED, 1));
-  const historyRowLayoutsRef = useRef<HistoryRowLayout[]>([]);
   const assistantAbortRef = useRef<AbortController | null>(null);
   const manualTitleAbortRef = useRef<AbortController | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -294,55 +270,28 @@ export default function TranscriptionScreen() {
 
     const restoreHistory = async () => {
       try {
-        const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
-        if (!isMounted || !raw) {
+        const restored = await loadHistoryStorage();
+        if (!isMounted) {
           return;
         }
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw) as unknown;
-        } catch (parseError) {
-          console.warn("[transcription] Failed to parse stored history conversations", parseError);
-          return;
-        }
-
-        const tree = sanitizeHistoryTree(parsed, createAssistantMessageId);
-        const normalizedTree = normalizeHistoryTree(tree);
-        const payload =
-          parsed && typeof parsed === "object" && !Array.isArray(parsed)
-            ? (parsed as Partial<StoredHistoryPayloadV3>)
-            : {};
-        const computedNextConversation = deriveNextHistoryIdFromTree(
-          normalizedTree,
-          historyIdCounter.current
-        );
-        const computedNextFolder = deriveNextFolderIdFromTree(
-          normalizedTree,
-          folderIdCounter.current
-        );
-        historyIdCounter.current =
-          typeof payload.nextIdCounter === "number" && payload.nextIdCounter > 0
-            ? Math.max(payload.nextIdCounter, computedNextConversation)
-            : computedNextConversation;
-        folderIdCounter.current =
-          typeof payload.nextFolderIdCounter === "number" && payload.nextFolderIdCounter > 0
-            ? Math.max(payload.nextFolderIdCounter, computedNextFolder)
-            : computedNextFolder;
-        setHistoryTree(normalizedTree);
-        const storedActive = payload.activeConversationId;
-        if (storedActive && getHistoryConversation(normalizedTree, storedActive)) {
-          setActiveConversationId(storedActive);
+        setHistoryLoadFailed(restored.loadFailed);
+        setHistoryReadOnly(restored.readOnly);
+        historyIdCounter.current = restored.nextIdCounter;
+        folderIdCounter.current = restored.nextFolderIdCounter;
+        setHistoryTree(restored.tree);
+        if (restored.activeConversationId) {
+          setActiveConversationId(restored.activeConversationId);
         } else {
-          const firstConversation = Object.values(normalizedTree.nodes)
+          const firstConversation = Object.values(restored.tree.nodes)
             .filter((node): node is HistoryConversation => node.kind === "conversation")
             .sort((a, b) => b.createdAt - a.createdAt)[0];
           setActiveConversationId(firstConversation?.id ?? null);
         }
-        const storedFolder = payload.activeFolderId;
-        setActiveFolderId(storedFolder && getHistoryFolder(normalizedTree, storedFolder) ? storedFolder : null);
+        setActiveFolderId(restored.activeFolderId);
       } catch (loadError) {
         console.warn("[transcription] Failed to restore history conversations", loadError);
+        setHistoryLoadFailed(true);
+        setHistoryReadOnly(true);
       } finally {
         if (isMounted) {
           setHistoryLoaded(true);
@@ -789,12 +738,12 @@ export default function TranscriptionScreen() {
 
 
   useEffect(() => {
-    if (!historyLoaded || bootstrappedHistoryRef.current) {
+    if (!historyLoaded || bootstrappedHistoryRef.current || historyLoadFailed || historyReadOnly) {
       return;
     }
     bootstrappedHistoryRef.current = true;
     void createConversation({ skipStopSession: true, suppressScroll: true });
-  }, [createConversation, historyLoaded]);
+  }, [createConversation, historyLoadFailed, historyLoaded, historyReadOnly]);
 
 
   const handleSelectConversation = useCallback(async (conversationId: string) => {
@@ -821,26 +770,22 @@ export default function TranscriptionScreen() {
   }, [activeConversationId, historyTree, stopSession, switchToMobilePaneIndex]);
 
   useEffect(() => {
-    if (!historyLoaded) {
+    if (!historyLoaded || historyLoadFailed || historyReadOnly) {
       return;
     }
 
-    const payload: StoredHistoryPayloadV3 = {
-      version: HISTORY_STORAGE_VERSION,
-      nodes: historyTree.nodes,
-      rootIds: historyTree.rootIds,
+    persistHistoryStorage({
+      tree: historyTree,
       activeConversationId,
       activeFolderId,
       nextIdCounter: historyIdCounter.current,
       nextFolderIdCounter: folderIdCounter.current,
-    };
-
-    AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(payload)).catch(
+    }).catch(
       (persistError) => {
         console.warn("[transcription] Failed to persist history conversations", persistError);
       }
     );
-  }, [activeConversationId, activeFolderId, historyTree, historyLoaded]);
+  }, [activeConversationId, activeFolderId, historyLoadFailed, historyReadOnly, historyTree, historyLoaded]);
 
 
   const handleSearchChange = useCallback((text: string) => {
@@ -1033,12 +978,14 @@ export default function TranscriptionScreen() {
       if (transcript) {
         actions.push({
           label: t("transcription.actions.copy_transcript"),
+          icon: "copy",
           onPress: () => {
             void Clipboard.setStringAsync(transcript);
           },
         });
         actions.push({
           label: t("transcription.actions.read_transcript"),
+          icon: "volume-high",
           onPress: () => {
             void handleSpeakText(transcript);
           },
@@ -1048,14 +995,26 @@ export default function TranscriptionScreen() {
       if (settings.enableTranslation && translation) {
         actions.push({
           label: t("transcription.actions.copy_translation"),
+          icon: "language",
           onPress: () => {
             void Clipboard.setStringAsync(translation);
           },
         });
         actions.push({
           label: t("transcription.actions.read_translation"),
+          icon: "volume-high",
           onPress: () => {
             void handleSpeakText(translation);
+          },
+        });
+      }
+
+      if (message.status === "failed" && message.segment?.fileUri) {
+        actions.push({
+          label: t("transcription.actions.retry_segment"),
+          icon: "clock-rotate-left",
+          onPress: () => {
+            void retrySegment(message.id);
           },
         });
       }
@@ -1066,6 +1025,7 @@ export default function TranscriptionScreen() {
 
       actions.push({
         label: t("common.actions.cancel"),
+        icon: "circle-xmark",
         variant: "cancel",
       });
 
@@ -1086,12 +1046,11 @@ export default function TranscriptionScreen() {
         }
       }
     },
-    [handleSpeakText, isDesktopApp, settings.enableTranslation, t]
+    [handleSpeakText, isDesktopApp, retrySegment, settings.enableTranslation, t]
   );
 
   const handleDismissContextMenu = useCallback(() => {
     setContextMenu(null);
-    historyLongPressRef.current = null;
   }, []);
 
   const openRenameDialog = useCallback((node: HistoryConversation | HistoryFolder) => {
@@ -1268,9 +1227,22 @@ export default function TranscriptionScreen() {
         setHistoryTree((prev) => deleteHistoryNode(prev, conversation.id));
       };
 
-      void confirmDelete();
+      Alert.alert(
+        t('transcription.history.delete.title'),
+        t('transcription.history.delete.message'),
+        [
+          { text: t('common.actions.cancel'), style: 'cancel' },
+          {
+            text: t('transcription.history.actions.delete'),
+            style: 'destructive',
+            onPress: () => {
+              void confirmDelete();
+            },
+          },
+        ]
+      );
     },
-    [activeConversationId, stopSession]
+    [activeConversationId, stopSession, t]
   );
 
   const handleDeleteFolder = useCallback(
@@ -1310,18 +1282,21 @@ export default function TranscriptionScreen() {
         actions: [
           {
             label: t('assistant.actions.summary_regenerate'),
+            icon: "wand-magic-sparkles",
             onPress: () => {
               void handleHistoryGenerateSummary(conversation.id);
             },
           },
           {
             label: t('assistant.actions.summary_hide'),
+            icon: "circle-info",
             onPress: () => {
               handleAssistantSummaryHide(conversation);
             },
           },
           {
             label: t('common.actions.cancel'),
+            icon: "circle-xmark",
             variant: 'cancel',
           },
         ],
@@ -1602,38 +1577,134 @@ export default function TranscriptionScreen() {
     [t]
   );
 
+  const getMoveTargetOptions = useCallback(
+    (node: HistoryNode) =>
+      [
+        { id: null, title: t('transcription.history.folder.root'), path: t('transcription.history.folder.root') },
+        ...Object.values(historyTree.nodes)
+          .filter((item): item is HistoryFolder => item.kind === "folder")
+          .filter((folder) => isValidMove(historyTree, node.id, folder.id))
+          .sort((a, b) => a.title.localeCompare(b.title))
+          .map((folder) => {
+            const path = getFolderPath(historyTree, folder.id).map((item) => item.title).join(" / ");
+            return {
+              id: folder.id,
+              title: folder.title,
+              path: path || folder.title,
+            };
+          }),
+      ].filter((option) => option.id !== node.parentId),
+    [historyTree, t]
+  );
+
+  const handleMoveToFolder = useCallback(
+    (nodeId: string, nextParentId: string | null) => {
+      const node = historyTree.nodes[nodeId];
+      if (!node || !isValidMove(historyTree, nodeId, nextParentId)) {
+        return;
+      }
+
+      const nextTree = moveHistoryNode(historyTree, nodeId, nextParentId);
+      setHistoryTree(nextTree);
+      if (node.kind === "folder") {
+        setActiveFolderId((prevActiveFolderId) => {
+          if (!prevActiveFolderId) {
+            return prevActiveFolderId;
+          }
+          if (prevActiveFolderId === node.id) {
+            return nextParentId;
+          }
+          const activePathIds = getFolderPath(historyTree, prevActiveFolderId).map((folder) => folder.id);
+          if (activePathIds.includes(node.id)) {
+            return nextParentId;
+          }
+          return nextTree.nodes[prevActiveFolderId] ? prevActiveFolderId : null;
+        });
+      }
+    },
+    [historyTree]
+  );
+
+  const openMoveTargetMenu = useCallback(
+    (node: HistoryNode, anchor?: ContextMenuAnchor) => {
+      const targetOptions = getMoveTargetOptions(node);
+      setContextMenu({
+        title: t('transcription.history.move.title'),
+        actions: [
+          ...(targetOptions.length === 0
+            ? [
+                {
+                  label: t('transcription.history.move.no_targets'),
+                  icon: "circle-info",
+                  dismissOnPress: false,
+                  isDisabled: true,
+                } satisfies ContextMenuAction,
+              ]
+            : targetOptions.map(
+                (target): ContextMenuAction => ({
+                  label: target.path,
+                  icon: target.id ? "layer-group" : "box-archive",
+                  onPress: () => {
+                    handleMoveToFolder(node.id, target.id);
+                  },
+                })
+              )),
+          {
+            label: t('common.actions.cancel'),
+            icon: "circle-xmark",
+            variant: 'cancel',
+          },
+        ],
+        anchor,
+      });
+    },
+    [getMoveTargetOptions, handleMoveToFolder, t]
+  );
+
   const handleHistoryLongPress = useCallback(
     (conversation: HistoryConversation, anchor?: ContextMenuAnchor) => {
-      historyLongPressRef.current = conversation.id;
       setContextMenu({
         title: t('transcription.history.actions.title'),
         actions: [
           {
             label: t('transcription.history.actions.share'),
+            icon: "share-nodes",
             onPress: () => {
               void handleShareConversation(conversation);
             },
           },
           {
             label: t('transcription.history.actions.copy'),
+            icon: "copy",
             onPress: () => {
               handleCopyConversation(conversation);
             },
           },
           {
             label: t('transcription.history.actions.rename'),
+            icon: "pen-to-square",
             onPress: () => {
               openRenameDialog(conversation);
             },
           },
           {
+            label: t('transcription.history.actions.move'),
+            icon: "layer-group",
+            dismissOnPress: false,
+            onPress: () => {
+              openMoveTargetMenu(conversation, anchor);
+            },
+          },
+          {
             label: t('transcription.history.actions.generate_title'),
+            icon: "wand-magic-sparkles",
             onPress: () => {
               void handleHistoryGenerateTitle(conversation.id);
             },
           },
           {
             label: t('transcription.history.actions.delete'),
+            icon: "trash",
             variant: 'destructive',
             onPress: () => {
               handleDeleteConversation(conversation);
@@ -1641,6 +1712,7 @@ export default function TranscriptionScreen() {
           },
           {
             label: t('common.actions.cancel'),
+            icon: "circle-xmark",
             variant: 'cancel',
           },
         ],
@@ -1652,6 +1724,7 @@ export default function TranscriptionScreen() {
       handleDeleteConversation,
       handleHistoryGenerateTitle,
       handleShareConversation,
+      openMoveTargetMenu,
       openRenameDialog,
       t,
     ]
@@ -1686,12 +1759,12 @@ export default function TranscriptionScreen() {
 
   const handleFolderLongPress = useCallback(
     (folder: HistoryFolder, anchor?: ContextMenuAnchor) => {
-      historyLongPressRef.current = folder.id;
       setContextMenu({
         title: t('transcription.history.folder.actions_title'),
         actions: [
           {
             label: t('transcription.history.folder.open'),
+            icon: "folder-open",
             onPress: () => {
               setActiveFolderId(folder.id);
               setSearchTerm("");
@@ -1700,18 +1773,33 @@ export default function TranscriptionScreen() {
           },
           {
             label: t('transcription.history.actions.rename'),
+            icon: "pen-to-square",
             onPress: () => {
               openRenameDialog(folder);
             },
           },
-          ...HISTORY_FOLDER_COLORS.map((colorKey): ContextMenuAction => ({
-            label: t(`transcription.history.folder.colors.${colorKey}`),
+          {
+            label: t('transcription.history.actions.move'),
+            icon: "layer-group",
+            dismissOnPress: false,
             onPress: () => {
-              handleFolderColorChange(folder, colorKey);
+              openMoveTargetMenu(folder, anchor);
             },
-          })),
+          },
+          {
+            label: t('transcription.history.folder.color_menu'),
+            icon: "palette",
+            subActions: HISTORY_FOLDER_COLORS.map((colorKey): ContextMenuAction => ({
+              label: t(`transcription.history.folder.colors.${colorKey}`),
+              icon: "palette",
+              onPress: () => {
+                handleFolderColorChange(folder, colorKey);
+              },
+            })),
+          },
           {
             label: t('transcription.history.actions.delete'),
+            icon: "trash",
             variant: 'destructive',
             onPress: () => {
               handleDeleteFolder(folder);
@@ -1719,77 +1807,14 @@ export default function TranscriptionScreen() {
           },
           {
             label: t('common.actions.cancel'),
+            icon: "circle-xmark",
             variant: 'cancel',
           },
         ],
         anchor,
       });
     },
-    [handleDeleteFolder, handleFolderColorChange, openRenameDialog, scrollHistoryToTop, t]
-  );
-
-  const resolveDropTarget = useCallback((absoluteY: number): HistoryDropTarget | null => {
-    const match = historyRowLayoutsRef.current.find(
-      (layout) => absoluteY >= layout.y && absoluteY <= layout.y + layout.height
-    );
-    return match?.target ?? null;
-  }, []);
-
-  const registerDropTarget = useCallback((target: HistoryDropTarget, y: number, height: number) => {
-    historyRowLayoutsRef.current = [
-      ...historyRowLayoutsRef.current.filter((layout) => {
-        if (layout.target.type !== target.type) {
-          return true;
-        }
-        if (layout.target.type === "folder" && target.type === "folder") {
-          return layout.target.folderId !== target.folderId;
-        }
-        if (layout.target.type === "parent" && target.type === "parent") {
-          return layout.target.parentId !== target.parentId;
-        }
-        return true;
-      }),
-      { target, y, height },
-    ];
-  }, []);
-
-  const handleDragStart = useCallback((nodeId: string) => {
-    setContextMenu(null);
-    setDragState({ nodeId, overTarget: null });
-  }, []);
-
-  const handleDragMove = useCallback(
-    (nodeId: string, absoluteY: number) => {
-      const target = resolveDropTarget(absoluteY);
-      setDragState((prev) => {
-        if (!prev || prev.nodeId !== nodeId) {
-          return prev;
-        }
-        if (target?.type === prev.overTarget?.type) {
-          if (target?.type === "folder" && prev.overTarget?.type === "folder" && target.folderId === prev.overTarget.folderId) {
-            return prev;
-          }
-          if (target?.type === "parent" && prev.overTarget?.type === "parent" && target.parentId === prev.overTarget.parentId) {
-            return prev;
-          }
-        }
-        return { nodeId, overTarget: target };
-      });
-    },
-    [resolveDropTarget]
-  );
-
-  const handleDragEnd = useCallback(
-    (nodeId: string, absoluteY: number) => {
-      const target = resolveDropTarget(absoluteY);
-      setDragState(null);
-      if (!target) {
-        return;
-      }
-      const nextParentId = target.type === "folder" ? target.folderId : target.parentId;
-      setHistoryTree((prev) => (isValidMove(prev, nodeId, nextParentId) ? moveHistoryNode(prev, nodeId, nextParentId) : prev));
-    },
-    [resolveDropTarget]
+    [handleDeleteFolder, handleFolderColorChange, openMoveTargetMenu, openRenameDialog, scrollHistoryToTop, t]
   );
 
   const handleOpenFolder = useCallback(
@@ -1874,7 +1899,7 @@ export default function TranscriptionScreen() {
     />
   );
 
-  const LivePane = ({ showTabs = false }: { showTabs?: boolean }) => (
+  const renderLivePane = (showTabs = false) => (
     <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
       {showTabs ? DetailSegment : null}
       <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
@@ -1895,7 +1920,7 @@ export default function TranscriptionScreen() {
               name="radio"
               size={17}
               color={isSessionActive ? dangerForeground : undefined}
-              className={isSessionActive ? null : 'text-accent'}
+              className={isSessionActive ? undefined : 'text-accent'}
               solid
             />
           </Button>
@@ -1931,7 +1956,7 @@ export default function TranscriptionScreen() {
     </View>
   );
 
-  const HistoryPane = () => (
+  const renderHistoryPane = () => (
     <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
       <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
         <View className="gap-3 border-b border-border px-4 py-3">
@@ -2009,10 +2034,7 @@ export default function TranscriptionScreen() {
               {currentFolder ? (
                 <HistoryParentRow
                   label={t('transcription.history.folder.back')}
-                  target={{ type: "parent", parentId: currentFolder.parentId }}
-                  isDropActive={dragState?.overTarget?.type === "parent" && dragState.overTarget.parentId === currentFolder.parentId}
                   onPress={handleNavigateToParent}
-                  registerDropTarget={registerDropTarget}
                 />
               ) : null}
               {currentFolders.length > 0 ? (
@@ -2021,17 +2043,11 @@ export default function TranscriptionScreen() {
                     {t('transcription.history.folder.section')}
                   </Text>
                   {currentFolders.map((folder) => (
-                    <HistoryDraggableRow
+                    <HistoryActionRow
                       key={folder.id}
                       node={folder}
                       language={i18n.language}
                       isActive={folder.id === activeFolderId}
-                      isDropActive={dragState?.overTarget?.type === "folder" && dragState.overTarget.folderId === folder.id}
-                      dropTarget={{ type: "folder", folderId: folder.id }}
-                      registerDropTarget={registerDropTarget}
-                      onDragStart={handleDragStart}
-                      onDragMove={handleDragMove}
-                      onDragEnd={handleDragEnd}
                       onPress={() => handleOpenFolder(folder.id)}
                       onOpenMenu={(anchor) => handleFolderLongPress(folder, anchor)}
                     />
@@ -2044,21 +2060,12 @@ export default function TranscriptionScreen() {
                     {group.label}
                   </Text>
                   {group.items.map((item) => (
-                    <HistoryDraggableRow
+                    <HistoryActionRow
                       key={item.id}
                       node={item}
                       language={i18n.language}
                       isActive={item.id === activeConversationId}
-                      isDropActive={false}
-                      registerDropTarget={registerDropTarget}
-                      onDragStart={handleDragStart}
-                      onDragMove={handleDragMove}
-                      onDragEnd={handleDragEnd}
                       onPress={() => {
-                        if (historyLongPressRef.current === item.id) {
-                          historyLongPressRef.current = null;
-                          return;
-                        }
                         void handleSelectConversation(item.id);
                       }}
                       onOpenMenu={(anchor) => handleHistoryLongPress(item, anchor)}
@@ -2067,7 +2074,7 @@ export default function TranscriptionScreen() {
                 </View>
               ))}
             </>
-          )}
+            )}
         </ScrollView>
         <View className="flex-row gap-2 border-t border-border p-3">
           <Button
@@ -2096,7 +2103,7 @@ export default function TranscriptionScreen() {
     </View>
   );
 
-  const AssistantPane = ({ showTabs = false }: { showTabs?: boolean }) => (
+  const renderAssistantPane = (showTabs = false) => (
     <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
       {showTabs ? DetailSegment : null}
       <Surface variant="default" className="min-h-0 flex-1 rounded-3xl border border-border p-0" style={styles.paneSurface}>
@@ -2267,13 +2274,13 @@ export default function TranscriptionScreen() {
           scrollEventThrottle={16}
           showsHorizontalScrollIndicator={false}>
           <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
-            <LivePane />
+            {renderLivePane()}
           </View>
           <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
-            <HistoryPane />
+            {renderHistoryPane()}
           </View>
           <View style={[styles.mobilePanePage, { width: mobilePagerPageWidth }]}>
-            <AssistantPane />
+            {renderAssistantPane()}
           </View>
         </ScrollView>
       </View>
@@ -2286,10 +2293,10 @@ export default function TranscriptionScreen() {
         <View
           style={[styles.tabletHistoryFrame, { width: tabletHistoryWidth }]}
           className="min-h-0 flex-shrink-0">
-          <HistoryPane />
+          {renderHistoryPane()}
         </View>
         <View className="min-h-0 flex-1 gap-3" style={styles.paneRoot}>
-          {tabletDetail === "assistant" ? <AssistantPane showTabs /> : <LivePane showTabs />}
+          {tabletDetail === "assistant" ? renderAssistantPane(true) : renderLivePane(true)}
         </View>
       </View>
     </View>
@@ -2299,6 +2306,15 @@ export default function TranscriptionScreen() {
     <AppScreen
       contentBottomInset={0}
       scroll={false}>
+      {historyLoadFailed || historyReadOnly ? (
+        <View className="mx-4 mb-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2">
+          <Text className="text-sm text-danger">
+            {historyReadOnly
+              ? t('history_storage.read_only')
+              : t('history_storage.load_failed')}
+          </Text>
+        </View>
+      ) : null}
       {isTablet ? TabletContent : MobileContent}
       <ContextMenu
         visible={Boolean(contextMenu)}
@@ -2488,34 +2504,16 @@ const styles = StyleSheet.create({
 
 function HistoryParentRow({
   label,
-  target,
-  isDropActive,
   onPress,
-  registerDropTarget,
 }: {
   label: string;
-  target: HistoryDropTarget;
-  isDropActive: boolean;
   onPress: () => void;
-  registerDropTarget: (target: HistoryDropTarget, y: number, height: number) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
-  const measureTarget = useCallback(() => {
-    rowRef.current?.measureInWindow((_x, y, _width, height) => {
-      registerDropTarget(target, y, height);
-    });
-  }, [registerDropTarget, target]);
-
   return (
     <Pressable
-      ref={rowRef}
-      onLayout={measureTarget}
       onPress={onPress}
       accessibilityRole="button"
-      className={[
-        'rounded-2xl border px-3 py-3',
-        isDropActive ? 'border-accent bg-surface' : 'border-border bg-background',
-      ].join(' ')}>
+      className="rounded-2xl border border-border bg-background px-3 py-3">
       <View className="flex-row items-center gap-3">
         <View className="size-9 items-center justify-center rounded-2xl bg-surface-secondary">
           <AppIcon name="chevron-right" size={16} className="text-muted" />
@@ -2552,117 +2550,93 @@ function HistoryStaticRow({
   );
 }
 
-function HistoryDraggableRow({
+function HistoryActionRow({
   node,
   language,
   isActive,
-  isDropActive,
-  dropTarget,
-  registerDropTarget,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
   onPress,
   onOpenMenu,
 }: {
   node: HistoryNode;
   language: string;
   isActive: boolean;
-  isDropActive: boolean;
-  dropTarget?: HistoryDropTarget;
-  registerDropTarget: (target: HistoryDropTarget, y: number, height: number) => void;
-  onDragStart: (nodeId: string) => void;
-  onDragMove: (nodeId: string, absoluteY: number) => void;
-  onDragEnd: (nodeId: string, absoluteY: number) => void;
   onPress: () => void;
   onOpenMenu: (anchor?: ContextMenuAnchor) => void;
 }) {
-  const rowRef = useRef<View | null>(null);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
+  const menuButtonRef = useRef<View | null>(null);
   const isDesktopApp =
     Platform.OS === "web" &&
     typeof window !== "undefined" &&
     Boolean((window as { electron?: unknown }).electron);
-
-  const measureTarget = useCallback(() => {
-    if (!dropTarget) {
+  const openMenuFromButton = useCallback(() => {
+    if (!isDesktopApp) {
+      onOpenMenu();
       return;
     }
-    rowRef.current?.measureInWindow((_x, y, _width, height) => {
-      registerDropTarget(dropTarget, y, height);
+    const menuButton = menuButtonRef.current;
+    if (!menuButton) {
+      onOpenMenu();
+      return;
+    }
+    menuButton.measureInWindow((x, y, width, height) => {
+      onOpenMenu({
+        x: x + width,
+        y: y + height + 4,
+        alignX: "end",
+      });
     });
-  }, [dropTarget, registerDropTarget]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-    zIndex: scale.value > 1 ? 2 : 0,
-  }));
-
-  const pan = Gesture.Pan()
-    .activateAfterLongPress(260)
-    .mouseButton(MouseButton.LEFT)
-    .onStart(() => {
-      scale.value = withTiming(1.02, { duration: 120 });
-      runOnJS(onDragStart)(node.id);
-    })
-    .onUpdate((event) => {
-      translateY.value = event.translationY;
-      runOnJS(onDragMove)(node.id, event.absoluteY);
-    })
-    .onEnd((event) => {
-      runOnJS(onDragEnd)(node.id, event.absoluteY);
-    })
-    .onFinalize(() => {
-      translateY.value = withTiming(0, { duration: 140 });
-      scale.value = withTiming(1, { duration: 140 });
-    });
+  }, [isDesktopApp, onOpenMenu]);
 
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={animatedStyle}>
-        <Pressable
-          ref={rowRef}
-          onLayout={measureTarget}
-          onPress={onPress}
-          onLongPress={isDesktopApp ? undefined : () => onOpenMenu()}
-          onPointerDown={(event) => {
-            if (!isDesktopApp) {
-              return;
-            }
-            if (event.nativeEvent.button === 2) {
-              event.preventDefault();
-              const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
-                pageX?: number;
-                pageY?: number;
-                clientX?: number;
-                clientY?: number;
-              };
-              onOpenMenu({
-                x: typeof pageX === "number" ? pageX : clientX ?? 0,
-                y: typeof pageY === "number" ? pageY : clientY ?? 0,
-              });
-            }
-          }}
-          delayLongPress={650}
-          accessibilityRole="button"
-          className={[
-            'rounded-2xl border px-3 py-3',
-            isDropActive || isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
-          ].join(' ')}>
-          <HistoryRowContent
-            node={node}
-            subtitle={
-              node.kind === "folder"
-                ? formatRecordTime(node.updatedAt, language)
-                : formatRecordTime(node.createdAt, language)
-            }
-            language={language}
-            isActive={isActive}
-          />
-        </Pressable>
-      </Animated.View>
-    </GestureDetector>
+    <View
+      onPointerDown={(event) => {
+        if (!isDesktopApp) {
+          return;
+        }
+        if (event.nativeEvent.button === 2) {
+          event.preventDefault();
+          const { pageX, pageY, clientX, clientY } = event.nativeEvent as {
+            pageX?: number;
+            pageY?: number;
+            clientX?: number;
+            clientY?: number;
+          };
+          onOpenMenu({
+            x: typeof pageX === "number" ? pageX : clientX ?? 0,
+            y: typeof pageY === "number" ? pageY : clientY ?? 0,
+          });
+        }
+      }}
+      className={[
+        'flex-row items-center gap-2 rounded-2xl border px-3 py-3',
+        isActive ? 'border-accent bg-surface' : 'border-transparent bg-surface-secondary',
+      ].join(' ')}>
+          <Pressable
+            onPress={onPress}
+            accessibilityRole="button"
+            className="min-w-0 flex-1">
+            <HistoryRowContent
+              node={node}
+              subtitle={
+                node.kind === "folder"
+                  ? formatRecordTime(node.updatedAt, language)
+                  : formatRecordTime(node.createdAt, language)
+              }
+              language={language}
+              isActive={isActive}
+            />
+          </Pressable>
+          <View ref={menuButtonRef}>
+            <Button
+              accessibilityLabel={node.kind === "folder" ? node.title : node.title}
+              isIconOnly
+              onPress={openMenuFromButton}
+              size="sm"
+              variant="ghost">
+              <AppIcon name="ellipsis" size={16} className="text-muted" />
+            </Button>
+          </View>
+    </View>
   );
 }
 

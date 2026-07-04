@@ -37,7 +37,8 @@
       "copy_transcript": "文字起こしをコピー",
       "copy_translation": "翻訳をコピー",
       "read_transcript": "文字起こしを読み上げ",
-      "read_translation": "翻訳を読み上げ"
+      "read_translation": "翻訳を読み上げ",
+      "retry_segment": "セグメントを再試行"
     },
     "controls": {
       "start": "録音を開始",
@@ -57,7 +58,14 @@
       "start_failed": "録音の開始に失敗しました: {{message}}",
       "permission_denied": "マイクの権限がありません",
       "empty_recording": "録音結果が空です",
-      "system_capture_fallback": "システム音声のキャプチャに失敗したため、録音はマイクに戻りました: {{message}}",
+      "system_capture_failed": "システム音声のキャプチャに失敗しました: {{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "画面とシステム音声の権限が拒否されました",
+        "no_display_source": "ループバック録音に使える画面ソースがありません",
+        "no_audio_track": "選択された画面ソースにシステム音声トラックがありません",
+        "unavailable": "このデスクトップ環境ではシステム音声キャプチャを使用できません",
+        "unknown": "デスクトップキャプチャ要求に失敗しました"
+      },
       "realtime_upload_fallback": "リアルタイム文字起こしを使用できないため、この録音はアップロードモードで続行します: {{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "共有",
         "copy": "コピー",
         "rename": "名前を変更",
+        "move": "移動",
         "generate_title": "タイトルを生成",
         "delete": "削除"
       },
@@ -95,6 +104,10 @@
         "title": "会話を削除しますか？",
         "message": "この会話と転写内容が削除されます。"
       },
+      "move": {
+        "title": "フォルダーへ移動",
+        "no_targets": "移動先がありません。"
+      },
       "folder": {
         "root": "すべての会話",
         "section": "フォルダー",
@@ -104,6 +117,7 @@
         "new_folder": "新しいフォルダー {{id}}",
         "actions_title": "フォルダー操作",
         "open": "フォルダーを開く",
+        "color_menu": "フォルダーの色",
         "rename_title": "フォルダー名を変更",
         "rename_placeholder": "フォルダー名",
         "delete_title": "フォルダーを削除しますか？",
@@ -652,7 +666,8 @@
       "actions": {
         "activate": "有効化 / 切り替え",
         "sync_time": "時刻同期",
-        "clear": "ライセンスを削除"
+        "clear": "ライセンスを削除",
+        "copy_device_uid": "デバイス UID をコピー"
       },
       "placeholders": {
         "license_code": "ライセンスコードを入力（LIC1.xxx）"
@@ -669,6 +684,44 @@
         "activation_failed": "有効化に失敗しました：{{message}}",
         "sync_failed": "時刻同期に失敗しました：{{message}}"
       }
+    },
+    "keyboard": {
+      "title": "おすすめ: VoiceTT-Keyboard",
+      "subtitle": "デスクトップ向けの音声入力アシスタントです。グローバルショートカット、即時文字起こし、AI テキスト操作に対応します。",
+      "free_badge": "完全無料、広告なし",
+      "free_description": "VoiceTT-Keyboard は無料で利用でき、広告は含まれていません。",
+      "overview_title": "できること",
+      "overview_body": "任意のアプリでショートカットを押しながら話し、離すと文字起こしして現在のカーソル位置に直接入力します。",
+      "features_title": "主な機能",
+      "features": {
+        "global_input": {
+          "title": "グローバルショートカット音声入力",
+          "body": "エディタ、チャット、ドキュメント、ターミナルでウィンドウを切り替えずに使えます。"
+        },
+        "multi_engine": {
+          "title": "複数エンジンの文字起こし",
+          "body": "速度、品質、プライバシーの好みに合わせて複数の認識バックエンドを選べます。"
+        },
+        "ai_cards": {
+          "title": "AI トリガーカード",
+          "body": "音声コマンドでプロンプトテンプレートを実行し、整えた出力を自動で挿入します。"
+        }
+      },
+      "links_title": "リンク",
+      "links": {
+        "website": {
+          "label": "公式サイト"
+        },
+        "repository": {
+          "label": "GitHub リポジトリ"
+        }
+      },
+      "open_link_error_title": "リンクを開けません",
+      "open_link_error_body": "後でもう一度お試しください。"
     }
+  },
+  "history_storage": {
+    "read_only": "履歴ストレージは新しいアプリバージョンで作成されています。アプリを更新するまで、このページは読み取り専用です。",
+    "load_failed": "履歴ストレージを読み込めませんでした。既存の履歴を保護するため、編集を無効にしました。"
   }
 }

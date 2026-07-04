@@ -37,7 +37,8 @@
       "copy_transcript": "전사 복사",
       "copy_translation": "번역 복사",
       "read_transcript": "전사 읽어주기",
-      "read_translation": "번역 읽어주기"
+      "read_translation": "번역 읽어주기",
+      "retry_segment": "세그먼트 다시 시도"
     },
     "controls": {
       "start": "녹음 시작",
@@ -57,7 +58,14 @@
       "start_failed": "녹음 시작에 실패했습니다: {{message}}",
       "permission_denied": "마이크 권한이 없습니다",
       "empty_recording": "녹음 결과가 비어 있습니다",
-      "system_capture_fallback": "시스템 오디오 캡처에 실패해 녹음이 마이크로 전환되었습니다: {{message}}",
+      "system_capture_failed": "시스템 오디오 캡처에 실패했습니다: {{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "화면 및 시스템 오디오 권한이 거부되었습니다",
+        "no_display_source": "루프백 캡처에 사용할 수 있는 화면 소스가 없습니다",
+        "no_audio_track": "선택한 화면 소스가 시스템 오디오 트랙을 제공하지 않았습니다",
+        "unavailable": "이 데스크톱 환경에서는 시스템 오디오 캡처를 사용할 수 없습니다",
+        "unknown": "데스크톱 캡처 요청에 실패했습니다"
+      },
       "realtime_upload_fallback": "실시간 전사를 사용할 수 없어 이번 녹음은 업로드 모드로 진행합니다: {{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "공유",
         "copy": "복사",
         "rename": "이름 변경",
+        "move": "이동",
         "generate_title": "제목 생성",
         "delete": "삭제"
       },
@@ -95,6 +104,10 @@
         "title": "대화를 삭제할까요?",
         "message": "이 대화와 전사 내용이 삭제됩니다."
       },
+      "move": {
+        "title": "폴더로 이동",
+        "no_targets": "사용 가능한 대상이 없습니다."
+      },
       "folder": {
         "root": "모든 대화",
         "section": "폴더",
@@ -104,6 +117,7 @@
         "new_folder": "새 폴더 {{id}}",
         "actions_title": "폴더 작업",
         "open": "폴더 열기",
+        "color_menu": "폴더 색상",
         "rename_title": "폴더 이름 변경",
         "rename_placeholder": "폴더 이름",
         "delete_title": "폴더를 삭제할까요?",
@@ -652,7 +666,8 @@
       "actions": {
         "activate": "활성화 / 교체",
         "sync_time": "시간 동기화",
-        "clear": "라이선스 삭제"
+        "clear": "라이선스 삭제",
+        "copy_device_uid": "기기 UID 복사"
       },
       "placeholders": {
         "license_code": "라이선스 코드를 입력하세요 (LIC1.xxx)"
@@ -669,6 +684,44 @@
         "activation_failed": "활성화 실패: {{message}}",
         "sync_failed": "시간 동기화 실패: {{message}}"
       }
+    },
+    "keyboard": {
+      "title": "추천: VoiceTT-Keyboard",
+      "subtitle": "전역 단축키, 즉시 전사, AI 텍스트 작업을 제공하는 데스크톱 중심 음성 입력 도우미입니다.",
+      "free_badge": "완전 무료, 광고 없음",
+      "free_description": "VoiceTT-Keyboard는 무료로 사용할 수 있으며 광고 콘텐츠가 없습니다.",
+      "overview_title": "주요 기능",
+      "overview_body": "어떤 앱에서든 단축키를 누른 채 말하고 손을 떼면 전사된 텍스트가 현재 커서 위치에 바로 삽입됩니다.",
+      "features_title": "하이라이트",
+      "features": {
+        "global_input": {
+          "title": "전역 단축키 음성 입력",
+          "body": "창을 전환하지 않고 편집기, 채팅 앱, 문서, 터미널에서 사용할 수 있습니다."
+        },
+        "multi_engine": {
+          "title": "다중 엔진 전사",
+          "body": "속도, 품질, 개인정보 요구에 맞춰 여러 인식 백엔드를 선택할 수 있습니다."
+        },
+        "ai_cards": {
+          "title": "AI 트리거 카드",
+          "body": "음성 명령으로 프롬프트 템플릿을 실행하고 다듬어진 결과를 자동으로 삽입합니다."
+        }
+      },
+      "links_title": "링크",
+      "links": {
+        "website": {
+          "label": "공식 웹사이트"
+        },
+        "repository": {
+          "label": "GitHub 저장소"
+        }
+      },
+      "open_link_error_title": "링크를 열 수 없음",
+      "open_link_error_body": "나중에 다시 시도하세요."
     }
+  },
+  "history_storage": {
+    "read_only": "기록 저장소가 더 최신 앱 버전에서 생성되었습니다. 앱을 업데이트할 때까지 이 페이지는 읽기 전용입니다.",
+    "load_failed": "기록 저장소를 불러오지 못했습니다. 기존 기록을 보호하기 위해 편집이 비활성화되었습니다."
   }
 }

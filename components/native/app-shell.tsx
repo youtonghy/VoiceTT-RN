@@ -20,14 +20,17 @@ export type AppIconName =
   | 'circle-half-stroke'
   | 'circle-info'
   | 'circle-question'
+  | 'circle-xmark'
   | 'clock-rotate-left'
   | 'cloud-arrow-up'
   | 'comments'
   | 'copy'
   | 'desktop'
+  | 'ellipsis'
   | 'file-arrow-down'
   | 'file-export'
   | 'file-lines'
+  | 'folder-open'
   | 'gear'
   | 'gem'
   | 'github'
@@ -44,17 +47,20 @@ export type AppIconName =
   | 'paintbrush'
   | 'palette'
   | 'paper-plane'
+  | 'pen-to-square'
   | 'question'
   | 'radio'
   | 'robot'
   | 'rocket'
   | 'server'
+  | 'share-nodes'
   | 'shield-halved'
   | 'sliders'
   | 'square'
   | 'square-poll-horizontal'
   | 'sun'
   | 'toggle-on'
+  | 'trash'
   | 'volume-high'
   | 'wand-magic-sparkles'
   | 'wave-square';
@@ -66,7 +72,7 @@ type AppIconProps = Omit<ComponentProps<typeof FontAwesome6>, 'name'> & {
 };
 
 export function AppIcon({ className, ...props }: AppIconProps) {
-  return <UniWindFontAwesome6 {...props} className={className ?? null} />;
+  return <UniWindFontAwesome6 {...props} {...(className ? { className } : {})} />;
 }
 
 export function AppScreen({

@@ -37,7 +37,8 @@
       "copy_transcript": "複製原文",
       "copy_translation": "複製譯文",
       "read_transcript": "朗讀原文",
-      "read_translation": "朗讀譯文"
+      "read_translation": "朗讀譯文",
+      "retry_segment": "重試分段"
     },
     "controls": {
       "start": "開始錄音",
@@ -57,7 +58,14 @@
       "start_failed": "啟動錄音失敗: {{message}}",
       "permission_denied": "麥克風權限未授權",
       "empty_recording": "錄音結果為空",
-      "system_capture_fallback": "系統聲音擷取失敗，已回退到麥克風錄音：{{message}}",
+      "system_capture_failed": "系統聲音擷取失敗：{{message}}",
+      "system_capture_reasons": {
+        "permission_denied": "螢幕與系統聲音權限被拒絕",
+        "no_display_source": "沒有可用於迴圈擷取的螢幕來源",
+        "no_audio_track": "所選螢幕來源沒有提供系統聲音軌道",
+        "unavailable": "目前桌面執行環境不支援系統聲音擷取",
+        "unknown": "桌面擷取請求失敗"
+      },
       "realtime_upload_fallback": "即時轉寫不可用，本次錄音已改用上傳模式：{{message}}"
     },
     "messages": {
@@ -83,6 +91,7 @@
         "share": "分享",
         "copy": "複製",
         "rename": "重新命名",
+        "move": "移動",
         "generate_title": "生成標題",
         "delete": "刪除"
       },
@@ -95,6 +104,10 @@
         "title": "刪除對話？",
         "message": "這將移除此對話及其轉寫內容。"
       },
+      "move": {
+        "title": "移動到資料夾",
+        "no_targets": "沒有可用的目標位置。"
+      },
       "folder": {
         "root": "全部對話",
         "section": "資料夾",
@@ -104,6 +117,7 @@
         "new_folder": "新資料夾{{id}}",
         "actions_title": "資料夾操作",
         "open": "開啟資料夾",
+        "color_menu": "資料夾顏色",
         "rename_title": "重新命名資料夾",
         "rename_placeholder": "資料夾名稱",
         "delete_title": "刪除資料夾？",
@@ -652,7 +666,8 @@
       "actions": {
         "activate": "啟用 / 切換",
         "sync_time": "連網校時",
-        "clear": "清除授權"
+        "clear": "清除授權",
+        "copy_device_uid": "複製裝置 UID"
       },
       "placeholders": {
         "license_code": "輸入啟用碼（LIC1.xxx）"
@@ -669,6 +684,44 @@
         "activation_failed": "啟用失敗：{{message}}",
         "sync_failed": "校時失敗：{{message}}"
       }
+    },
+    "keyboard": {
+      "title": "推薦使用 VoiceTT-Keyboard",
+      "subtitle": "一個以桌面場景為核心的語音輸入助手，支援全域快捷鍵、即時轉寫和 AI 文字處理。",
+      "free_badge": "完全免費無廣告",
+      "free_description": "VoiceTT-Keyboard 可免費使用，不包含廣告內容。",
+      "overview_title": "它能做什麼",
+      "overview_body": "在任意應用中按住快捷鍵說話，放開後即可完成轉寫，並把文字直接插入目前游標位置。",
+      "features_title": "核心亮點",
+      "features": {
+        "global_input": {
+          "title": "全域快捷鍵語音輸入",
+          "body": "無需切換視窗，可直接在編輯器、聊天軟體、文件和終端機裡使用。"
+        },
+        "multi_engine": {
+          "title": "多引擎轉寫支援",
+          "body": "支援多種辨識後端，便於依速度、品質和隱私需求靈活切換。"
+        },
+        "ai_cards": {
+          "title": "AI 觸發卡片",
+          "body": "透過語音指令觸發 Prompt 範本，自動處理並回填結果。"
+        }
+      },
+      "links_title": "相關連結",
+      "links": {
+        "website": {
+          "label": "官方網站"
+        },
+        "repository": {
+          "label": "GitHub 儲存庫"
+        }
+      },
+      "open_link_error_title": "無法開啟連結",
+      "open_link_error_body": "請稍後再試。"
     }
+  },
+  "history_storage": {
+    "read_only": "歷史儲存來自較新版的應用程式。更新應用前，此頁面會以唯讀模式開啟。",
+    "load_failed": "無法載入歷史儲存。為保護現有歷史，已停用編輯。"
   }
 }

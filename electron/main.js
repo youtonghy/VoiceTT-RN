@@ -2,6 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow, desktopCapturer, shell, session, protocol } = require('electron');
 
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('disable-features', 'MacCatapLoopbackAudioForScreenShare');
+}
+
 const envStartUrl = process.env.ELECTRON_START_URL;
 const APP_PROTOCOL = 'app';
 const APP_PROTOCOL_HOST = 'local';
@@ -76,6 +80,20 @@ function isTrustedOrigin(targetUrl) {
   }
 }
 
+function isPathInside(parentPath, childPath) {
+  const relativePath = path.relative(parentPath, childPath);
+  return Boolean(relativePath) && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+}
+
+function isExternalHttpUrl(targetUrl) {
+  try {
+    const protocol = new URL(targetUrl).protocol;
+    return protocol === 'http:' || protocol === 'https:';
+  } catch (error) {
+    return false;
+  }
+}
+
 function configurePermissions() {
   session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
     if (
@@ -123,16 +141,34 @@ function configurePermissions() {
 
 function configureDisplayMediaCapture() {
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    const targetUrl = request?.requestingUrl || request?.frame?.url;
-    if (!isTrustedOrigin(targetUrl)) {
+    const targetUrl = request?.requestingUrl || request?.frame?.url || request?.securityOrigin;
+    const securityOrigin = request?.securityOrigin;
+    const trusted = isTrustedOrigin(targetUrl) || isTrustedOrigin(securityOrigin);
+    console.info('[electron] Display media request', {
+      securityOrigin,
+      targetUrl,
+      audioRequested: request?.audioRequested,
+      videoRequested: request?.videoRequested,
+      userGesture: request?.userGesture,
+      trusted,
+    });
+    if (!trusted) {
+      console.warn('[electron] Display media request denied for untrusted origin', {
+        securityOrigin,
+        targetUrl,
+      });
       callback({});
       return;
     }
     desktopCapturer
       .getSources({ types: ['screen'] })
       .then((sources) => {
+        console.info('[electron] Display media screen sources resolved', {
+          count: sources.length,
+        });
         const [screen] = sources;
         if (!screen) {
+          console.warn('[electron] Display media request denied because no screen source was available');
           callback({});
           return;
         }
@@ -164,7 +200,7 @@ function resolveStaticFilePath(requestUrl) {
   const parsedUrl = new URL(requestUrl, 'http://localhost');
   const pathname = decodeURIComponent(parsedUrl.pathname);
   const resolvedPath = path.resolve(staticRoot, `.${pathname}`);
-  if (!resolvedPath.startsWith(staticRoot)) {
+  if (resolvedPath !== staticRoot && !isPathInside(staticRoot, resolvedPath)) {
     return null;
   }
   if (fs.existsSync(resolvedPath)) {
@@ -243,7 +279,7 @@ function createMainWindow(startUrl) {
   }
 
   const shouldOpenDevTools =
-    Boolean(envStartUrl) || process.env.ELECTRON_OPEN_DEVTOOLS === '1';
+    !app.isPackaged && (Boolean(envStartUrl) || process.env.ELECTRON_OPEN_DEVTOOLS === '1');
   if (shouldOpenDevTools) {
     window.webContents.openDevTools({ mode: 'detach' });
   }
@@ -252,27 +288,26 @@ function createMainWindow(startUrl) {
     const isToggleShortcut =
       input.key === 'F12' || (input.key === 'I' && input.control && input.shift);
     if (isToggleShortcut) {
-      window.webContents.openDevTools({ mode: 'detach' });
+      if (shouldOpenDevTools) {
+        window.webContents.openDevTools({ mode: 'detach' });
+      }
       event.preventDefault();
     }
   });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (isExternalHttpUrl(url)) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
   });
 
   window.webContents.on('will-navigate', (event, url) => {
-    if (runtimeStartUrl && url.startsWith(runtimeStartUrl)) {
+    if (isTrustedOrigin(url)) {
       return;
     }
-    if (!runtimeStartUrl && url.startsWith('file://')) {
-      return;
-    }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      event.preventDefault();
+    event.preventDefault();
+    if (isExternalHttpUrl(url)) {
       shell.openExternal(url);
     }
   });

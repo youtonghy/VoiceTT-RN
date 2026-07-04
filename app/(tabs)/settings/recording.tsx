@@ -3,14 +3,12 @@ import {
     requestRecordingPermissionsAsync,
     setAudioModeAsync,
     useAudioRecorder,
-    useAudioRecorderState,
-    type RecordingOptions,
+    type RecorderState,
 } from 'expo-audio';
 import { deleteAsync } from 'expo-file-system/legacy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -19,7 +17,9 @@ import {
 } from 'react-native';
 import { Text } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { AppCard, AppScreen, FormInput } from '@/components/native/app-shell';
+import { METERING_RECORDING_OPTIONS } from '@/constants/recording-options';
 import { useSettings } from '@/contexts/settings-context';
 import type { AppSettings, AudioCaptureMode, RecordingPreset } from '@/types/settings';
 
@@ -29,27 +29,6 @@ import {
     formatNumberInput,
     useSettingsForm,
 } from '@/components/settings/settings-form';
-
-const METERING_RECORDING_OPTIONS: RecordingOptions = {
-  isMeteringEnabled: true,
-  extension: '.m4a',
-  sampleRate: 44100,
-  numberOfChannels: 1,
-  bitRate: 128000,
-  android: {
-    outputFormat: 'mpeg4',
-    audioEncoder: 'aac',
-    audioSource: 'voice_recognition',
-  },
-  ios: {
-    audioQuality: 96,
-    outputFormat: 'aac',
-  },
-  web: {
-    mimeType: 'audio/webm',
-    bitsPerSecond: 128000,
-  },
-};
 
 const WEB_METERING_INTERVAL_MS = 120;
 const WEB_METERING_MIN_DB = -160;
@@ -95,8 +74,7 @@ export default function RecordingSettingsScreen() {
   const { formState, setFormState } = useSettingsForm(settings);
   const [presetName, setPresetName] = useState('');
   const recorder = useAudioRecorder(METERING_RECORDING_OPTIONS);
-  const recorderState = useAudioRecorderState(recorder, 100);
-  const recorderStateRef = useRef(recorderState);
+  const recorderStateRef = useRef<RecorderState | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [meteringDb, setMeteringDb] = useState<number | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -211,10 +189,6 @@ export default function RecordingSettingsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    recorderStateRef.current = recorderState;
-  }, [recorderState]);
-
   const shouldIgnoreReleasedRecorderError = (error: unknown) => {
     const message =
       error && typeof error === 'object' && 'message' in error
@@ -262,7 +236,7 @@ export default function RecordingSettingsScreen() {
     }
     webMeteringRef.current.analyser = null;
     const state = recorderStateRef.current;
-    if (state.isRecording) {
+    if (state?.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
@@ -271,7 +245,7 @@ export default function RecordingSettingsScreen() {
         }
       }
     }
-    let currentUri = state.url;
+    let currentUri = state?.url;
     if (!currentUri) {
       try {
         currentUri = recorder.uri;
@@ -282,6 +256,7 @@ export default function RecordingSettingsScreen() {
       }
     }
     await cleanupRecordingFile(currentUri);
+    recorderStateRef.current = null;
   }, [cleanupRecordingFile, clearStatusInterval, recorder]);
 
   useEffect(() => () => {
@@ -566,7 +541,7 @@ export default function RecordingSettingsScreen() {
         return;
       }
 
-      if (recorderStateRef.current.isRecording) {
+      if (recorderStateRef.current?.isRecording) {
         return;
       }
 
@@ -591,6 +566,7 @@ export default function RecordingSettingsScreen() {
 
       await recorder.prepareToRecordAsync();
       recorder.record();
+      recorderStateRef.current = recorder.getStatus();
       setIsMonitoring(true);
 
       clearStatusInterval();
@@ -598,6 +574,7 @@ export default function RecordingSettingsScreen() {
         let status;
         try {
           status = recorder.getStatus();
+          recorderStateRef.current = status;
         } catch (error) {
           clearStatusInterval();
           if (__DEV__ && !shouldIgnoreReleasedRecorderError(error)) {
@@ -649,7 +626,7 @@ export default function RecordingSettingsScreen() {
     }
     webMeteringRef.current.analyser = null;
     const state = recorderStateRef.current;
-    if (state.isRecording) {
+    if (state?.isRecording) {
       try {
         await recorder.stop();
       } catch (error) {
@@ -658,7 +635,7 @@ export default function RecordingSettingsScreen() {
         }
       }
     }
-    let currentUri = state.url;
+    let currentUri = state?.url;
     if (!currentUri) {
       try {
         currentUri = recorder.uri;
@@ -669,6 +646,7 @@ export default function RecordingSettingsScreen() {
       }
     }
     await cleanupRecordingFile(currentUri);
+    recorderStateRef.current = null;
     setIsMonitoring(false);
     setMeteringDb(null);
   }, [cleanupRecordingFile, clearStatusInterval, recorder]);

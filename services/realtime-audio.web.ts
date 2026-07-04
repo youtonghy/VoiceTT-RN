@@ -75,7 +75,8 @@ function createWorkletUrl() {
 
 export function createPcmCapture(
   stream: MediaStream | null,
-  onChunk: (pcm16Base64: string) => void
+  onChunk: (pcm16Base64: string) => void,
+  onError?: (error: Error) => void
 ): PcmCapture {
   if (!stream) {
     throw new Error('MediaStream is required for web realtime audio capture');
@@ -139,9 +140,11 @@ export function createPcmCapture(
     processor = scriptNode;
   };
 
+  let ready: Promise<void> | undefined;
+
   if (context.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
     workletUrl = createWorkletUrl();
-    context.audioWorklet
+    ready = context.audioWorklet
       .addModule(workletUrl)
       .then(() => {
         if (stopped) {
@@ -157,18 +160,20 @@ export function createPcmCapture(
         workletNode.connect(silentGain);
         processor = workletNode;
       })
-      .catch(() => {
+      .catch((error) => {
+        onError?.(error instanceof Error ? error : new Error(String(error)));
         if (!stopped) {
           startFallback();
         }
       });
   } else {
     startFallback();
+    ready = Promise.resolve();
   }
 
   if (context.state === 'suspended') {
     context.resume().catch(() => undefined);
   }
 
-  return { stop };
+  return { stop, ready };
 }

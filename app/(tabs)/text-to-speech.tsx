@@ -1,18 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { createAudioPlayer } from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
 import {
     EncodingType,
+    deleteAsync,
     documentDirectory,
     getInfoAsync,
     makeDirectoryAsync,
+    readDirectoryAsync,
     writeAsStringAsync,
 } from 'expo-file-system/legacy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -22,57 +22,30 @@ import {
 } from 'react-native';
 import { Button, Card, Input, Spinner, Text, TextField } from 'heroui-native';
 
+import { Alert } from '@/components/app-alert';
 import { ContextMenu, type ContextMenuAction, type ContextMenuAnchor } from '@/components/context-menu';
 import { AppCard, AppIcon, AppScreen, EmptyState } from '@/components/native/app-shell';
 import { useSettings } from '@/contexts/settings-context';
+import {
+  addHistoryNode,
+  createEmptyHistoryTree,
+  getHistoryConversation,
+  updateHistoryNode,
+  type HistoryConversation,
+  type HistoryTreeState,
+} from '@/services/history-tree';
+import { loadHistoryStorage, persistHistoryStorage } from '@/services/history-storage';
 import { synthesizeSpeech } from '@/services/tts';
-import type { TranscriptionMessage } from '@/types/transcription';
 import type { TextToSpeechFormat, TtsMessage } from '@/types/tts';
 
-const HISTORY_STORAGE_KEY = '@agents/history-conversations';
-const HISTORY_STORAGE_VERSION = 2;
 const DEFAULT_AUDIO_FORMAT: TextToSpeechFormat = 'mp3';
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-type AssistantMessageStatus = 'pending' | 'succeeded' | 'failed';
-
-type AssistantMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt: number;
-  status: AssistantMessageStatus;
-  error?: string;
-};
-
-type HistoryConversation = {
-  id: string;
-  title: string;
-  transcript: string;
-  translation?: string;
-  summary?: string;
-  createdAt: number;
-  messages: TranscriptionMessage[];
-  assistantMessages: AssistantMessage[];
-  ttsMessages: TtsMessage[];
-};
-
-type StoredHistoryPayload = {
-  version?: number;
-  conversations?: unknown;
-  activeConversationId?: string | null;
-  nextIdCounter?: number;
-};
 
 type ContextMenuState = {
   title?: string;
   actions: ContextMenuAction[];
   anchor?: ContextMenuAnchor;
 };
-
-function createAssistantMessageId(role: 'user' | 'assistant'): string {
-  return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 function createTtsMessageId(): string {
   return `tts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -105,160 +78,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   }
 
   return result;
-}
-
-function sanitizeAssistantMessages(raw: unknown): AssistantMessage[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const sanitized: AssistantMessage[] = [];
-  raw.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const candidate = item as Partial<AssistantMessage>;
-    if (candidate.role !== 'user' && candidate.role !== 'assistant') {
-      return;
-    }
-    const textContent = typeof candidate.content === 'string' ? candidate.content.trim() : '';
-    if (!textContent) {
-      return;
-    }
-    const status: AssistantMessageStatus =
-      candidate.status === 'failed' || candidate.status === 'pending'
-        ? candidate.status
-        : 'succeeded';
-
-    sanitized.push({
-      id:
-        typeof candidate.id === 'string' && candidate.id.trim()
-          ? candidate.id
-          : createAssistantMessageId(candidate.role),
-      role: candidate.role,
-      content: textContent,
-      createdAt:
-        typeof candidate.createdAt === 'number' && Number.isFinite(candidate.createdAt)
-          ? candidate.createdAt
-          : Date.now(),
-      status,
-      error:
-        typeof candidate.error === 'string' && candidate.error.trim()
-          ? candidate.error.trim()
-          : undefined,
-    });
-  });
-  return sanitized;
-}
-
-function sanitizeTtsMessages(raw: unknown): TtsMessage[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const sanitized: TtsMessage[] = [];
-  raw.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const candidate = item as Partial<TtsMessage>;
-    const content = typeof candidate.content === 'string' ? candidate.content.trim() : '';
-    if (!content) {
-      return;
-    }
-    const status = candidate.status === 'failed' || candidate.status === 'pending'
-      ? candidate.status
-      : 'ready';
-    sanitized.push({
-      id:
-        typeof candidate.id === 'string' && candidate.id.trim()
-          ? candidate.id
-          : createTtsMessageId(),
-      content,
-      createdAt:
-        typeof candidate.createdAt === 'number' && Number.isFinite(candidate.createdAt)
-          ? candidate.createdAt
-          : Date.now(),
-      status,
-      error:
-        typeof candidate.error === 'string' && candidate.error.trim()
-          ? candidate.error.trim()
-          : undefined,
-      audioUri:
-        typeof candidate.audioUri === 'string' && candidate.audioUri.trim()
-          ? candidate.audioUri.trim()
-          : undefined,
-      audioFormat:
-        typeof candidate.audioFormat === 'string' && candidate.audioFormat.trim()
-          ? candidate.audioFormat.trim() as TextToSpeechFormat
-          : undefined,
-      audioMimeType:
-        typeof candidate.audioMimeType === 'string' && candidate.audioMimeType.trim()
-          ? candidate.audioMimeType.trim()
-          : undefined,
-      voice:
-        typeof candidate.voice === 'string' && candidate.voice.trim()
-          ? candidate.voice.trim()
-          : undefined,
-      model:
-        typeof candidate.model === 'string' && candidate.model.trim()
-          ? candidate.model.trim()
-          : undefined,
-    });
-  });
-  return sanitized;
-}
-
-function sanitizeHistoryConversations(raw: unknown): HistoryConversation[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  const sanitized: HistoryConversation[] = [];
-  raw.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const candidate = item as Partial<HistoryConversation>;
-    if (typeof candidate.id !== 'string' || typeof candidate.title !== 'string') {
-      return;
-    }
-    sanitized.push({
-      id: candidate.id,
-      title: candidate.title,
-      transcript: typeof candidate.transcript === 'string' ? candidate.transcript : '',
-      translation:
-        typeof candidate.translation === 'string' ? candidate.translation : undefined,
-      summary: typeof candidate.summary === 'string' ? candidate.summary : undefined,
-      createdAt:
-        typeof candidate.createdAt === 'number' && Number.isFinite(candidate.createdAt)
-          ? candidate.createdAt
-          : Date.now(),
-      messages: Array.isArray(candidate.messages)
-        ? candidate.messages
-            .filter((message): message is TranscriptionMessage => !!message && typeof message === 'object')
-            .map((message) => ({ ...message }))
-        : [],
-      assistantMessages: sanitizeAssistantMessages(candidate.assistantMessages),
-      ttsMessages: sanitizeTtsMessages(candidate.ttsMessages),
-    });
-  });
-  return sanitized;
-}
-
-function deriveNextHistoryId(conversations: HistoryConversation[], fallback: number = 1): number {
-  let next = Math.max(fallback, 1);
-  conversations.forEach((item) => {
-    if (typeof item.id !== 'string') {
-      return;
-    }
-    const match = item.id.match(/(\d+)$/);
-    if (!match) {
-      return;
-    }
-    const numeric = Number.parseInt(match[1], 10);
-    if (!Number.isNaN(numeric)) {
-      next = Math.max(next, numeric + 1);
-    }
-  });
-  return next;
 }
 
 function isDataUri(uri?: string): boolean {
@@ -301,6 +120,45 @@ async function resolveCachedAudioUri(uri?: string): Promise<string | null> {
   return info.exists ? uri : null;
 }
 
+async function deleteCachedAudio(uri?: string): Promise<void> {
+  if (!uri || isDataUri(uri) || !documentDirectory || !uri.startsWith(`${documentDirectory}tts/`)) {
+    return;
+  }
+  await deleteAsync(uri, { idempotent: true }).catch((error) => {
+    console.warn('[reading] Failed to delete cached audio', error);
+  });
+}
+
+async function cleanupOrphanTtsAudio(activeUris: Set<string>): Promise<void> {
+  if (!documentDirectory) {
+    return;
+  }
+  const root = `${documentDirectory}tts`;
+  const info = await getInfoAsync(root);
+  if (!info.exists) {
+    return;
+  }
+  const conversationDirs = await readDirectoryAsync(root);
+  await Promise.all(
+    conversationDirs.map(async (entry) => {
+      const directory = `${root}/${entry}`;
+      const directoryInfo = await getInfoAsync(directory);
+      if (!directoryInfo.exists || !directoryInfo.isDirectory) {
+        return;
+      }
+      const files = await readDirectoryAsync(directory);
+      await Promise.all(
+        files.map(async (file) => {
+          const uri = `${directory}/${file}`;
+          if (!activeUris.has(uri)) {
+            await deleteCachedAudio(uri);
+          }
+        })
+      );
+    })
+  );
+}
+
 export default function ReadingScreen() {
   const { t } = useTranslation();
   const { settings } = useSettings();
@@ -309,13 +167,18 @@ export default function ReadingScreen() {
     typeof window !== 'undefined' &&
     Boolean((window as { electron?: unknown }).electron);
 
-  const [historyItems, setHistoryItems] = useState<HistoryConversation[]>([]);
+  const [historyTree, setHistoryTree] = useState<HistoryTreeState>(() => createEmptyHistoryTree());
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
+  const [historyReadOnly, setHistoryReadOnly] = useState(false);
+  const didCleanupAudioRef = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const nextIdCounterRef = useRef(1);
+  const nextFolderIdCounterRef = useRef(1);
+  const activeFolderIdRef = useRef<string | null>(null);
   const activeConversationIdRef = useRef<string | null>(activeConversationId);
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const pendingIdsRef = useRef<Set<string>>(new Set());
@@ -327,44 +190,25 @@ export default function ReadingScreen() {
 
   const loadHistory = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
-      if (!raw) {
-        setHistoryItems([]);
-        setActiveConversationId(null);
-        nextIdCounterRef.current = 1;
-        return;
+      const restored = await loadHistoryStorage();
+      setHistoryLoadFailed(restored.loadFailed);
+      setHistoryReadOnly(restored.readOnly);
+      setHistoryTree(restored.tree);
+      nextIdCounterRef.current = restored.nextIdCounter;
+      nextFolderIdCounterRef.current = restored.nextFolderIdCounter;
+      activeFolderIdRef.current = restored.activeFolderId;
+      if (restored.activeConversationId) {
+        setActiveConversationId(restored.activeConversationId);
+      } else {
+        const firstConversation = Object.values(restored.tree.nodes)
+          .filter((node): node is HistoryConversation => node.kind === 'conversation')
+          .sort((a, b) => b.createdAt - a.createdAt)[0];
+        setActiveConversationId(firstConversation?.id ?? null);
       }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw) as unknown;
-      } catch (parseError) {
-        console.warn('[reading] Failed to parse stored history conversations', parseError);
-        return;
-      }
-      if (Array.isArray(parsed)) {
-        const conversations = sanitizeHistoryConversations(parsed);
-        nextIdCounterRef.current = deriveNextHistoryId(conversations, nextIdCounterRef.current);
-        setHistoryItems(conversations);
-        setActiveConversationId(conversations[0]?.id ?? null);
-        return;
-      }
-      if (parsed && typeof parsed === 'object') {
-        const payload = parsed as StoredHistoryPayload;
-        const conversations = sanitizeHistoryConversations(payload.conversations ?? []);
-        const computedNext = deriveNextHistoryId(conversations, nextIdCounterRef.current);
-        const nextId =
-          typeof payload.nextIdCounter === 'number' && payload.nextIdCounter > 0
-            ? Math.max(payload.nextIdCounter, computedNext)
-            : computedNext;
-        nextIdCounterRef.current = nextId;
-        setHistoryItems(conversations);
-        const storedActive = payload.activeConversationId;
-        if (storedActive && conversations.some((item) => item.id === storedActive)) {
-          setActiveConversationId(storedActive);
-        } else {
-          setActiveConversationId(conversations[0]?.id ?? null);
-        }
-      }
+    } catch (error) {
+      console.warn('[reading] Failed to restore history conversations', error);
+      setHistoryLoadFailed(true);
+      setHistoryReadOnly(true);
     } finally {
       setHistoryLoaded(true);
     }
@@ -378,19 +222,19 @@ export default function ReadingScreen() {
   );
 
   useEffect(() => {
-    if (!historyLoaded) {
+    if (!historyLoaded || historyLoadFailed || historyReadOnly) {
       return;
     }
-    const payload = {
-      version: HISTORY_STORAGE_VERSION,
-      conversations: historyItems,
+    persistHistoryStorage({
+      tree: historyTree,
       activeConversationId,
+      activeFolderId: activeFolderIdRef.current,
       nextIdCounter: nextIdCounterRef.current,
-    };
-    AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(payload)).catch((error) => {
+      nextFolderIdCounter: nextFolderIdCounterRef.current,
+    }).catch((error) => {
       console.warn('[reading] Failed to persist history conversations', error);
     });
-  }, [activeConversationId, historyItems, historyLoaded]);
+  }, [activeConversationId, historyLoadFailed, historyReadOnly, historyTree, historyLoaded]);
 
   useEffect(() => {
     return () => {
@@ -399,6 +243,14 @@ export default function ReadingScreen() {
       playerRef.current = null;
     };
   }, []);
+
+  const historyItems = useMemo(
+    () =>
+      Object.values(historyTree.nodes)
+        .filter((node): node is HistoryConversation => node.kind === 'conversation')
+        .sort((a, b) => b.createdAt - a.createdAt),
+    [historyTree]
+  );
 
   useEffect(() => {
     if (historyLoaded) {
@@ -409,9 +261,9 @@ export default function ReadingScreen() {
   const activeConversation = useMemo(
     () =>
       activeConversationId
-        ? historyItems.find((item) => item.id === activeConversationId) ?? null
+        ? getHistoryConversation(historyTree, activeConversationId)
         : null,
-    [activeConversationId, historyItems]
+    [activeConversationId, historyTree]
   );
 
   const ttsMessages = useMemo(() => {
@@ -421,7 +273,31 @@ export default function ReadingScreen() {
     return [...activeConversation.ttsMessages].sort((a, b) => a.createdAt - b.createdAt);
   }, [activeConversation]);
 
+  useEffect(() => {
+    if (!historyLoaded || didCleanupAudioRef.current) {
+      return;
+    }
+    didCleanupAudioRef.current = true;
+    const activeUris = new Set<string>();
+    Object.values(historyTree.nodes).forEach((node) => {
+      if (node.kind !== 'conversation') {
+        return;
+      }
+      node.ttsMessages.forEach((message) => {
+        if (message.audioUri && !isDataUri(message.audioUri)) {
+          activeUris.add(message.audioUri);
+        }
+      });
+    });
+    cleanupOrphanTtsAudio(activeUris).catch((error) => {
+      console.warn('[reading] Failed to clean orphan TTS audio', error);
+    });
+  }, [historyLoaded, historyTree]);
+
   const ensureActiveConversation = useCallback(() => {
+    if (historyLoadFailed || historyReadOnly) {
+      return null;
+    }
     if (activeConversationIdRef.current) {
       return activeConversationIdRef.current;
     }
@@ -429,64 +305,71 @@ export default function ReadingScreen() {
     const newId = `conv-${idNumber}`;
     const now = Date.now();
     const nextConversation: HistoryConversation = {
+      kind: 'conversation',
       id: newId,
       title: t('transcription.history.new_conversation', { id: idNumber }),
       transcript: '',
       translation: undefined,
       summary: undefined,
+      summaryHidden: false,
+      parentId: null,
       createdAt: now,
       messages: [],
       assistantMessages: [],
       ttsMessages: [],
     };
-    setHistoryItems((prev) => [nextConversation, ...prev]);
+    setHistoryTree((prev) => addHistoryNode(prev, nextConversation));
     setActiveConversationId(newId);
     return newId;
-  }, [t]);
+  }, [historyLoadFailed, historyReadOnly, t]);
 
   const updateTtsMessage = useCallback(
     (conversationId: string, messageId: string, updater: (message: TtsMessage) => TtsMessage) => {
-      setHistoryItems((prev) =>
-        prev.map((item) => {
-          if (item.id !== conversationId) {
-            return item;
-          }
-          const index = item.ttsMessages.findIndex((msg) => msg.id === messageId);
-          if (index === -1) {
-            return item;
-          }
-          const nextMessages = item.ttsMessages.slice();
-          nextMessages[index] = updater(nextMessages[index]);
-          return { ...item, ttsMessages: nextMessages };
-        })
-      );
+      setHistoryTree((prev) => {
+        const item = getHistoryConversation(prev, conversationId);
+        if (!item) {
+          return prev;
+        }
+        const index = item.ttsMessages.findIndex((msg) => msg.id === messageId);
+        if (index === -1) {
+          return prev;
+        }
+        const nextMessages = item.ttsMessages.slice();
+        nextMessages[index] = updater(nextMessages[index]);
+        return updateHistoryNode(prev, { ...item, ttsMessages: nextMessages });
+      });
     },
     []
   );
 
   const removeTtsMessage = useCallback((conversationId: string, messageId: string) => {
     pendingIdsRef.current.delete(messageId);
-    setHistoryItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== conversationId) {
-          return item;
-        }
-        return {
-          ...item,
-          ttsMessages: item.ttsMessages.filter((msg) => msg.id !== messageId),
-        };
-      })
-    );
+    let audioUriToDelete: string | undefined;
+    setHistoryTree((prev) => {
+      const item = getHistoryConversation(prev, conversationId);
+      if (!item) {
+        return prev;
+      }
+      audioUriToDelete = item.ttsMessages.find((msg) => msg.id === messageId)?.audioUri;
+      return updateHistoryNode(prev, {
+        ...item,
+        ttsMessages: item.ttsMessages.filter((msg) => msg.id !== messageId),
+      });
+    });
+    void deleteCachedAudio(audioUriToDelete);
   }, []);
 
   const appendTtsMessage = useCallback((conversationId: string, message: TtsMessage) => {
-    setHistoryItems((prev) =>
-      prev.map((item) =>
-        item.id === conversationId
-          ? { ...item, ttsMessages: [...item.ttsMessages, message] }
-          : item
-      )
-    );
+    setHistoryTree((prev) => {
+      const item = getHistoryConversation(prev, conversationId);
+      if (!item) {
+        return prev;
+      }
+      return updateHistoryNode(prev, {
+        ...item,
+        ttsMessages: [...item.ttsMessages, message],
+      });
+    });
   }, []);
 
   const playAudio = useCallback(
@@ -618,6 +501,9 @@ export default function ReadingScreen() {
       return;
     }
     const conversationId = ensureActiveConversation();
+    if (!conversationId) {
+      return;
+    }
     const message: TtsMessage = {
       id: createTtsMessageId(),
       content: trimmed,
@@ -639,6 +525,15 @@ export default function ReadingScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="min-h-0 flex-1">
         <View className="min-h-0 flex-1 gap-4">
+          {historyLoadFailed || historyReadOnly ? (
+            <View className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2">
+              <Text className="text-sm text-danger">
+                {historyReadOnly
+                  ? t('history_storage.read_only')
+                  : t('history_storage.load_failed')}
+              </Text>
+            </View>
+          ) : null}
           <AppCard
             icon="volume-high"
             title={t('reading.input.title')}
@@ -662,7 +557,7 @@ export default function ReadingScreen() {
             <View className="flex-row items-center justify-end gap-3">
               <Button
                 accessibilityLabel={t('assistant.accessibility.send_input')}
-                isDisabled={!draft.trim()}
+                isDisabled={!draft.trim() || historyLoadFailed || historyReadOnly}
                 onPress={handleSend}
                 variant="primary">
                 <AppIcon name="volume-high" size={16} className="text-accent-foreground" />

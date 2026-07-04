@@ -3,26 +3,10 @@ name: Manual Builds
 on:
   workflow_dispatch:
     inputs:
-      build_android:
-        description: 'Run Android build'
-        type: boolean
-        default: true
-      build_ios:
-        description: 'Run iOS build'
-        type: boolean
-        default: true
-      build_windows:
-        description: 'Run Windows desktop build'
-        type: boolean
-        default: false
-      build_linux:
-        description: 'Run Linux desktop build'
-        type: boolean
-        default: false
-      build_macos:
-        description: 'Reserved for macOS desktop build (signing not configured)'
-        type: boolean
-        default: false
+      version:
+        description: 'Release version, for example 0.4.0'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -43,10 +27,12 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Read app version
+      - name: Apply release version
         id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          VERSION=$(bun -e "const fs = require('fs'); const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo || {}; const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); console.log(app.version || pkg.version);")
+          VERSION=$(bun ./scripts/set-release-version.js "$RELEASE_VERSION")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Find previous stable release tag
@@ -119,7 +105,6 @@ jobs:
 
   android:
     needs: prepare_release
-    if: inputs.build_android == true
     runs-on: ubuntu-latest
     env:
       EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
@@ -132,6 +117,11 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+
+      - name: Apply release version
+        run: bun ./scripts/set-release-version.js "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare_release.outputs.version }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -155,12 +145,10 @@ jobs:
 
   ios:
     needs: prepare_release
-    if: inputs.build_ios == true
     runs-on: macos-latest
     env:
       EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
       EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
-      EAS_NO_CREDENTIALS: 1
       RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
     steps:
       - name: Checkout
@@ -169,11 +157,26 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Apply release version
+        run: bun ./scripts/set-release-version.js "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare_release.outputs.version }}
+
       - name: Install dependencies
         run: bun ci
 
-      - name: Build iOS locally
-        run: bunx eas-cli build --platform ios --profile production --non-interactive --local
+      - name: Restore local iOS signing credentials
+        env:
+          EAS_LOCAL_CREDENTIALS_JSON: ${{ secrets.EAS_LOCAL_CREDENTIALS_JSON }}
+        run: |
+          if [ -n "$EAS_LOCAL_CREDENTIALS_JSON" ]; then
+            printf '%s' "$EAS_LOCAL_CREDENTIALS_JSON" > credentials.json
+          else
+            echo "No EAS_LOCAL_CREDENTIALS_JSON secret provided; using credentials.json from checkout if present."
+          fi
+
+      - name: Build iOS/iPadOS test IPA locally
+        run: bunx eas-cli build --platform ios --profile test_ipa --non-interactive --local
 
       - name: Locate iOS artifact
         id: find_ios_artifact
@@ -222,7 +225,6 @@ jobs:
 
   desktop_windows:
     needs: prepare_release
-    if: inputs.build_windows == true
     runs-on: windows-latest
     env:
       RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
@@ -232,6 +234,11 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+
+      - name: Apply release version
+        run: bun ./scripts/set-release-version.js "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare_release.outputs.version }}
 
       - name: Install dependencies
         run: bun ci
@@ -293,7 +300,6 @@ jobs:
 
   desktop_linux:
     needs: prepare_release
-    if: inputs.build_linux == true
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
@@ -303,6 +309,11 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+
+      - name: Apply release version
+        run: bun ./scripts/set-release-version.js "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare_release.outputs.version }}
 
       - name: Install dependencies
         run: bun ci
@@ -320,6 +331,43 @@ jobs:
           files=(dist/*.AppImage dist/*.deb dist/*.rpm dist/*.zip)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No Linux artifacts found in dist/"
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+
+  desktop_macos:
+    needs: prepare_release
+    runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Apply release version
+        run: bun ./scripts/set-release-version.js "$RELEASE_VERSION"
+        env:
+          RELEASE_VERSION: ${{ needs.prepare_release.outputs.version }}
+
+      - name: Install dependencies
+        run: bun ci
+
+      - name: Build desktop macOS test DMG
+        run: bun run desktop:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No macOS artifacts found in dist/"
             exit 1
           fi
           gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
