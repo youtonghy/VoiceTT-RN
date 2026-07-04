@@ -87,7 +87,7 @@ async function main() {
       env.ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES = 'true';
     }
 
-    await runCommand(bunxCommand, ['electron-builder'], {
+    await runCommand(bunxCommand, ['electron-builder', '--publish', 'never'], {
       cwd: rootDir,
       env,
     });

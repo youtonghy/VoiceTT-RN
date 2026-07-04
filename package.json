@@ -22,7 +22,6 @@
     "directories": {
       "output": "dist"
     },
-    "publish": "never",
     "files": [
       "web-build/**",
       "electron/**",
